@@ -1,6 +1,9 @@
 {
   "watch": ["src"],
-  "ext": "ts",
-  "ignore": ["dist"],
-  "exec": "babel-node src/index.ts --extensions .ts"
+  "ext": "ts,json",
+  "ignore": ["src/**/*.spec.ts", "node_modules"],
+  "exec": "ts-node src/index.ts",
+  "env": {
+    "NODE_ENV": "development"
+  }
 }

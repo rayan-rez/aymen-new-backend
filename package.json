@@ -1,40 +1,55 @@
 {
   "name": "aymen-new-backend",
   "version": "1.0.0",
-  "description": "A scalable and secure backend API built with Express.js for managing real estate operations and property development projects. It provides RESTful endpoints for handling real estate listings, project management, client inquiries, property transactions, and administrative features. Designed with modular architecture to support future integration with mobile and web platforms, and to manage entities like residential and commercial properties, real estate developments, premises, and investment projects.",
+  "description": "A scalable and secure backend API built with Express.js for managing real estate operations and property development projects.",
   "main": "dist/index.js",
   "scripts": {
-    "build": "babel src --out-dir dist --extensions \".ts\"",
+    "dev": "nodemon",
+    "build": "tsc && babel src --out-dir dist --extensions \".ts\" --copy-files",
     "start": "node dist/index.js",
-    "dev": "nodemon"
+    "migrate:make": "knex migrate:make --knexfile knexfile.ts -x ts",
+    "migrate:latest": "knex migrate:latest --knexfile knexfile.ts",
+    "migrate:rollback": "knex migrate:rollback --knexfile knexfile.ts",
+    "seed:make": "knex seed:make --knexfile knexfile.ts -x ts",
+    "seed:run": "knex seed:run --knexfile knexfile.ts",
+    "db:setup": "npm run migrate:latest && npm run seed:run",
+    "lint": "eslint . --ext .ts",
+    "type-check": "tsc --noEmit"
   },
-  "keywords": [],
+  "keywords": [
+    "real-estate",
+    "api",
+    "express",
+    "typescript"
+  ],
   "author": "Rayan Rezougui",
   "license": "ISC",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/rayan-rez/aymen-new-backend.git"
   },
-  "bugs": {
-    "url": "https://github.com/rayan-rez/aymen-new-backend/issues"
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "knex": "^3.1.0",
+    "mysql2": "^3.15.2",
+    "nodemailer": "^6.10.1",
+    "sharp": "^0.33.5"
   },
-  "homepage": "https://github.com/rayan-rez/aymen-new-backend#readme",
   "devDependencies": {
     "@babel/cli": "^7.28.3",
     "@babel/core": "^7.28.4",
     "@babel/preset-env": "^7.28.3",
     "@babel/preset-typescript": "^7.27.1",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/knex": "^0.15.2",
     "@types/node": "^24.8.1",
-    "express": "^5.1.0",
+    "@types/nodemailer": "^6.4.20",
+    "@types/sharp": "^0.32.0",
     "nodemon": "^3.1.10",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
-  },
-  "dependencies": {
-    "dotenv": "^17.2.3",
-    "knex": "^3.1.0",
-    "mysql2": "^3.15.2"
   }
 }
