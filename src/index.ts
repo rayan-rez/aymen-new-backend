@@ -36,17 +36,17 @@ const startServer = (): void => {
         "\n╔════════════════════════════════════════════════════════════╗"
       );
       console.log(
-        "║                  🚀 Server Started                          ║"
+        "║                  🚀 Server Started                         ║"
       );
       console.log(
         "╠════════════════════════════════════════════════════════════╣"
       );
       console.log(
-        `║ 📍 URL:         http://localhost:${PORT.toString().padEnd(45)}║`
+        `║ 📍 URL:         http://localhost:${PORT.toString().padEnd(26)}║`
       );
-      console.log(`║ 🌍 Environment: ${NODE_ENV.padEnd(49)}║`);
+      console.log(`║ 🌍 Environment: ${NODE_ENV.padEnd(43)}║`);
       console.log(
-        `║ 💚 Health:     http://localhost:${PORT}/health${" ".repeat(28)}║`
+        `║ 💚 Health:     http://localhost:${PORT}/health${" ".repeat(16)}║`
       );
       console.log(
         "╚════════════════════════════════════════════════════════════╝\n"
