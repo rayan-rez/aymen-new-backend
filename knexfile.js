@@ -1,11 +1,10 @@
-// knexfile.ts
-import type { Knex } from "knex";
-import dotenv from "dotenv";
-import path from "path";
+// knexfile.js (rename from knexfile.ts)
+const dotenv = require("dotenv");
+const path = require("path");
 
 dotenv.config();
 
-const config: { [key: string]: Knex.Config } = {
+module.exports = {
   development: {
     client: "mysql2",
     connection: {
@@ -16,14 +15,16 @@ const config: { [key: string]: Knex.Config } = {
       database: process.env.DB_NAME || "aymen_db",
     },
     migrations: {
-      directory: path.join(__dirname, "src/database/migrations"),
+      directory: path.join(__dirname, "src", "database", "migrations"),
       extension: "ts",
+      tableName: "knex_migrations",
     },
     seeds: {
-      directory: path.join(__dirname, "src/database/seeds"),
+      directory: path.join(__dirname, "src", "database", "seeds"),
       extension: "ts",
     },
   },
+  
   production: {
     client: "mysql2",
     connection: {
@@ -38,14 +39,13 @@ const config: { [key: string]: Knex.Config } = {
       max: 10,
     },
     migrations: {
-      directory: "./dist/database/migrations",
+      directory: path.join(__dirname, "dist", "database", "migrations"),
       extension: "js",
+      tableName: "knex_migrations",
     },
     seeds: {
-      directory: "./dist/database/seeds",
+      directory: path.join(__dirname, "dist", "database", "seeds"),
       extension: "js",
     },
   },
 };
-
-export default config;
