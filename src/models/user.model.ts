@@ -126,7 +126,7 @@ class UserModel extends BaseModel<User, CreateUserDto, UpdateUserDto> {
   /**
    * Finds all users matching query parameters
    */
-  async find(params: UserQueryParams = {}): Promise<SafeUser[]> {
+  async findAll(params: UserQueryParams = {}): Promise<SafeUser[]> {
     let query = this.db(this.tableName);
 
     if (params.role) {
