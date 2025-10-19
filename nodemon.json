@@ -1,0 +1,6 @@
+{
+  "watch": ["src"],
+  "ext": "ts",
+  "ignore": ["dist"],
+  "exec": "babel-node src/index.ts --extensions .ts"
+}
