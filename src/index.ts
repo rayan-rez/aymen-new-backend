@@ -1,105 +1,113 @@
-// src/index.ts
-import express, { Express, Request, Response, NextFunction } from "express";
-import dotenv from "dotenv";
-import db from "./config/database";
-import routes from "./routes";
-import { errorHandler } from "./middleware/error-handler.middleware";
+/**
+ * Server entry point
+ * Starts the Express server and handles graceful shutdown
+ */
 
+import dotenv from "dotenv";
+import { createApp } from "./app";
+
+// Load environment variables
 dotenv.config();
 
-const app: Express = express();
+/**
+ * Application port
+ * Reads from environment variable or defaults to 3000
+ */
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+/**
+ * Application environment
+ * Indicates development, staging, or production mode
+ */
+const NODE_ENV = process.env.NODE_ENV || "development";
 
-// CORS middleware
-app.use((req: Request, res: Response, next: NextFunction): void => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-  );
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-
-  if (req.method === "OPTIONS") {
-    res.sendStatus(200);
-    return;
-  }
-
-  next();
-});
-
-// Health check route
-app.get("/health", async (req: Request, res: Response): Promise<void> => {
+/**
+ * Creates and starts the Express server
+ * Sets up graceful shutdown handlers
+ */
+const startServer = (): void => {
   try {
-    await db.raw("SELECT 1");
-    res.json({
-      status: "healthy",
-      database: "connected",
-      timestamp: new Date().toISOString(),
+    // Create Express application
+    const app = createApp();
+
+    // Start HTTP server
+    const server = app.listen(PORT, () => {
+      console.log(
+        "\n╔════════════════════════════════════════════════════════════╗"
+      );
+      console.log(
+        "║                  🚀 Server Started                          ║"
+      );
+      console.log(
+        "╠════════════════════════════════════════════════════════════╣"
+      );
+      console.log(
+        `║ 📍 URL:         http://localhost:${PORT.toString().padEnd(45)}║`
+      );
+      console.log(`║ 🌍 Environment: ${NODE_ENV.padEnd(49)}║`);
+      console.log(
+        `║ 💚 Health:     http://localhost:${PORT}/health${" ".repeat(28)}║`
+      );
+      console.log(
+        "╚════════════════════════════════════════════════════════════╝\n"
+      );
+    });
+
+    // ============================================
+    // Graceful shutdown handlers
+    // ============================================
+
+    /**
+     * Handle SIGTERM signal (from process manager)
+     * Gracefully shuts down the server
+     */
+    process.on("SIGTERM", () => {
+      console.log(
+        "\n📛 SIGTERM signal received: closing HTTP server gracefully"
+      );
+      server.close(() => {
+        console.log("✅ HTTP server closed");
+        process.exit(0);
+      });
+    });
+
+    /**
+     * Handle SIGINT signal (Ctrl+C)
+     * Gracefully shuts down the server
+     */
+    process.on("SIGINT", () => {
+      console.log(
+        "\n📛 SIGINT signal received: closing HTTP server gracefully"
+      );
+      server.close(() => {
+        console.log("✅ HTTP server closed");
+        process.exit(0);
+      });
+    });
+
+    /**
+     * Handle uncaught exceptions
+     * Logs error and exits process
+     */
+    process.on("uncaughtException", (error: Error) => {
+      console.error("❌ Uncaught Exception:", error);
+      console.error(error.stack);
+      process.exit(1);
+    });
+
+    /**
+     * Handle unhandled promise rejections
+     * Logs error and exits process
+     */
+    process.on("unhandledRejection", (reason: any) => {
+      console.error("❌ Unhandled Rejection:", reason);
+      process.exit(1);
     });
   } catch (error) {
-    res.status(503).json({
-      status: "unhealthy",
-      database: "disconnected",
-      timestamp: new Date().toISOString(),
-    });
+    console.error("❌ Failed to start server:", error);
+    process.exit(1);
   }
-});
+};
 
-// Root route
-app.get("/", (req: Request, res: Response): void => {
-  res.json({
-    message: "Aymen Real Estate API is running",
-    version: "1.0.0",
-    endpoints: {
-      health: "/health",
-      contact: "/api/v1/contact",
-      properties: "/api/v1/properties",
-    },
-  });
-});
-
-// API Routes
-app.use("/api/v1", routes);
-
-// 404 handler
-app.use((req: Request, res: Response): void => {
-  res.status(404).json({
-    success: false,
-    message: "Route not found",
-    path: req.path,
-  });
-});
-
-// Global error handler
-app.use(errorHandler);
-
-// Start server
-const server = app.listen(PORT, () => {
-  console.log(`🚀 Server is running on port ${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || "development"}`);
-  console.log(`🌐 API URL: http://localhost:${PORT}`);
-  console.log(`💚 Health Check: http://localhost:${PORT}/health`);
-});
-
-// Graceful shutdown
-process.on("SIGTERM", () => {
-  console.log("SIGTERM signal received: closing HTTP server");
-  server.close(() => {
-    console.log("HTTP server closed");
-    db.destroy();
-  });
-});
-
-process.on("SIGINT", () => {
-  console.log("SIGINT signal received: closing HTTP server");
-  server.close(() => {
-    console.log("HTTP server closed");
-    db.destroy();
-  });
-});
-
-export default app;
+// Start the server
+startServer();
