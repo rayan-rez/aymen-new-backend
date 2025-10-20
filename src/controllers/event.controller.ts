@@ -10,7 +10,6 @@ import { Request, Response } from "express";
 import {
   EventRegistrationModel,
   LeadSourceModel,
-  MarketingConsentModel,
   EventType,
   LeadType,
 } from "@models";
