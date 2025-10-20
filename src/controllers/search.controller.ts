@@ -7,7 +7,6 @@
  */
 
 import { Request, Response } from "express";
-import { ProjectModel } from "@models";
 import { ApiResponse } from "@utils/response.util";
 import db from "@/config/database";
 
