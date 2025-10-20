@@ -15,7 +15,7 @@ A scalable and secure backend API built with Express.js, TypeScript, and Knex fo
 - **Lead Tracking**: UTM parameters and campaign tracking
 - **Multi-level Hierarchy**: Locations and project relationships
 - **GDPR Compliance**: Marketing consent management
-- **Complete Model Suite**: 16 fully-featured database models
+- **Complete Model Suite**: 17 fully-featured database models
 
 ## 📋 Prerequisites
 
@@ -276,17 +276,25 @@ CommercialPropertyModel.getComplete(propertyId);
 System users and authentication
 
 - Roles: super_admin, admin, sales_manager, sales_agent, marketing, content_manager, viewer
-- Password management
-- Activity tracking
+- Password management with secure hashing
+- Activity tracking and session management
+- Safe user responses (excludes sensitive data)
 
 **Key Methods:**
 
 ```typescript
 UserModel.findByEmail(email);
+UserModel.findAllSafe(params); // Returns users without sensitive data
 UserModel.updatePassword(userId, passwordHash);
 UserModel.setResetToken(userId, token, expiresAt);
 UserModel.updateLastLogin(userId);
+UserModel.getSalesTeam(); // Get all sales staff
 ```
+
+**Important Notes:**
+- `findAll()` returns full User entities (with sensitive data) - use internally only
+- `findAllSafe()` returns SafeUser entities (without passwordHash/resetToken) - use for API responses
+- Always use SafeUser type for API responses to prevent data leaks
 
 ### Lead Management Models (5)
 
@@ -308,12 +316,13 @@ ContactSubmissionModel.getStatusStatistics();
 
 #### 8. **Project Inquiry Model** (`project-inquiry.model.ts`)
 
-Detailed project-specific inquiries
+Detailed project-specific inquiries with buyer profiling
 
-- Buyer profile information
-- Budget and financing details
-- Property preferences (JSON)
-- Sales assignment
+- Complete buyer profile information
+- Budget and financing details (cash, mortgage, installment, mixed)
+- Property preferences stored as JSON
+- Purchase timeline tracking (immediate, 3 months, 6 months, year, exploring)
+- Sales assignment and pipeline management
 
 **Key Methods:**
 
@@ -321,7 +330,19 @@ Detailed project-specific inquiries
 ProjectInquiryModel.getByProject(projectId);
 ProjectInquiryModel.assign(inquiryId, salesPerson);
 ProjectInquiryModel.getStatusStatistics();
+ProjectInquiryModel.getByFinancingMethod(FinancingMethod.CASH);
+ProjectInquiryModel.getByTimeline(PurchaseTimeline.IMMEDIATE);
+ProjectInquiryModel.getPipelineStatistics(); // Sales conversion metrics
 ```
+
+**Sales Pipeline Stages:**
+- `new` - Fresh inquiry, not yet contacted
+- `contacted` - Initial contact made
+- `qualified` - Lead meets criteria
+- `viewing_scheduled` - Property viewing arranged
+- `offer_made` - Offer submitted
+- `closed_won` - Deal closed successfully
+- `closed_lost` - Deal lost
 
 #### 9. **Appointment Request Model** (`appointment-request.model.ts`)
 
@@ -450,9 +471,10 @@ LandSubmissionModel.getDocumentStatistics();
 
 Marketing analytics and campaign tracking
 
-- UTM parameters tracking
+- UTM parameters tracking (source, medium, campaign, term, content)
 - Device and browser tracking
 - Conversion funnel analysis
+- Referrer tracking
 
 **Key Methods:**
 
@@ -461,6 +483,7 @@ LeadSourceModel.getCampaignStatistics();
 LeadSourceModel.getSourceMediumStatistics();
 LeadSourceModel.getDeviceStatistics();
 LeadSourceModel.getConversionFunnel();
+LeadSourceModel.getTopReferrers(10);
 ```
 
 #### 17. **Marketing Consent Model** (`marketing-consent.model.ts`)
@@ -469,6 +492,7 @@ GDPR-compliant consent management
 
 - Email/SMS/phone marketing consent
 - Consent tracking and revocation
+- Consent source tracking
 
 **Key Methods:**
 
@@ -508,6 +532,25 @@ await ProjectModel.updateCompletionPercentage(projectId, 75);
 const newLeads = await ContactSubmissionModel.getNew(10);
 const stats = await ContactSubmissionModel.getStatusStatistics();
 
+// Project inquiries with buyer profiling
+const inquiry = await ProjectInquiryModel.create({
+  projectId: 1,
+  firstName: "John",
+  lastName: "Doe",
+  email: "john@example.com",
+  phone: "+213555123456",
+  country: "Algeria",
+  financingMethod: FinancingMethod.CASH,
+  purchaseTimeline: PurchaseTimeline.IMMEDIATE,
+  interestTypes: ["buy", "invest"],
+  propertyTypes: ["apartment", "villa"]
+});
+
+// Sales pipeline management
+await ProjectInquiryModel.assign(inquiryId, "sales_agent_1");
+await ProjectInquiryModel.updateStatus(inquiryId, ProjectInquiryStatus.QUALIFIED);
+const pipeline = await ProjectInquiryModel.getPipelineStatistics();
+
 // Event management
 await EventRegistrationModel.checkIn(registrationId);
 const attendance = await EventRegistrationModel.getAttendanceStats(
@@ -525,6 +568,11 @@ await MarketingConsentModel.upsertConsent(
   { email: true, sms: false, phone: true },
   "newsletter-signup"
 );
+
+// User management
+const activeUsers = await UserModel.findAllSafe({ isActive: true });
+const salesTeam = await UserModel.getSalesTeam();
+await UserModel.updateLastLogin(userId);
 ```
 
 ## 📧 Email Configuration
@@ -553,6 +601,11 @@ The image service provides:
 - Keep dependencies updated
 - Password hashing with bcrypt (to be implemented)
 - JWT tokens for authentication (to be implemented)
+- **User Model Security**:
+  - Never expose `passwordHash` or `resetToken` in API responses
+  - Always use `findAllSafe()` for API responses
+  - Use `findAll()` only for internal authentication logic
+  - Reset tokens expire after a configurable time period
 
 ## 📝 Creating New Models
 
