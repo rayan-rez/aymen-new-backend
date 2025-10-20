@@ -71,7 +71,7 @@ curl http://localhost:3000/health
 ### Test Contact Form
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/contact \
+curl -X POST http://localhost:3000/api/contact \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Test User",
@@ -84,13 +84,13 @@ curl -X POST http://localhost:3000/api/v1/contact \
 ### Test Get Properties
 
 ```bash
-curl http://localhost:3000/api/v1/properties
+curl http://localhost:3000/api/properties
 ```
 
 ### Test Get Featured Properties
 
 ```bash
-curl http://localhost:3000/api/v1/properties/featured/list
+curl http://localhost:3000/api/properties/featured/list
 ```
 
 ## 📱 Test with Frontend
@@ -101,7 +101,7 @@ If you're building a landing page, here's example fetch code:
 // Submit contact form
 async function submitContact(formData) {
   try {
-    const response = await fetch("http://localhost:3000/api/v1/contact", {
+    const response = await fetch("http://localhost:3000/api/contact", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -120,7 +120,7 @@ async function submitContact(formData) {
 async function getProperties() {
   try {
     const response = await fetch(
-      "http://localhost:3000/api/v1/properties?featured=true"
+      "http://localhost:3000/api/properties?featured=true"
     );
     const data = await response.json();
     console.log("Properties:", data.data.properties);

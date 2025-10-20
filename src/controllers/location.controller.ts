@@ -17,7 +17,7 @@ class LocationController {
   /**
    * Get all locations with optional filtering
    *
-   * @route GET /api/v1/locations
+   * @route GET /api/locations
    * @access Public
    */
   async getAllLocations(req: Request, res: Response): Promise<void> {
@@ -36,7 +36,7 @@ class LocationController {
    * Get location hierarchy
    * Returns locations in tree structure
    *
-   * @route GET /api/v1/locations/hierarchy
+   * @route GET /api/locations/hierarchy
    * @access Public
    */
   async getHierarchy(req: Request, res: Response): Promise<void> {
@@ -56,7 +56,7 @@ class LocationController {
   /**
    * Get location by slug
    *
-   * @route GET /api/v1/locations/:slug
+   * @route GET /api/locations/:slug
    * @access Public
    */
   async getLocationBySlug(req: Request, res: Response): Promise<void> {
@@ -76,7 +76,7 @@ class LocationController {
    * Get location with projects
    * Returns location with all associated projects
    *
-   * @route GET /api/v1/locations/:slug/projects
+   * @route GET /api/locations/:slug/projects
    * @access Public
    */
   async getLocationWithProjects(req: Request, res: Response): Promise<void> {
@@ -113,7 +113,7 @@ class LocationController {
   /**
    * Get location children
    *
-   * @route GET /api/v1/locations/:id/children
+   * @route GET /api/locations/:id/children
    * @access Public
    */
   async getLocationChildren(req: Request, res: Response): Promise<void> {
@@ -135,7 +135,7 @@ class LocationController {
   /**
    * Get location parents (breadcrumb)
    *
-   * @route GET /api/v1/locations/:id/parents
+   * @route GET /api/locations/:id/parents
    * @access Public
    */
   async getLocationParents(req: Request, res: Response): Promise<void> {

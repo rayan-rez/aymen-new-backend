@@ -27,7 +27,7 @@ class PropertyController {
   /**
    * Get all apartments
    *
-   * @route GET /api/v1/properties/apartments
+   * @route GET /api/properties/apartments
    * @access Public
    */
   async getAllApartments(req: Request, res: Response): Promise<void> {
@@ -59,7 +59,7 @@ class PropertyController {
   /**
    * Get apartments by project
    *
-   * @route GET /api/v1/properties/apartments/project/:projectId
+   * @route GET /api/properties/apartments/project/:projectId
    * @access Public
    */
   async getApartmentsByProject(req: Request, res: Response): Promise<void> {
@@ -77,7 +77,7 @@ class PropertyController {
   /**
    * Get apartment by ID with photos
    *
-   * @route GET /api/v1/properties/apartments/:id
+   * @route GET /api/properties/apartments/:id
    * @access Public
    */
   async getApartmentById(req: Request, res: Response): Promise<void> {
@@ -96,7 +96,7 @@ class PropertyController {
   /**
    * Get available apartments
    *
-   * @route GET /api/v1/properties/apartments/available
+   * @route GET /api/properties/apartments/available
    * @access Public
    */
   async getAvailableApartments(req: Request, res: Response): Promise<void> {
@@ -116,7 +116,7 @@ class PropertyController {
   /**
    * Get model apartments
    *
-   * @route GET /api/v1/properties/apartments/models
+   * @route GET /api/properties/apartments/models
    * @access Public
    */
   async getModelApartments(req: Request, res: Response): Promise<void> {
@@ -140,7 +140,7 @@ class PropertyController {
   /**
    * Get all commercial properties
    *
-   * @route GET /api/v1/properties/commercial
+   * @route GET /api/properties/commercial
    * @access Public
    */
   async getAllCommercialProperties(req: Request, res: Response): Promise<void> {
@@ -178,7 +178,7 @@ class PropertyController {
   /**
    * Get commercial property by slug
    *
-   * @route GET /api/v1/properties/commercial/:slug
+   * @route GET /api/properties/commercial/:slug
    * @access Public
    */
   async getCommercialPropertyBySlug(
@@ -209,7 +209,7 @@ class PropertyController {
   /**
    * Get featured commercial properties
    *
-   * @route GET /api/v1/properties/commercial/featured
+   * @route GET /api/properties/commercial/featured
    * @access Public
    */
   async getFeaturedCommercialProperties(
@@ -230,7 +230,7 @@ class PropertyController {
   /**
    * Get available properties by type
    *
-   * @route GET /api/v1/properties/commercial/type/:type
+   * @route GET /api/properties/commercial/type/:type
    * @access Public
    */
   async getCommercialPropertiesByType(

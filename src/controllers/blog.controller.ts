@@ -17,7 +17,7 @@ class BlogController {
   /**
    * Get all blog posts
    *
-   * @route GET /api/v1/blog
+   * @route GET /api/blog
    * @access Public
    */
   async getAllPosts(req: Request, res: Response): Promise<void> {
@@ -43,7 +43,7 @@ class BlogController {
   /**
    * Get blog post by slug
    *
-   * @route GET /api/v1/blog/:slug
+   * @route GET /api/blog/:slug
    * @access Public
    */
   async getPostBySlug(req: Request, res: Response): Promise<void> {
@@ -68,7 +68,7 @@ class BlogController {
   /**
    * Get published posts
    *
-   * @route GET /api/v1/blog/published
+   * @route GET /api/blog/published
    * @access Public
    */
   async getPublishedPosts(req: Request, res: Response): Promise<void> {
@@ -82,7 +82,7 @@ class BlogController {
   /**
    * Get posts by category
    *
-   * @route GET /api/v1/blog/category/:category
+   * @route GET /api/blog/category/:category
    * @access Public
    */
   async getPostsByCategory(req: Request, res: Response): Promise<void> {
@@ -100,7 +100,7 @@ class BlogController {
   /**
    * Get posts by tag
    *
-   * @route GET /api/v1/blog/tag/:tag
+   * @route GET /api/blog/tag/:tag
    * @access Public
    */
   async getPostsByTag(req: Request, res: Response): Promise<void> {
@@ -118,7 +118,7 @@ class BlogController {
   /**
    * Get popular posts
    *
-   * @route GET /api/v1/blog/popular
+   * @route GET /api/blog/popular
    * @access Public
    */
   async getPopularPosts(req: Request, res: Response): Promise<void> {
@@ -132,7 +132,7 @@ class BlogController {
   /**
    * Get recent posts
    *
-   * @route GET /api/v1/blog/recent
+   * @route GET /api/blog/recent
    * @access Public
    */
   async getRecentPosts(req: Request, res: Response): Promise<void> {
@@ -146,7 +146,7 @@ class BlogController {
   /**
    * Search blog posts
    *
-   * @route GET /api/v1/blog/search
+   * @route GET /api/blog/search
    * @access Public
    */
   async searchPosts(req: Request, res: Response): Promise<void> {

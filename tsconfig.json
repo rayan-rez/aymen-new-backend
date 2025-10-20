@@ -27,6 +27,7 @@
       "@models/*": ["src/models/*"],
       "@models": ["src/models/index.ts"],
       "@controllers/*": ["src/controllers/*"],
+      "@constants/*": ["src/constants/*"],
       "@/types/*": ["src/types/*"],
     }
   },

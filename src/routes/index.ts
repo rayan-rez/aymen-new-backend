@@ -7,7 +7,7 @@ import { Router } from "express";
 
 /**
  * Main API router
- * All routes should be mounted under /api/v1
+ * All routes should be mounted under /api
  */
 const router = Router();
 
@@ -37,18 +37,18 @@ const router = Router();
  * Available API endpoints:
  *
  * Contact Management:
- * - POST   /api/v1/contacts              - Submit contact form
- * - GET    /api/v1/contacts              - Get all contact forms (admin)
- * - GET    /api/v1/contacts/:id          - Get specific contact form (admin)
- * - PATCH  /api/v1/contacts/:id/status   - Update contact status (admin)
+ * - POST   /api/contacts              - Submit contact form
+ * - GET    /api/contacts              - Get all contact forms (admin)
+ * - GET    /api/contacts/:id          - Get specific contact form (admin)
+ * - PATCH  /api/contacts/:id/status   - Update contact status (admin)
  *
  * Properties:
- * - GET    /api/v1/properties            - List all properties (with filters)
- * - GET    /api/v1/properties/:id        - Get specific property
- * - GET    /api/v1/properties/featured   - Get featured properties
- * - POST   /api/v1/properties            - Create property (admin)
- * - PUT    /api/v1/properties/:id        - Update property (admin)
- * - DELETE /api/v1/properties/:id        - Delete property (admin)
+ * - GET    /api/properties            - List all properties (with filters)
+ * - GET    /api/properties/:id        - Get specific property
+ * - GET    /api/properties/featured   - Get featured properties
+ * - POST   /api/properties            - Create property (admin)
+ * - PUT    /api/properties/:id        - Update property (admin)
+ * - DELETE /api/properties/:id        - Delete property (admin)
  */
 
 export default router;

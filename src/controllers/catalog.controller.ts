@@ -13,19 +13,7 @@ import {
   LeadType,
 } from "@models";
 import { ApiResponse } from "@utils/response.util";
-
-/**
- * List of blocked email domains (disposable/fake emails)
- */
-const BLOCKED_EMAIL_DOMAINS = [
-  "mailinator.com",
-  "tempmail.com",
-  "10minutemail.com",
-  "guerrillamail.com",
-  "dispostable.com",
-  "maildrop.cc",
-  "fakeinbox.com",
-];
+import { BLOCKED_EMAIL_DOMAINS } from "@constants/blocked-emails";
 
 /**
  * Catalog Download Controller class
@@ -35,7 +23,7 @@ class CatalogController {
   /**
    * Submit catalog download request
    *
-   * @route POST /api/v1/catalog/download
+   * @route POST /api/catalog/download
    * @access Public
    */
   async requestCatalogDownload(req: Request, res: Response): Promise<void> {
@@ -121,7 +109,7 @@ class CatalogController {
   /**
    * Get all catalog download requests
    *
-   * @route GET /api/v1/catalog/downloads
+   * @route GET /api/catalog/downloads
    * @access Private (Admin)
    */
   async getAllRequests(req: Request, res: Response): Promise<void> {
@@ -157,7 +145,7 @@ class CatalogController {
   /**
    * Get requests by project
    *
-   * @route GET /api/v1/catalog/downloads/project/:projectId
+   * @route GET /api/catalog/downloads/project/:projectId
    * @access Private (Admin)
    */
   async getRequestsByProject(req: Request, res: Response): Promise<void> {
@@ -177,7 +165,7 @@ class CatalogController {
   /**
    * Mark download as completed
    *
-   * @route POST /api/v1/catalog/downloads/:id/mark-downloaded
+   * @route POST /api/catalog/downloads/:id/mark-downloaded
    * @access Private (Admin)
    */
   async markAsDownloaded(req: Request, res: Response): Promise<void> {
@@ -199,7 +187,7 @@ class CatalogController {
   /**
    * Get download statistics
    *
-   * @route GET /api/v1/catalog/downloads/statistics
+   * @route GET /api/catalog/downloads/statistics
    * @access Private (Admin)
    */
   async getStatistics(req: Request, res: Response): Promise<void> {
@@ -211,7 +199,7 @@ class CatalogController {
   /**
    * Get marketing consents from catalog requests
    *
-   * @route GET /api/v1/catalog/downloads/consents
+   * @route GET /api/catalog/downloads/consents
    * @access Private (Admin)
    */
   async getMarketingConsents(req: Request, res: Response): Promise<void> {

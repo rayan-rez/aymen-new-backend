@@ -89,8 +89,8 @@ export const createApp = (): Express => {
         uptime: process.uptime(),
         endpoints: {
           health: "/health",
-          contacts: "/api/v1/contacts",
-          properties: "/api/v1/properties",
+          contacts: "/api/contacts",
+          properties: "/api/properties",
         },
       },
       "Welcome to Aymen Real Estate API"
@@ -100,7 +100,7 @@ export const createApp = (): Express => {
   // ============================================
   // Routes: API routes
   // ============================================
-  app.use("/api/v1", routes);
+  app.use("/api", routes);
 
   // ============================================
   // Error Handling: 404 Not Found
