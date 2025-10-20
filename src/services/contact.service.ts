@@ -5,8 +5,8 @@
  */
 
 import emailService from "./email.service";
-import { CreateContactDto } from "../types/contact.types";
-import { AppError } from "../middleware/error-handler.middleware";
+import { CreateContactDto } from "@/types/contact.types";
+import { AppError } from "@middlewares/error-handler.middleware";
 
 /**
  * Contact Service class

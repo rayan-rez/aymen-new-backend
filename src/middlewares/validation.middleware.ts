@@ -5,13 +5,13 @@
  */
 
 import { Request, Response, NextFunction } from "express";
-import { ApiResponse } from "../utils/response.util";
+import { ApiResponse } from "@utils/response.util";
 import {
   validateEmail,
   validatePhone,
   validateStringLength,
   sanitizeString,
-} from "../utils/validators.util";
+} from "@utils/validators.util";
 
 /**
  * Validates contact form submission

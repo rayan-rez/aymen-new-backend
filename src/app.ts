@@ -5,13 +5,13 @@
  */
 
 import express, { Express, Request, Response } from "express";
-import { corsMiddleware } from "./middleware/cors.middleware";
+import { corsMiddleware } from "@middlewares/cors.middleware";
 import {
   errorHandler,
   notFoundHandler,
-} from "./middleware/error-handler.middleware";
-import { ApiResponse } from "./utils/response.util";
-import routes from "./routes";
+} from "@middlewares/error-handler.middleware";
+import { ApiResponse } from "@utils/response.util";
+import routes from "@/routes";
 
 /**
  * Creates and configures the Express application

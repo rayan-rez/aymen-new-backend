@@ -5,7 +5,7 @@
  */
 
 import { Request, Response, NextFunction } from "express";
-import { ApiResponse } from "../utils/response.util";
+import { ApiResponse } from "@utils/response.util";
 
 /**
  * Custom application error class

@@ -3,7 +3,7 @@
  * Reusable validation methods throughout the application
  */
 
-import { EMAIL_REGEX, PHONE_REGEX } from "../constants/regex";
+import { EMAIL_REGEX, PHONE_REGEX } from "@/constants/regex";
 
 /**
  * Validates email format

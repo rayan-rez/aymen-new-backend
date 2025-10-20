@@ -4,7 +4,7 @@
  */
 
 import dotenv from "dotenv";
-import { createApp } from "./app";
+import { createApp } from "@/app";
 
 // Load environment variables
 dotenv.config();

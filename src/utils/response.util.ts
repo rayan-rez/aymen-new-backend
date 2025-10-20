@@ -5,7 +5,7 @@
  */
 
 import { Response } from "express";
-import { ApiResponse as ApiResponseInterface } from "../types/common.types";
+import { ApiResponse as ApiResponseInterface } from "@/types/common.types";
 
 /**
  * ApiResponse utility class
