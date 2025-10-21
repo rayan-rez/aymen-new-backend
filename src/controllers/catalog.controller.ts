@@ -13,7 +13,7 @@ import {
   LeadType,
 } from "@models";
 import { ApiResponse } from "@utils/response.util";
-import { BLOCKED_EMAIL_DOMAINS } from "@constants/blocked-emails";
+import { BLOCKED_EMAIL_DOMAINS } from "@constants/app.constants";
 
 /**
  * Catalog Download Controller class

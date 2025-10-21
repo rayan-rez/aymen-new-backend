@@ -1,20 +1,55 @@
 /**
- * Social Media Controller
- * Handles social media integrations and content fetching
- * Currently supports YouTube Shorts (replacing Instagram Stories)
- *
+ * Social Media Controller (Fixed)
+ * Handles social media integrations with proper TypeScript types
+ * 
  * @module controllers/social-media.controller
  */
 
 import { Request, Response } from "express";
 import { ApiResponse } from "@utils/response.util";
-import axios from "axios";
+import axios, { AxiosResponse } from "axios";
 import fs from "fs";
 import path from "path";
+import { YOUTUBE_CONFIG } from "@constants/app.constants";
 
 /**
- * YouTube video interface
+ * YouTube API Response Types
  */
+interface YouTubeSearchResponse {
+  items: Array<{
+    id: {
+      videoId: string;
+    };
+    snippet: {
+      title: string;
+      thumbnails: {
+        high: {
+          url: string;
+        };
+      };
+      publishedAt: string;
+    };
+  }>;
+}
+
+interface YouTubeVideoDetails {
+  items: Array<{
+    id: string;
+    contentDetails: {
+      duration: string;
+    };
+    snippet: {
+      title: string;
+      thumbnails: {
+        high: {
+          url: string;
+        };
+      };
+      publishedAt: string;
+    };
+  }>;
+}
+
 interface YouTubeVideo {
   videoId: string;
   title: string;
@@ -24,15 +59,19 @@ interface YouTubeVideo {
   duration?: string;
 }
 
+interface CachedData {
+  expiration: number;
+  data: YouTubeVideo[];
+}
+
 /**
  * Cache file location
  */
-const CACHE_FILE = path.join(__dirname, "../../cache/youtube_cache.json");
-const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
+const CACHE_DIR = path.join(__dirname, "../../cache");
+const CACHE_FILE = path.join(CACHE_DIR, "youtube_cache.json");
 
 /**
- * Social Media Controller class
- * Manages social media content integrations
+ * Social Media Controller
  */
 class SocialMediaController {
   /**
@@ -40,20 +79,19 @@ class SocialMediaController {
    * @private
    */
   private ensureCacheDir(): void {
-    const cacheDir = path.dirname(CACHE_FILE);
-    if (!fs.existsSync(cacheDir)) {
-      fs.mkdirSync(cacheDir, { recursive: true });
+    if (!fs.existsSync(CACHE_DIR)) {
+      fs.mkdirSync(CACHE_DIR, { recursive: true });
     }
   }
 
   /**
    * Parses ISO 8601 duration to seconds
-   * @param duration - ISO 8601 duration string (e.g., "PT1M30S")
+   * @param duration - ISO 8601 duration (e.g., "PT1M30S")
    * @returns Duration in seconds
    * @private
    */
   private parseDuration(duration: string): number {
-    const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
+    const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
     if (!match) return 0;
 
     const hours = match[1] ? parseInt(match[1]) : 0;
@@ -61,6 +99,39 @@ class SocialMediaController {
     const seconds = match[3] ? parseInt(match[3]) : 0;
 
     return hours * 3600 + minutes * 60 + seconds;
+  }
+
+  /**
+   * Reads cache file
+   * @private
+   */
+  private readCache(): CachedData | null {
+    try {
+      if (fs.existsSync(CACHE_FILE)) {
+        const content = fs.readFileSync(CACHE_FILE, "utf-8");
+        return JSON.parse(content) as CachedData;
+      }
+    } catch (error) {
+      console.error("Error reading cache:", error);
+    }
+    return null;
+  }
+
+  /**
+   * Writes cache file
+   * @private
+   */
+  private writeCache(data: YouTubeVideo[]): void {
+    try {
+      this.ensureCacheDir();
+      const cacheContent: CachedData = {
+        expiration: Date.now() + YOUTUBE_CONFIG.CACHE_DURATION_MS,
+        data,
+      };
+      fs.writeFileSync(CACHE_FILE, JSON.stringify(cacheContent));
+    } catch (error) {
+      console.error("Error writing cache:", error);
+    }
   }
 
   /**

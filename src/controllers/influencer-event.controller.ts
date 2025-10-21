@@ -29,7 +29,7 @@ import { Request, Response } from "express";
 import { ApiResponse } from "@utils/response.util";
 import { validateEmail, validatePhone } from "@utils/validators.util";
 import db from "@/config/database";
-import { CAMPAIGN_TABLES } from "@constants/influencers";
+import { CAMPAIGN_TABLES } from "@constants/app.constants";
 import { InfluencerEventModel } from "@models/influencer-event.model";
 
 /**
