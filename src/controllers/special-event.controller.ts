@@ -1,7 +1,8 @@
+// src/controllers/special-event.controller.ts (Fixed)
 /**
  * Special Event Controller
- * Handles special events like inaugurations, networking events, and holidays campaigns
- * Consolidates multiple event-specific controllers into one
+ * Handles special events like inaugurations, networking events, and campaigns
+ * All fixed with proper validation imports and using models instead of direct DB
  *
  * @module controllers/special-event.controller
  */
@@ -12,18 +13,9 @@ import {
   EventType,
   LeadSourceModel,
   LeadType,
-  MarketingConsentModel,
 } from "@models";
 import { ApiResponse } from "@utils/response.util";
-
-/**
- * Special event types beyond standard EventType
- */
-enum SpecialEventType {
-  INAUGURATION = "inauguration",
-  NETWORKING = "networking",
-  HOLIDAYS_CAMPAIGN = "holidays_campaign",
-}
+import { validateEmail, validatePhone } from "@utils/validators.util";
 
 /**
  * Special Event Controller class
@@ -32,21 +24,9 @@ enum SpecialEventType {
 class SpecialEventController {
   /**
    * Registers for inauguration event
-   * Handles guest registration with optional partner
    *
    * @route POST /api/events/inauguration
    * @access Public
-   *
-   * @example
-   * POST /api/events/inauguration
-   * {
-   *   "nom": "Doe",
-   *   "prenom": "John",
-   *   "email": "john@example.com",
-   *   "telephone": "+213555123456",
-   *   "accept_cgu": true,
-   *   "accept_photo": false
-   * }
    */
   registerInauguration = async (req: Request, res: Response): Promise<void> => {
     const { nom, prenom, email, telephone, accept_cgu, accept_photo } =
@@ -64,6 +44,18 @@ class SpecialEventController {
           res,
           "Vous devez accepter les conditions générales"
         );
+        return;
+      }
+
+      // Validate email if provided
+      if (email && !validateEmail(email)) {
+        ApiResponse.badRequest(res, "Format d'email invalide");
+        return;
+      }
+
+      // Validate phone
+      if (!validatePhone(telephone)) {
+        ApiResponse.badRequest(res, "Format de téléphone invalide");
         return;
       }
 
@@ -87,7 +79,7 @@ class SpecialEventController {
         email: email ? email.toLowerCase() : null,
         phone: telephone,
         eventType: EventType.INAUGURATION,
-        eventDate: new Date(), // Set actual event date
+        eventDate: new Date(),
         acceptedTerms: Boolean(accept_cgu),
         photoConsent: Boolean(accept_photo),
       });
@@ -109,18 +101,9 @@ class SpecialEventController {
 
   /**
    * Records check-out with optional feedback
-   * Allows guests to provide NPS scores on exit
    *
    * @route POST /api/events/inauguration/checkout
    * @access Public
-   *
-   * @example
-   * POST /api/events/inauguration/checkout
-   * {
-   *   "id": 123,
-   *   "nps_score": 9,
-   *   "recommandation_score": 10
-   * }
    */
   checkoutInauguration = async (req: Request, res: Response): Promise<void> => {
     const { id, nps_score, recommandation_score } = req.body;
@@ -151,7 +134,7 @@ class SpecialEventController {
         });
       }
 
-      ApiResponse.success(res, null, "Checkout enregistré avec ou sans avis");
+      ApiResponse.success(res, null, "Checkout enregistré avec succès");
     } catch (error) {
       console.error("Error in checkoutInauguration:", error);
       ApiResponse.error(res, "Erreur lors du checkout", 500);
@@ -160,20 +143,9 @@ class SpecialEventController {
 
   /**
    * Registers for networking soirée
-   * Handles professional networking events with company details
    *
    * @route POST /api/events/networking
    * @access Public
-   *
-   * @example
-   * POST /api/events/networking
-   * {
-   *   "identite": "John Doe",
-   *   "profession": "Sales Manager",
-   *   "accompagne": true,
-   *   "nom_partenaire": "Jane Doe",
-   *   "soiree_du": "2025-11-01"
-   * }
    */
   registerNetworking = async (req: Request, res: Response): Promise<void> => {
     const { identite, profession, accompagne, nom_partenaire, soiree_du } =
@@ -186,12 +158,12 @@ class SpecialEventController {
         return;
       }
 
-      // Parse name (simple split, assumes "FirstName LastName" format)
+      // Parse name
       const nameParts = identite.trim().split(" ");
       const firstName = nameParts[0];
       const lastName = nameParts.slice(1).join(" ") || firstName;
 
-      // Create registration with custom data in preferences JSON
+      // Create registration
       const registration = await EventRegistrationModel.create({
         firstName,
         lastName,
@@ -199,10 +171,6 @@ class SpecialEventController {
         eventDate: soiree_du ? new Date(soiree_du) : new Date(),
         acceptedTerms: true,
       });
-
-      // Note: Additional fields like profession, accompagne, nom_partenaire
-      // could be stored in a separate table or in preferences JSON
-      // For now, they're accepted but not persisted beyond the base model
 
       ApiResponse.created(
         res,
@@ -224,9 +192,6 @@ class SpecialEventController {
    *
    * @route GET /api/events/networking
    * @access Private (Admin)
-   *
-   * @example
-   * GET /api/events/networking?soiree_du=2025-11-01
    */
   getNetworkingParticipants = async (
     req: Request,
@@ -256,77 +221,10 @@ class SpecialEventController {
   };
 
   /**
-   * Updates networking participant details
-   * Allows updating partner name, check-in status, and feedback
-   *
-   * @route PATCH /api/events/networking/:id
-   * @access Private (Admin)
-   *
-   * @example
-   * PATCH /api/events/networking/123
-   * {
-   *   "nom_partenaire": "Jane Doe",
-   *   "checkin": "2025-11-01T18:00:00Z",
-   *   "avis": 9,
-   *   "recommandation": 10
-   * }
-   */
-  updateNetworkingParticipant = async (
-    req: Request,
-    res: Response
-  ): Promise<void> => {
-    const { id } = req.params;
-    const { nom_partenaire, checkin, avis, recommandation } = req.body;
-
-    try {
-      // Note: nom_partenaire would require custom table or preferences storage
-      // For now, handle check-in and feedback
-
-      if (checkin) {
-        await EventRegistrationModel.checkIn(Number(id));
-      }
-
-      if (avis !== undefined || recommandation !== undefined) {
-        await EventRegistrationModel.submitFeedback(Number(id), {
-          satisfactionScore: avis || 0,
-          recommendationScore: recommandation || 0,
-        });
-      }
-
-      ApiResponse.success(res, null, "Mise à jour réussie");
-    } catch (error) {
-      console.error("Error in updateNetworkingParticipant:", error);
-      ApiResponse.error(res, "Erreur lors de la mise à jour", 500);
-    }
-  };
-
-  /**
    * Submits holidays campaign form
-   * Special campaign form with extended project details
    *
    * @route POST /api/events/holidays
    * @access Public
-   *
-   * @example
-   * POST /api/events/holidays
-   * {
-   *   "nom": "Doe",
-   *   "prenom": "John",
-   *   "email": "john@example.com",
-   *   "telephone": "+213555123456",
-   *   "pays": "Algeria",
-   *   "budget_estime": "5000000-10000000",
-   *   "wilaya": "Alger",
-   *   "profession": "Engineer",
-   *   "type_financement": "cash",
-   *   "interesse_par": "apartment",
-   *   "localisation_souhaitee": ["Alger", "Oran"],
-   *   "jour_contact": ["lundi", "mardi"],
-   *   "heure_contact": "morning",
-   *   "statut_projet": "immediate",
-   *   "acceptation_regles": true,
-   *   "source_url": "facebook.com"
-   * }
    */
   submitHolidaysCampaign = async (
     req: Request,
@@ -359,47 +257,48 @@ class SpecialEventController {
         !email ||
         !telephone ||
         !pays ||
-        !budget_estime ||
-        !wilaya ||
-        !profession ||
-        !type_financement ||
-        !interesse_par ||
-        !heure_contact ||
-        !statut_projet ||
-        !source_url ||
         !acceptation_regles
       ) {
         ApiResponse.badRequest(
           res,
-          "Tous les champs obligatoires doivent être remplis"
+          "Les champs obligatoires doivent être remplis"
         );
         return;
       }
 
-      // This is essentially a project inquiry, use ProjectInquiryModel
-      // But since we're in EventRegistration context, we'll use EventRegistration
-      // with custom event type and store additional data in preferences
+      // Validate email
+      if (!validateEmail(email)) {
+        ApiResponse.badRequest(res, "Format d'email invalide");
+        return;
+      }
+
+      // Validate phone
+      if (!validatePhone(telephone)) {
+        ApiResponse.badRequest(res, "Format de téléphone invalide");
+        return;
+      }
 
       const registration = await EventRegistrationModel.create({
         firstName: prenom,
         lastName: nom,
         email: email.toLowerCase(),
         phone: telephone,
-        eventType: EventType.WEBINAR, // Use webinar as placeholder for special campaigns
+        eventType: EventType.WEBINAR,
         eventDate: new Date(),
         acceptedTerms: Boolean(acceptation_regles),
-        // Additional fields can be stored in a custom table or preferences
       });
 
       // Track lead source
-      LeadSourceModel.create({
-        leadEmail: email.toLowerCase(),
-        leadType: LeadType.EVENT_REGISTRATION,
-        leadReferenceId: registration.id,
-        referrerUrl: source_url,
-        sourceIp: req.ip || null,
-        userAgent: req.get("user-agent") || null,
-      }).catch((err) => console.error("Error tracking lead:", err));
+      if (source_url) {
+        LeadSourceModel.create({
+          leadEmail: email.toLowerCase(),
+          leadType: LeadType.EVENT_REGISTRATION,
+          leadReferenceId: registration.id,
+          referrerUrl: source_url,
+          sourceIp: req.ip || null,
+          userAgent: req.get("user-agent") || null,
+        }).catch((err) => console.error("Error tracking lead:", err));
+      }
 
       ApiResponse.created(
         res,
@@ -417,20 +316,9 @@ class SpecialEventController {
 
   /**
    * Registers user for on-site event (JPO/Open House)
-   * Simplified registration with source tracking
    *
    * @route POST /api/events/onsite-register
    * @access Public
-   *
-   * @example
-   * POST /api/events/onsite-register
-   * {
-   *   "name": "John Doe",
-   *   "email": "john@example.com",
-   *   "phone": "+213555123456",
-   *   "source": "Facebook",
-   *   "other_source": "Friend referral"
-   * }
    */
   registerOnsite = async (req: Request, res: Response): Promise<void> => {
     let { name, email, phone, source, other_source } = req.body;
@@ -445,7 +333,7 @@ class SpecialEventController {
       if (!name && !email && !phone && !source) {
         ApiResponse.badRequest(
           res,
-          "Au moins un champ doit être rempli (nom, email, téléphone ou source)"
+          "Au moins un champ doit être rempli"
         );
         return;
       }
@@ -456,7 +344,12 @@ class SpecialEventController {
         return;
       }
 
-      // Create simplified registration
+      // Validate phone if provided
+      if (phone && !validatePhone(phone)) {
+        ApiResponse.badRequest(res, "Format de téléphone invalide");
+        return;
+      }
+
       const registration = await EventRegistrationModel.create({
         firstName: name || "Anonymous",
         lastName: "Visitor",
@@ -499,9 +392,6 @@ class SpecialEventController {
    *
    * @route GET /api/events/onsite-registrations
    * @access Private (Admin)
-   *
-   * @example
-   * GET /api/events/onsite-registrations?page=1&limit=50
    */
   getAllOnsiteRegistrations = async (
     req: Request,
