@@ -14,6 +14,7 @@ import {
   FeatureModel,
 } from "@models";
 import { ApiResponse } from "@utils/response.util";
+import db from "@/config/database";
 
 /**
  * Project Controller class
@@ -530,6 +531,267 @@ class ProjectController {
       ApiResponse.error(res, "Failed to remove feature from project", 500);
     }
   };
+
+  /**
+   * Advanced filtering methods to add to project.controller.ts
+   * Add these methods to the existing ProjectController class
+   */
+
+  /**
+   * Gets projects with advanced filtering
+   * Supports complex filters including localite, statut, and typologie
+   *
+   * @route GET /api/projects/filter
+   * @access Public
+   *
+   * @query page - Page number (default: 1)
+   * @query limit - Items per page (default: 100)
+   * @query localite - Comma-separated locations (e.g., "Dar el Beida,Kouba")
+   * @query statut - Project status filter
+   * @query typologie - Comma-separated apartment types (e.g., "F3,F4,F5")
+   *
+   * @example
+   * GET /api/projects/filter?localite=Kouba,Dely Ibrahim&typologie=F3,F4&statut=completed
+   */
+  async getProjectsWithAdvancedFilters(
+    req: Request,
+    res: Response
+  ): Promise<void> {
+    const { page = 1, limit = 100, localite, statut, typologie } = req.query;
+
+    try {
+      const pageInt = parseInt(page as string, 10);
+      const limitInt = parseInt(limit as string, 10);
+
+      if (isNaN(pageInt) || pageInt <= 0) {
+        ApiResponse.badRequest(res, "Invalid page number");
+        return;
+      }
+
+      if (isNaN(limitInt) || limitInt <= 0) {
+        ApiResponse.badRequest(res, "Invalid limit");
+        return;
+      }
+
+      // Build base query
+      let query = db("projects").whereNull("deleted_at");
+
+      // Apply localite filter (with normalization)
+      if (localite && typeof localite === "string") {
+        const localiteArray = localite.split(",").map(
+          (item) =>
+            item
+              .trim()
+              .toLowerCase()
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "") // Remove accents
+              .replace(/-/g, " ") // Replace hyphens with spaces
+        );
+
+        query = query.where((builder) => {
+          localiteArray.forEach((loc, index) => {
+            const method = index === 0 ? "where" : "orWhere";
+            builder[method](
+              db.raw("LOWER(REPLACE(address, '-', ' '))"),
+              "like",
+              `%${loc}%`
+            );
+          });
+        });
+      }
+
+      // Apply status filter
+      if (statut && typeof statut === "string") {
+        query = query.where({ status: statut });
+      }
+
+      // Apply typologie filter (requires apartments_list column or join)
+      // This assumes you have a computed field or JSON column with apartment types
+      if (typologie && typeof typologie === "string") {
+        const typologieArray = typologie.split(",").map((t) => t.trim());
+
+        // Option 1: If you have apartments_list as comma-separated string
+        query = query.where((builder) => {
+          typologieArray.forEach((type, index) => {
+            const method = index === 0 ? "where" : "orWhere";
+            builder[method](
+              db.raw("FIND_IN_SET(?, apartments_list) > 0", [type])
+            );
+          });
+        });
+      }
+
+      // Get total count for pagination
+      const countQuery = query.clone();
+      const [{ count: totalCount }] = await countQuery.count("* as count");
+
+      // Apply pagination and ordering
+      const offset = (pageInt - 1) * limitInt;
+      const projects = await query
+        .orderBy("id", "desc")
+        .limit(limitInt)
+        .offset(offset);
+
+      // Transform projects if needed (map apartments_list to array)
+      const formattedProjects = projects.map((project) => ({
+        ...project,
+        apartments_list: project.apartments_list
+          ? project.apartments_list.split(",").map((t: string) => t.trim())
+          : [],
+        completionPercentage: project.completion_percentage,
+        mainPhotoUrl: project.main_photo_url,
+      }));
+
+      ApiResponse.success(
+        res,
+        {
+          projects: formattedProjects,
+          pagination: {
+            total: Number(totalCount),
+            page: pageInt,
+            limit: limitInt,
+            totalPages: Math.ceil(Number(totalCount) / limitInt),
+          },
+        },
+        "Projects retrieved successfully"
+      );
+    } catch (error) {
+      console.error("Error in getProjectsWithAdvancedFilters:", error);
+      ApiResponse.error(res, "Failed to retrieve projects", 500);
+    }
+  }
+
+  /**
+   * Gets projects by specific location with normalized matching
+   * Handles accent-insensitive and hyphen-insensitive matching
+   *
+   * @route GET /api/projects/location/:locationName
+   * @access Public
+   *
+   * @example
+   * GET /api/projects/location/Dar el Beida
+   * GET /api/projects/location/Dely-Ibrahim
+   */
+  async getProjectsByLocation(req: Request, res: Response): Promise<void> {
+    const { locationName } = req.params;
+
+    try {
+      if (!locationName) {
+        ApiResponse.badRequest(res, "Location name is required");
+        return;
+      }
+
+      // Normalize location name
+      const normalizedLocation = locationName
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/-/g, " ");
+
+      const projects = await db("projects")
+        .whereNull("deleted_at")
+        .whereRaw("LOWER(REPLACE(address, '-', ' ')) LIKE ?", [
+          `%${normalizedLocation}%`,
+        ])
+        .orderBy("created_at", "desc");
+
+      ApiResponse.success(
+        res,
+        projects,
+        `Projects in ${locationName} retrieved successfully`
+      );
+    } catch (error) {
+      console.error("Error in getProjectsByLocation:", error);
+      ApiResponse.error(res, "Failed to retrieve projects", 500);
+    }
+  }
+
+  /**
+   * Gets available apartment typologies across all projects
+   * Useful for filter dropdowns
+   *
+   * @route GET /api/projects/typologies
+   * @access Public
+   *
+   * @example
+   * GET /api/projects/typologies
+   */
+  async getAvailableTypologies(req: Request, res: Response): Promise<void> {
+    try {
+      // This assumes you have a way to get unique apartment types
+      // Option 1: If apartments_list is stored as comma-separated
+      const projects = await db("projects")
+        .whereNull("deleted_at")
+        .whereNotNull("apartments_list")
+        .select("apartments_list");
+
+      const typologiesSet = new Set<string>();
+
+      projects.forEach((project: any) => {
+        if (project.apartments_list) {
+          const types = project.apartments_list.split(",");
+          types.forEach((type: string) => {
+            typologiesSet.add(type.trim());
+          });
+        }
+      });
+
+      const typologies = Array.from(typologiesSet).sort();
+
+      ApiResponse.success(
+        res,
+        { typologies },
+        "Available typologies retrieved successfully"
+      );
+    } catch (error) {
+      console.error("Error in getAvailableTypologies:", error);
+      ApiResponse.error(res, "Failed to retrieve typologies", 500);
+    }
+  }
+
+  /**
+   * Gets available locations across all projects
+   * Useful for filter dropdowns
+   *
+   * @route GET /api/projects/locations
+   * @access Public
+   *
+   * @example
+   * GET /api/projects/locations
+   */
+  async getAvailableLocations(req: Request, res: Response): Promise<void> {
+    try {
+      // Get unique locations from projects
+      const locations = await db("projects")
+        .whereNull("deleted_at")
+        .distinct("address")
+        .select("address")
+        .orderBy("address", "asc");
+
+      // Extract city/location names from addresses
+      const locationNames = locations
+        .map((loc: any) => {
+          // Extract location from address (basic parsing)
+          const parts = loc.address.split(",");
+          return parts[parts.length - 1]?.trim();
+        })
+        .filter((loc: string) => loc)
+        .filter(
+          (loc: string, index: number, self: string[]) =>
+            self.indexOf(loc) === index
+        )
+        .sort();
+
+      ApiResponse.success(
+        res,
+        { locations: locationNames },
+        "Available locations retrieved successfully"
+      );
+    } catch (error) {
+      console.error("Error in getAvailableLocations:", error);
+      ApiResponse.error(res, "Failed to retrieve locations", 500);
+    }
+  }
 }
 
 export default new ProjectController();

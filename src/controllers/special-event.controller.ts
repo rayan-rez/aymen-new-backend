@@ -414,6 +414,120 @@ class SpecialEventController {
       ApiResponse.error(res, "Erreur lors de l'enregistrement", 500);
     }
   };
+
+  /**
+   * Registers user for on-site event (JPO/Open House)
+   * Simplified registration with source tracking
+   *
+   * @route POST /api/events/onsite-register
+   * @access Public
+   *
+   * @example
+   * POST /api/events/onsite-register
+   * {
+   *   "name": "John Doe",
+   *   "email": "john@example.com",
+   *   "phone": "+213555123456",
+   *   "source": "Facebook",
+   *   "other_source": "Friend referral"
+   * }
+   */
+  registerOnsite = async (req: Request, res: Response): Promise<void> => {
+    let { name, email, phone, source, other_source } = req.body;
+
+    try {
+      // If user selected "Autre" (Other), use other_source value
+      if (source === "Autre" && other_source) {
+        source = other_source;
+      }
+
+      // Validate that at least one field is provided
+      if (!name && !email && !phone && !source) {
+        ApiResponse.badRequest(
+          res,
+          "Au moins un champ doit être rempli (nom, email, téléphone ou source)"
+        );
+        return;
+      }
+
+      // Validate email if provided
+      if (email && !validateEmail(email)) {
+        ApiResponse.badRequest(res, "Format d'email invalide");
+        return;
+      }
+
+      // Create simplified registration
+      const registration = await EventRegistrationModel.create({
+        firstName: name || "Anonymous",
+        lastName: "Visitor",
+        email: email ? email.toLowerCase() : null,
+        phone: phone || null,
+        eventType: EventType.OPEN_HOUSE,
+        eventDate: new Date(),
+        acceptedTerms: true,
+      });
+
+      // Track lead source if email provided
+      if (email && source) {
+        LeadSourceModel.create({
+          leadEmail: email.toLowerCase(),
+          leadType: LeadType.EVENT_REGISTRATION,
+          leadReferenceId: registration.id,
+          utmSource: source,
+          sourceIp: req.ip || null,
+          userAgent: req.get("user-agent") || null,
+        }).catch((err) => console.error("Error tracking lead:", err));
+      }
+
+      ApiResponse.created(
+        res,
+        {
+          id: registration.id,
+          name,
+          source,
+        },
+        "Inscription réussie"
+      );
+    } catch (error) {
+      console.error("Error in registerOnsite:", error);
+      ApiResponse.error(res, "Erreur lors de l'enregistrement", 500);
+    }
+  };
+
+  /**
+   * Gets all on-site registrations
+   *
+   * @route GET /api/events/onsite-registrations
+   * @access Private (Admin)
+   *
+   * @example
+   * GET /api/events/onsite-registrations?page=1&limit=50
+   */
+  getAllOnsiteRegistrations = async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
+    const { page = 1, limit = 50 } = req.query;
+
+    try {
+      const registrations = await EventRegistrationModel.findAll({
+        eventType: EventType.OPEN_HOUSE,
+        page: Number(page),
+        limit: Number(limit),
+        sortBy: "created_at",
+        sortOrder: "desc",
+      });
+
+      ApiResponse.success(
+        res,
+        registrations,
+        "Inscriptions récupérées avec succès"
+      );
+    } catch (error) {
+      console.error("Error in getAllOnsiteRegistrations:", error);
+      ApiResponse.error(res, "Erreur lors de la récupération", 500);
+    }
+  };
 }
 
 export default new SpecialEventController();
