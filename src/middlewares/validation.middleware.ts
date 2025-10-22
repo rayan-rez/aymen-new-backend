@@ -27,14 +27,18 @@ export const validateContactForm = (
   res: Response,
   next: NextFunction
 ): void => {
-  const { name, email, phone, message } = req.body;
+  const { firstName, lastName, email, phone, message } = req.body;
 
   // Initialize errors object
   const errors: Record<string, string> = {};
 
   // Validate name
-  if (!validateStringLength(name, 2, 100)) {
-    errors.name = "Name must be between 2 and 100 characters";
+  if (!validateStringLength(firstName, 2, 100)) {
+    errors.firstName = "First name must be between 2 and 100 characters";
+  }
+
+  if (!validateStringLength(lastName, 2, 100)) {
+    errors.lastName = "First name must be between 2 and 100 characters";
   }
 
   // Validate email
@@ -77,11 +81,15 @@ export const sanitizeContactForm = (
   res: Response,
   next: NextFunction
 ): void => {
-  const { name, email, phone, message } = req.body;
+  const { firstName, lastName, email, phone, message } = req.body;
 
   // Sanitize string fields
-  if (name) {
-    req.body.name = sanitizeString(name);
+  if (firstName) {
+    req.body.firstName = sanitizeString(firstName);
+  }
+
+  if (lastName) {
+    req.body.lastName = sanitizeString(lastName);
   }
 
   if (email) {

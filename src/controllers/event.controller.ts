@@ -704,7 +704,7 @@ class EventsController {
    * @access Public
    */
   registerNetworking = async (req: Request, res: Response): Promise<void> => {
-    const { identite, profession, accompagne, nom_partenaire, soiree_du } =
+    const { identite, profession, soiree_du } =
       req.body;
 
     if (!identite || !profession) {
@@ -792,93 +792,6 @@ class EventsController {
       },
       "Inscription réussie"
     );
-  };
-
-  /**
-   * @route POST /api/events/special/children
-   * @desc Register child for activity
-   * @access Public
-   */
-  registerChildActivity = async (
-    req: Request,
-    res: Response
-  ): Promise<void> => {
-    const { nom_enfant, email, telephone, responsabilite_parent, droit_image } =
-      req.body;
-
-    try {
-      if (!nom_enfant || !email || !telephone) {
-        ApiResponse.badRequest(
-          res,
-          "Le nom de l'enfant, l'email et le téléphone sont requis"
-        );
-        return;
-      }
-
-      if (responsabilite_parent === undefined || !responsabilite_parent) {
-        ApiResponse.badRequest(
-          res,
-          "La responsabilité parentale doit être acceptée"
-        );
-        return;
-      }
-
-      if (droit_image === undefined) {
-        ApiResponse.badRequest(
-          res,
-          "Le consentement pour le droit à l'image doit être fourni"
-        );
-        return;
-      }
-
-      if (!validateEmail(email)) {
-        ApiResponse.badRequest(res, "Format d'email invalide");
-        return;
-      }
-
-      if (!validatePhone(telephone)) {
-        ApiResponse.badRequest(res, "Format de téléphone invalide");
-        return;
-      }
-
-      const existing = await db("activite_enfant")
-        .where({
-          email: email.toLowerCase(),
-          nom_enfant: nom_enfant.trim(),
-        })
-        .first();
-
-      if (existing) {
-        ApiResponse.conflict(
-          res,
-          "Cet enfant est déjà inscrit pour cette activité"
-        );
-        return;
-      }
-
-      const [id] = await db("activite_enfant").insert({
-        nom_enfant: nom_enfant.trim(),
-        email: email.toLowerCase(),
-        telephone: telephone.trim(),
-        responsabilite_parent: responsabilite_parent ? 1 : 0,
-        droit_image: droit_image ? 1 : 0,
-        created_at: db.fn.now(),
-      });
-
-      ApiResponse.created(
-        res,
-        {
-          id,
-          childName: nom_enfant.trim(),
-          email: email.toLowerCase(),
-          photoConsent: Boolean(droit_image),
-        },
-        "Inscription enregistrée avec succès"
-      );
-    } catch (error) {
-      console.error("Error in registerChildActivity:", error);
-      ApiResponse.error(res, "Erreur lors de l'enregistrement", 500);
-    }
   };
 
   // ============================================

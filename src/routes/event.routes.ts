@@ -35,7 +35,6 @@ router.get("/slots/bookings", eventController.getUserSlots);
 router.post("/special/inauguration", eventController.registerInauguration);
 router.post("/special/networking", eventController.registerNetworking);
 router.post("/special/onsite", eventController.registerOnsite);
-router.post("/special/children", eventController.registerChildActivity);
 
 // ============================================
 // FEEDBACK

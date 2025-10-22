@@ -83,9 +83,6 @@ router.use("/social-media", socialMediaRoutes);
  * POST   /api/forms/contact/popup
  * POST   /api/forms/children/register
  * GET    /api/forms/children/registrations
- * POST   /api/forms/batimatec/inquiry
- * POST   /api/forms/batimatec/feedback
- * POST   /api/forms/batimatec/interest
  * POST   /api/forms/kiosk/feedback
  * GET    /api/forms/kiosk/feedback
  * GET    /api/forms/contacts

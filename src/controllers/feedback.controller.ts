@@ -146,7 +146,6 @@ class FeedbackController {
 
   /**
    * Submit trade show feedback
-   * Specialized feedback for exhibition events (Batimatec, etc.)
    * Includes company and event satisfaction ratings
    *
    * @route POST /api/feedback/trade-show
@@ -165,7 +164,6 @@ class FeedbackController {
       suggestions,
       language = FeedbackLanguage.FR,
       tradeShowName,
-      tradeShowDate,
     } = req.body;
 
     // Validate required fields

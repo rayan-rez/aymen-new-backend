@@ -1,4 +1,4 @@
-// knexfile.js (rename from knexfile.ts)
+// knexfile.js
 const dotenv = require("dotenv");
 const path = require("path");
 
