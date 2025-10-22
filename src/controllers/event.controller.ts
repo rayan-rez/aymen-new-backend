@@ -1,9 +1,13 @@
 /**
- * Event Management Controller
- * Consolidated controller for all event-related operations
- * Handles: Events, Check-ins, Special Events, User Slots
+ * Events Controller (Unified)
+ * Consolidates all event-related operations:
+ * - Event registration
+ * - Check-in/Check-out management
+ * - Time slot booking
+ * - Special events (inaugurations, networking, etc.)
+ * - Attendance tracking and statistics
  *
- * @module controllers/event-management.controller
+ * @module controllers/events.controller
  */
 
 import { Request, Response } from "express";
@@ -15,23 +19,15 @@ import {
 } from "@models";
 import { ApiResponse } from "@utils/response.util";
 import { validateEmail, validatePhone } from "@utils/validators.util";
+import { EVENT_CONFIG } from "@/constants/app.constants";
 
-// Configuration constants
-const MIN_SCAN_INTERVAL_SECONDS = parseInt(
-  process.env.MIN_SCAN_INTERVAL_SECONDS || "5",
-  10
-);
-const SLOT_LIMITS = {
-  default: parseInt(process.env.SLOT_LIMIT_DEFAULT || "50", 10),
-  vip: parseInt(process.env.SLOT_LIMIT_VIP || "30", 10),
-  workshop: parseInt(process.env.SLOT_LIMIT_WORKSHOP || "25", 10),
-};
+const { MIN_SCAN_INTERVAL_SECONDS, SLOT_LIMITS, DEFAULT_TIME_SLOTS } = EVENT_CONFIG;
 
 /**
- * Event Management Controller
- * Centralized event operations
+ * Unified Events Controller
+ * Manages all event-related operations in one place
  */
-class EventManagementController {
+class EventsController {
   // ============================================
   // REGISTRATION
   // ============================================
@@ -39,8 +35,9 @@ class EventManagementController {
   /**
    * Register for an event
    * @route POST /api/events/register
+   * @access Public
    */
-  registerForEvent = async (req: Request, res: Response): Promise<void> => {
+  register = async (req: Request, res: Response): Promise<void> => {
     const {
       firstName,
       lastName,
@@ -58,7 +55,6 @@ class EventManagementController {
       sourcePage,
     } = req.body;
 
-    // Validate required fields
     if (!firstName || !lastName || !eventType || !eventDate) {
       ApiResponse.badRequest(
         res,
@@ -101,7 +97,6 @@ class EventManagementController {
       }
     }
 
-    // Create registration
     const registration = await EventRegistrationModel.create({
       firstName,
       lastName,
@@ -150,6 +145,7 @@ class EventManagementController {
   /**
    * Get all registrations with filtering
    * @route GET /api/events/registrations
+   * @access Private (Admin)
    */
   getAllRegistrations = async (req: Request, res: Response): Promise<void> => {
     const {
@@ -185,6 +181,24 @@ class EventManagementController {
     );
   };
 
+  /**
+   * Get registration by ID
+   * @route GET /api/events/registrations/:id
+   * @access Private (Admin)
+   */
+  getRegistrationById = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+
+    const registration = await EventRegistrationModel.findById(Number(id));
+
+    if (!registration) {
+      ApiResponse.notFound(res, "Registration not found");
+      return;
+    }
+
+    ApiResponse.success(res, registration, "Registration retrieved successfully");
+  };
+
   // ============================================
   // CHECK-IN/CHECK-OUT
   // ============================================
@@ -192,8 +206,9 @@ class EventManagementController {
   /**
    * Process check-in or check-out
    * @route POST /api/events/check-in
+   * @access Public
    */
-  processCheckIn = async (req: Request, res: Response): Promise<void> => {
+  checkIn = async (req: Request, res: Response): Promise<void> => {
     const { firstName, lastName } = req.body;
 
     if (!firstName || !lastName) {
@@ -202,7 +217,6 @@ class EventManagementController {
     }
 
     try {
-      // Find user's most recent registration
       const registrations = await EventRegistrationModel.findAll({
         sortBy: "created_at",
         sortOrder: "desc",
@@ -303,8 +317,55 @@ class EventManagementController {
   };
 
   /**
+   * Manual check-in (admin function)
+   * @route POST /api/events/check-in/manual/:id
+   * @access Private (Admin)
+   */
+  manualCheckIn = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+
+    try {
+      const success = await EventRegistrationModel.checkIn(Number(id));
+
+      if (!success) {
+        ApiResponse.notFound(res, "Registration not found");
+        return;
+      }
+
+      ApiResponse.success(res, null, "Manual check-in successful");
+    } catch (error) {
+      console.error("Error in manual check-in:", error);
+      ApiResponse.error(res, "Failed to check in", 500);
+    }
+  };
+
+  /**
+   * Manual check-out (admin function)
+   * @route POST /api/events/check-out/manual/:id
+   * @access Private (Admin)
+   */
+  manualCheckOut = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+
+    try {
+      const success = await EventRegistrationModel.checkOut(Number(id));
+
+      if (!success) {
+        ApiResponse.notFound(res, "Registration not found or not checked in");
+        return;
+      }
+
+      ApiResponse.success(res, null, "Manual check-out successful");
+    } catch (error) {
+      console.error("Error in manual check-out:", error);
+      ApiResponse.error(res, "Failed to check out", 500);
+    }
+  };
+
+  /**
    * Get today's check-ins
    * @route GET /api/events/check-ins/today
+   * @access Private (Admin)
    */
   getTodayCheckIns = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -360,8 +421,9 @@ class EventManagementController {
   /**
    * Book a time slot
    * @route POST /api/events/slots/book
+   * @access Public
    */
-  bookTimeSlot = async (req: Request, res: Response): Promise<void> => {
+  bookSlot = async (req: Request, res: Response): Promise<void> => {
     const { email, eventDate, timeSlot } = req.body;
 
     if (!email || !eventDate || !timeSlot) {
@@ -408,7 +470,7 @@ class EventManagementController {
         reg.selectedTimeSlots?.includes(timeSlot)
       ).length;
 
-      const maxCapacity = SLOT_LIMITS.default;
+      const maxCapacity = SLOT_LIMITS.DEFAULT;
       if (slotCount >= maxCapacity) {
         ApiResponse.badRequest(
           res,
@@ -417,7 +479,6 @@ class EventManagementController {
         return;
       }
 
-      // Update registration with time slot
       const registration = existingRegistrations[0];
       const currentSlots = registration.selectedTimeSlots || [];
       const updatedSlots = [...currentSlots, timeSlot];
@@ -447,37 +508,80 @@ class EventManagementController {
   };
 
   /**
+   * Cancel a time slot booking
+   * @route DELETE /api/events/slots/cancel
+   * @access Public
+   */
+  cancelSlot = async (req: Request, res: Response): Promise<void> => {
+    const { email, eventDate, timeSlot } = req.body;
+
+    if (!email || !eventDate || !timeSlot) {
+      ApiResponse.badRequest(
+        res,
+        "Email, event date, and time slot are required"
+      );
+      return;
+    }
+
+    try {
+      const registrations = await EventRegistrationModel.findAll({
+        email: email.toLowerCase(),
+        eventDate: new Date(eventDate),
+      });
+
+      if (registrations.length === 0) {
+        ApiResponse.notFound(res, "Registration not found");
+        return;
+      }
+
+      const registration = registrations[0];
+      const currentSlots = registration.selectedTimeSlots || [];
+
+      if (!currentSlots.includes(timeSlot)) {
+        ApiResponse.notFound(res, "Time slot booking not found");
+        return;
+      }
+
+      const updatedSlots = currentSlots.filter((slot) => slot !== timeSlot);
+
+      const updated = await EventRegistrationModel.update(registration.id, {
+        selectedTimeSlots: updatedSlots.length > 0 ? updatedSlots : null,
+      });
+
+      if (!updated) {
+        ApiResponse.error(res, "Failed to cancel time slot", 500);
+        return;
+      }
+
+      ApiResponse.success(res, null, "Time slot cancelled successfully");
+    } catch (error) {
+      console.error("Error cancelling time slot:", error);
+      ApiResponse.error(res, "Failed to cancel time slot", 500);
+    }
+  };
+
+  /**
    * Get available slots for a date
    * @route GET /api/events/slots/available/:date
+   * @access Public
    */
   getAvailableSlots = async (req: Request, res: Response): Promise<void> => {
     const { date } = req.params;
 
     try {
-      const allTimeSlots = process.env.EVENT_TIME_SLOTS?.split(",") || [
-        "09:00",
-        "10:00",
-        "11:00",
-        "12:00",
-        "14:00",
-        "15:00",
-        "16:00",
-        "17:00",
-      ];
-
       const registrations = await EventRegistrationModel.findAll({
         eventDate: new Date(date),
       });
 
       const slotCounts: Record<string, number> = {};
-      allTimeSlots.forEach((slot) => {
+      DEFAULT_TIME_SLOTS.forEach((slot) => {
         slotCounts[slot] = registrations.filter((reg) =>
           reg.selectedTimeSlots?.includes(slot)
         ).length;
       });
 
-      const maxCapacity = SLOT_LIMITS.default;
-      const availableSlots = allTimeSlots.map((slot) => ({
+      const maxCapacity = SLOT_LIMITS.DEFAULT;
+      const availableSlots = DEFAULT_TIME_SLOTS.map((slot) => ({
         time: slot,
         available: maxCapacity - slotCounts[slot],
         capacity: maxCapacity,
@@ -495,15 +599,221 @@ class EventManagementController {
     }
   };
 
+  /**
+   * Get user's booked slots
+   * @route GET /api/events/slots/my-bookings
+   * @access Public
+   */
+  getMySlots = async (req: Request, res: Response): Promise<void> => {
+    const { email } = req.query;
+
+    if (!email || typeof email !== "string") {
+      ApiResponse.badRequest(res, "Email is required");
+      return;
+    }
+
+    try {
+      const registrations = await EventRegistrationModel.findAll({
+        email: email.toLowerCase(),
+      });
+
+      const bookedSlots = registrations
+        .filter(
+          (reg) => reg.selectedTimeSlots && reg.selectedTimeSlots.length > 0
+        )
+        .map((reg) => ({
+          eventId: reg.id,
+          eventType: reg.eventType,
+          eventDate: reg.eventDate,
+          timeSlots: reg.selectedTimeSlots,
+          status: reg.checkedInAt ? "checked-in" : "pending",
+        }));
+
+      ApiResponse.success(
+        res,
+        bookedSlots,
+        "Your booked slots retrieved successfully"
+      );
+    } catch (error) {
+      console.error("Error getting user slots:", error);
+      ApiResponse.error(res, "Failed to retrieve booked slots", 500);
+    }
+  };
+
+  // ============================================
+  // SPECIAL EVENTS
+  // ============================================
+
+  /**
+   * Register for inauguration event
+   * @route POST /api/events/special/inauguration
+   * @access Public
+   */
+  registerInauguration = async (req: Request, res: Response): Promise<void> => {
+    const { nom, prenom, email, telephone, accept_cgu, accept_photo } = req.body;
+
+    if (!nom || !prenom || !telephone) {
+      ApiResponse.badRequest(res, "Nom, prénom et téléphone sont requis");
+      return;
+    }
+
+    if (!accept_cgu) {
+      ApiResponse.badRequest(
+        res,
+        "Vous devez accepter les conditions générales"
+      );
+      return;
+    }
+
+    if (email && !validateEmail(email)) {
+      ApiResponse.badRequest(res, "Format d'email invalide");
+      return;
+    }
+
+    if (!validatePhone(telephone)) {
+      ApiResponse.badRequest(res, "Format de téléphone invalide");
+      return;
+    }
+
+    if (email) {
+      const existing = await EventRegistrationModel.findAll({
+        email: email.toLowerCase(),
+        eventType: EventType.INAUGURATION,
+      });
+
+      if (existing.length > 0) {
+        ApiResponse.conflict(res, "Cet email est déjà enregistré");
+        return;
+      }
+    }
+
+    const registration = await EventRegistrationModel.create({
+      firstName: prenom,
+      lastName: nom,
+      email: email ? email.toLowerCase() : null,
+      phone: telephone,
+      eventType: EventType.INAUGURATION,
+      eventDate: new Date(),
+      acceptedTerms: Boolean(accept_cgu),
+      photoConsent: Boolean(accept_photo),
+    });
+
+    ApiResponse.created(
+      res,
+      {
+        id: registration.id,
+        firstName: registration.firstName,
+        lastName: registration.lastName,
+      },
+      "Invité enregistré avec succès"
+    );
+  };
+
+  /**
+   * Register for networking event
+   * @route POST /api/events/special/networking
+   * @access Public
+   */
+  registerNetworking = async (req: Request, res: Response): Promise<void> => {
+    const { identite, profession, accompagne, nom_partenaire, soiree_du } = req.body;
+
+    if (!identite || !profession) {
+      ApiResponse.badRequest(res, "Identité et profession sont requis");
+      return;
+    }
+
+    const nameParts = identite.trim().split(" ");
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(" ") || firstName;
+
+    const registration = await EventRegistrationModel.create({
+      firstName,
+      lastName,
+      eventType: EventType.NETWORKING,
+      eventDate: soiree_du ? new Date(soiree_du) : new Date(),
+      acceptedTerms: true,
+    });
+
+    ApiResponse.created(
+      res,
+      {
+        id: registration.id,
+        identite,
+        profession,
+      },
+      "Inscription enregistrée avec succès"
+    );
+  };
+
+  /**
+   * Submit on-site registration (JPO/Open House)
+   * @route POST /api/events/special/onsite
+   * @access Public
+   */
+  registerOnsite = async (req: Request, res: Response): Promise<void> => {
+    let { name, email, phone, source, other_source } = req.body;
+
+    if (source === "Autre" && other_source) {
+      source = other_source;
+    }
+
+    if (!name && !email && !phone && !source) {
+      ApiResponse.badRequest(res, "Au moins un champ doit être rempli");
+      return;
+    }
+
+    if (email && !validateEmail(email)) {
+      ApiResponse.badRequest(res, "Format d'email invalide");
+      return;
+    }
+
+    if (phone && !validatePhone(phone)) {
+      ApiResponse.badRequest(res, "Format de téléphone invalide");
+      return;
+    }
+
+    const registration = await EventRegistrationModel.create({
+      firstName: name || "Anonymous",
+      lastName: "Visitor",
+      email: email ? email.toLowerCase() : null,
+      phone: phone || null,
+      eventType: EventType.OPEN_HOUSE,
+      eventDate: new Date(),
+      acceptedTerms: true,
+    });
+
+    if (email && source) {
+      LeadSourceModel.create({
+        leadEmail: email.toLowerCase(),
+        leadType: LeadType.EVENT_REGISTRATION,
+        leadReferenceId: registration.id,
+        utmSource: source,
+        sourceIp: req.ip || null,
+        userAgent: req.get("user-agent") || null,
+      }).catch((err) => console.error("Error tracking lead:", err));
+    }
+
+    ApiResponse.created(
+      res,
+      {
+        id: registration.id,
+        name,
+        source,
+      },
+      "Inscription réussie"
+    );
+  };
+
   // ============================================
   // FEEDBACK
   // ============================================
 
   /**
    * Submit event feedback
-   * @route POST /api/events/:id/feedback
+   * @route POST /api/events/feedback/:id
+   * @access Public
    */
-  submitEventFeedback = async (req: Request, res: Response): Promise<void> => {
+  submitFeedback = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     const { satisfactionScore, recommendationScore, comments } = req.body;
 
@@ -548,8 +858,9 @@ class EventManagementController {
   // ============================================
 
   /**
-   * Assign salesperson
-   * @route PATCH /api/events/:id/assign
+   * Assign salesperson to registration
+   * @route PATCH /api/events/registrations/:id/assign
+   * @access Private (Admin/Sales Manager)
    */
   assignSalesperson = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
@@ -574,12 +885,10 @@ class EventManagementController {
 
   /**
    * Get attendance statistics
-   * @route GET /api/events/:eventType/:eventDate/stats
+   * @route GET /api/events/statistics/attendance/:eventType/:eventDate
+   * @access Private (Admin)
    */
-  getAttendanceStatistics = async (
-    req: Request,
-    res: Response
-  ): Promise<void> => {
+  getAttendanceStats = async (req: Request, res: Response): Promise<void> => {
     const { eventType, eventDate } = req.params;
 
     if (!Object.values(EventType).includes(eventType as EventType)) {
@@ -594,6 +903,61 @@ class EventManagementController {
 
     ApiResponse.success(res, stats, "Statistics retrieved successfully");
   };
+
+  /**
+   * Get check-in statistics
+   * @route GET /api/events/statistics/check-ins
+   * @access Private (Admin)
+   */
+  getCheckInStats = async (req: Request, res: Response): Promise<void> => {
+    const { dateFrom, dateTo } = req.query;
+
+    try {
+      const registrations = await EventRegistrationModel.findAll({
+        dateFrom: dateFrom ? new Date(dateFrom as string) : undefined,
+        dateTo: dateTo ? new Date(dateTo as string) : undefined,
+        hasCheckedIn: true,
+      });
+
+      const totalRegistrations = registrations.length;
+      const checkedOut = registrations.filter((reg) => reg.checkedOutAt).length;
+      const averageStayMinutes =
+        checkedOut > 0
+          ? Math.floor(
+              registrations
+                .filter((reg) => reg.checkedOutAt)
+                .reduce((sum, reg) => {
+                  const duration =
+                    new Date(reg.checkedOutAt!).getTime() -
+                    new Date(reg.checkedInAt!).getTime();
+                  return sum + duration;
+                }, 0) /
+                checkedOut /
+                60000
+            )
+          : 0;
+
+      const byDay: Record<string, number> = {};
+      registrations.forEach((reg) => {
+        const day = new Date(reg.checkedInAt!).toISOString().split("T")[0];
+        byDay[day] = (byDay[day] || 0) + 1;
+      });
+
+      ApiResponse.success(
+        res,
+        {
+          totalCheckIns: totalRegistrations,
+          completedVisits: checkedOut,
+          averageStayMinutes,
+          checkInsByDay: byDay,
+        },
+        "Statistics retrieved successfully"
+      );
+    } catch (error) {
+      console.error("Error getting statistics:", error);
+      ApiResponse.error(res, "Failed to retrieve statistics", 500);
+    }
+  };
 }
 
-export default new EventManagementController();
+export default new EventsController();
