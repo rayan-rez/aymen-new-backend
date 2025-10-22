@@ -1,19 +1,17 @@
 /**
- * Content Management Controller
- * Handles blog posts and media galleries
+ * Unified Content Controller
+ * Handles all content management: blog posts, media galleries, and assets
+ *
+ * REPLACES: blog.controller.ts, content.controller.ts (remove both)
  *
  * Routes:
- * - GET    /api/content/blog                    - Get all blog posts
- * - GET    /api/content/blog/:slug              - Get blog post by slug
- * - GET    /api/content/blog/published          - Get published posts
- * - GET    /api/content/blog/category/:category - Get posts by category
- * - GET    /api/content/blog/search             - Search blog posts
- *
- * - GET    /api/content/media/projects/:id      - Get project media
- * - GET    /api/content/media/apartments/:id    - Get apartment media
- * - GET    /api/content/media/commercial/:id    - Get commercial property media
- *
- * @module controllers/content.controller
+ * - GET    /api/content/blog                     - List blog posts
+ * - GET    /api/content/blog/:slug               - Get blog post by slug
+ * - GET    /api/content/blog/category/:category  - Posts by category
+ * - GET    /api/content/blog/tag/:tag            - Posts by tag
+ * - GET    /api/content/media/projects/:id       - Project media gallery
+ * - GET    /api/content/media/apartments/:id     - Apartment media gallery
+ * - GET    /api/content/media/commercial/:id     - Commercial property media
  */
 
 import { Request, Response } from "express";
@@ -27,10 +25,10 @@ class ContentController {
   // ============================================
 
   /**
-   * Get all blog posts with filtering
+   * List all blog posts with filters
    * @route GET /api/content/blog
    */
-  getAllPosts = async (req: Request, res: Response): Promise<void> => {
+  listBlogPosts = async (req: Request, res: Response): Promise<void> => {
     const { page, limit, category, tag, isPublished = true } = req.query;
 
     const posts = await BlogPostModel.findAll({
@@ -45,10 +43,10 @@ class ContentController {
   };
 
   /**
-   * Get blog post by slug
+   * Get single blog post with content
    * @route GET /api/content/blog/:slug
    */
-  getPostBySlug = async (req: Request, res: Response): Promise<void> => {
+  getBlogPost = async (req: Request, res: Response): Promise<void> => {
     const { slug } = req.params;
 
     const post = await BlogPostModel.findBySlug(slug);
@@ -65,34 +63,33 @@ class ContentController {
   };
 
   /**
-   * Get published posts
-   * @route GET /api/content/blog/published
-   */
-  getPublishedPosts = async (req: Request, res: Response): Promise<void> => {
-    const { limit = 10 } = req.query;
-    const posts = await BlogPostModel.getPublished(Number(limit));
-    ApiResponse.success(res, posts, "Published posts retrieved successfully");
-  };
-
-  /**
    * Get posts by category
    * @route GET /api/content/blog/category/:category
    */
-  getPostsByCategory = async (req: Request, res: Response): Promise<void> => {
+  getBlogPostsByCategory = async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
     const { category } = req.params;
     const posts = await BlogPostModel.getByCategory(category);
-    ApiResponse.success(
-      res,
-      posts,
-      `Posts in category '${category}' retrieved successfully`
-    );
+    ApiResponse.success(res, posts, `Posts in category retrieved successfully`);
+  };
+
+  /**
+   * Get posts by tag
+   * @route GET /api/content/blog/tag/:tag
+   */
+  getBlogPostsByTag = async (req: Request, res: Response): Promise<void> => {
+    const { tag } = req.params;
+    const posts = await BlogPostModel.getByTag(tag);
+    ApiResponse.success(res, posts, `Posts with tag retrieved successfully`);
   };
 
   /**
    * Search blog posts
    * @route GET /api/content/blog/search
    */
-  searchPosts = async (req: Request, res: Response): Promise<void> => {
+  searchBlogPosts = async (req: Request, res: Response): Promise<void> => {
     const { q } = req.query;
 
     if (!q || typeof q !== "string") {
@@ -101,11 +98,7 @@ class ContentController {
     }
 
     const posts = await BlogPostModel.search(q);
-    ApiResponse.success(
-      res,
-      posts,
-      `Found ${posts.length} posts matching '${q}'`
-    );
+    ApiResponse.success(res, posts, `Found ${posts.length} posts`);
   };
 
   // ============================================
@@ -113,7 +106,7 @@ class ContentController {
   // ============================================
 
   /**
-   * Get all media for a project
+   * Get project media (photos, floor plans, virtual tours)
    * @route GET /api/content/media/projects/:id
    */
   getProjectMedia = async (req: Request, res: Response): Promise<void> => {
@@ -142,7 +135,7 @@ class ContentController {
   };
 
   /**
-   * Get all media for an apartment
+   * Get apartment media (photos, floor plans)
    * @route GET /api/content/media/apartments/:id
    */
   getApartmentMedia = async (req: Request, res: Response): Promise<void> => {
@@ -170,7 +163,7 @@ class ContentController {
   };
 
   /**
-   * Get all media for a commercial property
+   * Get commercial property media
    * @route GET /api/content/media/commercial/:id
    */
   getCommercialMedia = async (req: Request, res: Response): Promise<void> => {
