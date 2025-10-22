@@ -46,7 +46,7 @@ const startServer = (): void => {
       );
       console.log(`║ 🌍 Environment: ${NODE_ENV.padEnd(43)}║`);
       console.log(
-        `║ 💚 Health:     http://localhost:${PORT}/health${" ".repeat(16)}║`
+        `║ 💚 Health:      http://localhost:${PORT}/health${" ".repeat(15)}║`
       );
       console.log(
         "╚════════════════════════════════════════════════════════════╝\n"
