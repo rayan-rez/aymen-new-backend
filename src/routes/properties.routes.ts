@@ -2,7 +2,7 @@
 // src/routes/properties.routes.ts
 // ============================================
 import { Router } from "express";
-import propertyController from "@/controllers/property.controller";
+import propertyController from "@controllers/property.controller";
 
 const router = Router();
 

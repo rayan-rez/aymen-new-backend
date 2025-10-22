@@ -2,7 +2,7 @@
 // src/routes/media.routes.ts
 // ============================================
 import { Router } from "express";
-import mediaController from "@/controllers/media.controller";
+import mediaController from "@controllers/media.controller";
 
 const router = Router();
 

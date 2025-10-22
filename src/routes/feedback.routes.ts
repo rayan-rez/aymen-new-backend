@@ -2,7 +2,7 @@
 // src/routes/feedback.routes.ts
 // ============================================
 import { Router } from "express";
-import feedbackController from "@/controllers/feedback.controller";
+import feedbackController from "@controllers/feedback.controller";
 
 const router = Router();
 

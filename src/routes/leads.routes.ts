@@ -2,7 +2,7 @@
 // src/routes/leads.routes.ts
 // ============================================
 import { Router } from "express";
-import leadsController from "@/controllers/lead.controller";
+import leadsController from "@controllers/lead.controller";
 
 const router = Router();
 

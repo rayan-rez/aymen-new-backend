@@ -2,11 +2,11 @@
 // src/routes/forms.routes.ts
 // ============================================
 import { Router } from "express";
-import formsController from "@/controllers/form.controller";
+import formsController from "@controllers/form.controller";
 import {
   validateContactForm,
   sanitizeContactForm,
-} from "@/middlewares/validation.middleware";
+} from "@middlewares/validation.middleware";
 
 const router = Router();
 
