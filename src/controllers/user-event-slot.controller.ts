@@ -14,16 +14,13 @@ import {
   LeadType,
 } from "@models";
 import { ApiResponse } from "@utils/response.util";
+import { EVENT_CONFIG } from "@/constants/app.constants";
 
 /**
  * Configuration for slot limits
  * Maximum participants per time slot
  */
-const SLOT_LIMITS = {
-  default: 50,
-  vip: 30,
-  workshop: 25,
-};
+const { SLOT_LIMITS, DEFAULT_TIME_SLOTS } = EVENT_CONFIG;
 
 /**
  * User Event Slot Controller class
@@ -96,7 +93,7 @@ class UserEventSlotController {
       ).length;
 
       // Check capacity (default to 50 participants per slot)
-      const maxCapacity = SLOT_LIMITS.default;
+      const maxCapacity = SLOT_LIMITS.DEFAULT;
       if (slotCount >= maxCapacity) {
         ApiResponse.badRequest(
           res,
@@ -149,17 +146,6 @@ class UserEventSlotController {
     const { date } = req.params;
 
     try {
-      // Define available time slots
-      const allTimeSlots = [
-        "09:00",
-        "10:00",
-        "11:00",
-        "12:00",
-        "14:00",
-        "15:00",
-        "16:00",
-        "17:00",
-      ];
 
       // Get all registrations for this date
       const registrations = await EventRegistrationModel.findAll({
@@ -168,15 +154,15 @@ class UserEventSlotController {
 
       // Count participants per slot
       const slotCounts: Record<string, number> = {};
-      allTimeSlots.forEach((slot) => {
+      DEFAULT_TIME_SLOTS.forEach((slot) => {
         slotCounts[slot] = registrations.filter((reg) =>
           reg.selectedTimeSlots?.includes(slot)
         ).length;
       });
 
       // Build available slots list
-      const maxCapacity = SLOT_LIMITS.default;
-      const availableSlots = allTimeSlots.map((slot) => ({
+      const maxCapacity = SLOT_LIMITS.DEFAULT;
+      const availableSlots = DEFAULT_TIME_SLOTS.map((slot) => ({
         time: slot,
         available: maxCapacity - slotCounts[slot],
         capacity: maxCapacity,

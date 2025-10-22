@@ -236,15 +236,6 @@ class SpecialEventController {
       email,
       telephone,
       pays,
-      budget_estime,
-      wilaya,
-      profession,
-      type_financement,
-      interesse_par,
-      localisation_souhaitee,
-      jour_contact,
-      heure_contact,
-      statut_projet,
       acceptation_regles,
       source_url,
     } = req.body;
@@ -331,10 +322,7 @@ class SpecialEventController {
 
       // Validate that at least one field is provided
       if (!name && !email && !phone && !source) {
-        ApiResponse.badRequest(
-          res,
-          "Au moins un champ doit être rempli"
-        );
+        ApiResponse.badRequest(res, "Au moins un champ doit être rempli");
         return;
       }
 
