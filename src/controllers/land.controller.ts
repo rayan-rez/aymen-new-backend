@@ -1,7 +1,6 @@
 /**
  * Land Submission Controller
- * Handles land/terrain acquisition submissions
- * Manages property owner submissions and evaluation workflow
+ * Manages land/terrain acquisition submissions and evaluation workflow
  *
  * @module controllers/land.controller
  */
@@ -10,38 +9,12 @@ import { Request, Response } from "express";
 import { LandSubmissionModel, LandSubmissionStatus } from "@models";
 import { ApiResponse } from "@utils/response.util";
 
-/**
- * Land Controller class
- * Manages land acquisition submissions and evaluations
- */
 class LandController {
   /**
-   * Submit a land property
-   * Property owners can submit their land for acquisition
-   *
-   * @route POST /api/land/submit
+   * @route POST /api/land/submissions
    * @access Public
-   *
-   * @example
-   * POST /api/land/submit
-   * {
-   *   "ownerName": "Ahmed Ben Ali",
-   *   "email": "ahmed@example.com",
-   *   "phone": "+213555123456",
-   *   "address": "123 Main Street, Annaba",
-   *   "city": "Annaba",
-   *   "stateProvince": "Annaba",
-   *   "areaSqm": 500,
-   *   "facadeCount": 2,
-   *   "hasBuildingPermit": true,
-   *   "hasLandTitle": true,
-   *   "hasPropertyDeed": true,
-   *   "hasCadastralPlan": false,
-   *   "hasUrbanPlanningCertificate": false,
-   *   "hasFeridaCertificate": false
-   * }
    */
-  submitLand = async (req: Request, res: Response): Promise<void> => {
+  create = async (req: Request, res: Response): Promise<void> => {
     const {
       ownerName,
       email,
@@ -59,7 +32,6 @@ class LandController {
       hasFeridaCertificate,
     } = req.body;
 
-    // Validate required fields
     if (!ownerName || !phone || !address) {
       ApiResponse.badRequest(
         res,
@@ -68,7 +40,6 @@ class LandController {
       return;
     }
 
-    // Create land submission
     const submission = await LandSubmissionModel.create({
       ownerName,
       email: email ? email.toLowerCase() : null,
@@ -99,21 +70,10 @@ class LandController {
   };
 
   /**
-   * Get all land submissions with filtering
-   *
    * @route GET /api/land/submissions
    * @access Private (Admin/Evaluator)
-   *
-   * @query status - Filter by status
-   * @query city - Filter by city
-   * @query assignedEvaluator - Filter by evaluator
-   * @query hasAllDocuments - Filter by document completeness
-   * @query minArea - Minimum area filter
-   * @query maxArea - Maximum area filter
-   * @query page - Page number
-   * @query limit - Items per page
    */
-  getAllSubmissions = async (req: Request, res: Response): Promise<void> => {
+  getAll = async (req: Request, res: Response): Promise<void> => {
     const {
       status,
       city,
@@ -152,32 +112,10 @@ class LandController {
   };
 
   /**
-   * Get new submissions (submitted status)
-   *
-   * @route GET /api/land/submissions/new
-   * @access Private (Admin/Evaluator)
-   *
-   * @query limit - Maximum number of submissions
-   */
-  getNewSubmissions = async (req: Request, res: Response): Promise<void> => {
-    const { limit = 20 } = req.query;
-
-    const submissions = await LandSubmissionModel.getNew(Number(limit));
-
-    ApiResponse.success(
-      res,
-      submissions,
-      "New submissions retrieved successfully"
-    );
-  };
-
-  /**
-   * Get submission by ID
-   *
    * @route GET /api/land/submissions/:id
    * @access Private (Admin/Evaluator)
    */
-  getSubmissionById = async (req: Request, res: Response): Promise<void> => {
+  getOne = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
 
     const submission = await LandSubmissionModel.findById(Number(id));
@@ -191,184 +129,98 @@ class LandController {
   };
 
   /**
-   * Get submissions by city
-   *
-   * @route GET /api/land/submissions/city/:city
+   * @route PATCH /api/land/submissions/:id
    * @access Private (Admin/Evaluator)
    */
-  getSubmissionsByCity = async (req: Request, res: Response): Promise<void> => {
-    const { city } = req.params;
+  update = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const {
+      status,
+      evaluator,
+      estimatedValue,
+      evaluationDate,
+      notes,
+    } = req.body;
 
-    const submissions = await LandSubmissionModel.getByCity(city);
+    try {
+      if (status && !Object.values(LandSubmissionStatus).includes(status)) {
+        ApiResponse.badRequest(res, "Invalid status");
+        return;
+      }
 
-    ApiResponse.success(res, submissions, "Submissions retrieved successfully");
+      let success = false;
+
+      if (status) {
+        success = await LandSubmissionModel.updateStatus(
+          Number(id),
+          status as LandSubmissionStatus
+        );
+      } else if (evaluator) {
+        success = await LandSubmissionModel.assign(Number(id), evaluator);
+      } else if (estimatedValue && evaluationDate) {
+        success = await LandSubmissionModel.setEvaluation(
+          Number(id),
+          Number(estimatedValue),
+          new Date(evaluationDate)
+        );
+      } else if (notes) {
+        success = await LandSubmissionModel.addNotes(Number(id), notes);
+      }
+
+      if (!success) {
+        ApiResponse.notFound(res, "Submission not found or update failed");
+        return;
+      }
+
+      ApiResponse.success(res, null, "Submission updated successfully");
+    } catch (error) {
+      console.error("Error in update:", error);
+      ApiResponse.error(res, "Failed to update submission", 500);
+    }
   };
 
   /**
-   * Get submissions with complete documentation
-   *
-   * @route GET /api/land/submissions/complete-documents
+   * @route GET /api/land/submissions/filter/status/:status
    * @access Private (Admin/Evaluator)
    */
-  getWithCompleteDocuments = async (
-    req: Request,
-    res: Response
-  ): Promise<void> => {
-    const submissions = await LandSubmissionModel.getWithCompleteDocuments();
+  getByFilter = async (req: Request, res: Response): Promise<void> => {
+    const { status } = req.params;
+    const { city, evaluator, limit } = req.query;
 
-    ApiResponse.success(
-      res,
-      submissions,
-      "Complete submissions retrieved successfully"
-    );
-  };
+    try {
+      let submissions;
 
-  /**
-   * Update submission status
-   *
-   * @route PATCH /api/land/submissions/:id/status
-   * @access Private (Admin/Evaluator)
-   *
-   * @body status - New status
-   */
-  updateSubmissionStatus = async (
-    req: Request,
-    res: Response
-  ): Promise<void> => {
-    const { id } = req.params;
-    const { status } = req.body;
+      if (status === "new") {
+        submissions = await LandSubmissionModel.getNew(
+          limit ? Number(limit) : 20
+        );
+      } else if (status === "complete-docs") {
+        submissions = await LandSubmissionModel.getWithCompleteDocuments();
+      } else if (city) {
+        submissions = await LandSubmissionModel.getByCity(city as string);
+      } else if (evaluator) {
+        submissions = await LandSubmissionModel.getAssigned(
+          evaluator as string
+        );
+      } else {
+        submissions = await LandSubmissionModel.findAll({
+          status: status as LandSubmissionStatus,
+          limit: limit ? Number(limit) : 50,
+        });
+      }
 
-    if (!status || !Object.values(LandSubmissionStatus).includes(status)) {
-      ApiResponse.badRequest(res, "Valid status is required");
-      return;
-    }
-
-    const updated = await LandSubmissionModel.updateStatus(
-      Number(id),
-      status as LandSubmissionStatus
-    );
-
-    if (!updated) {
-      ApiResponse.notFound(res, "Submission not found");
-      return;
-    }
-
-    ApiResponse.success(res, null, "Status updated successfully");
-  };
-
-  /**
-   * Assign evaluator to submission
-   *
-   * @route PATCH /api/land/submissions/:id/assign
-   * @access Private (Admin/Manager)
-   *
-   * @body evaluator - Evaluator name/ID
-   */
-  assignEvaluator = async (req: Request, res: Response): Promise<void> => {
-    const { id } = req.params;
-    const { evaluator } = req.body;
-
-    if (!evaluator) {
-      ApiResponse.badRequest(res, "Evaluator is required");
-      return;
-    }
-
-    const success = await LandSubmissionModel.assign(Number(id), evaluator);
-
-    if (!success) {
-      ApiResponse.notFound(res, "Submission not found");
-      return;
-    }
-
-    ApiResponse.success(res, null, "Evaluator assigned successfully");
-  };
-
-  /**
-   * Get evaluator's assigned submissions
-   *
-   * @route GET /api/land/submissions/assigned/:evaluator
-   * @access Private (Evaluator)
-   */
-  getAssignedSubmissions = async (
-    req: Request,
-    res: Response
-  ): Promise<void> => {
-    const { evaluator } = req.params;
-
-    const submissions = await LandSubmissionModel.getAssigned(evaluator);
-
-    ApiResponse.success(
-      res,
-      submissions,
-      "Assigned submissions retrieved successfully"
-    );
-  };
-
-  /**
-   * Set evaluation results
-   *
-   * @route POST /api/land/submissions/:id/evaluation
-   * @access Private (Evaluator)
-   *
-   * @body estimatedValue - Estimated property value
-   * @body evaluationDate - Date of evaluation
-   */
-  setEvaluation = async (req: Request, res: Response): Promise<void> => {
-    const { id } = req.params;
-    const { estimatedValue, evaluationDate } = req.body;
-
-    if (!estimatedValue || !evaluationDate) {
-      ApiResponse.badRequest(
+      ApiResponse.success(
         res,
-        "Estimated value and evaluation date are required"
+        submissions,
+        "Submissions retrieved successfully"
       );
-      return;
+    } catch (error) {
+      console.error("Error in getByFilter:", error);
+      ApiResponse.error(res, "Failed to retrieve submissions", 500);
     }
-
-    const success = await LandSubmissionModel.setEvaluation(
-      Number(id),
-      Number(estimatedValue),
-      new Date(evaluationDate)
-    );
-
-    if (!success) {
-      ApiResponse.notFound(res, "Submission not found");
-      return;
-    }
-
-    ApiResponse.success(res, null, "Evaluation completed successfully");
   };
 
   /**
-   * Add internal notes
-   *
-   * @route POST /api/land/submissions/:id/notes
-   * @access Private (Admin/Evaluator)
-   *
-   * @body notes - Notes to add
-   */
-  addNotes = async (req: Request, res: Response): Promise<void> => {
-    const { id } = req.params;
-    const { notes } = req.body;
-
-    if (!notes) {
-      ApiResponse.badRequest(res, "Notes are required");
-      return;
-    }
-
-    const success = await LandSubmissionModel.addNotes(Number(id), notes);
-
-    if (!success) {
-      ApiResponse.notFound(res, "Submission not found");
-      return;
-    }
-
-    ApiResponse.success(res, null, "Notes added successfully");
-  };
-
-  /**
-   * Get submission statistics
-   *
    * @route GET /api/land/statistics
    * @access Private (Admin/Manager)
    */

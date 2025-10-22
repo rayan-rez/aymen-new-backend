@@ -1,6 +1,6 @@
 /**
  * Location Controller
- * Handles location hierarchy and geographical data
+ * Manages location hierarchy and geographical data
  *
  * @module controllers/location.controller
  */
@@ -9,18 +9,12 @@ import { Request, Response } from "express";
 import { LocationModel, LocationType, ProjectModel } from "@models";
 import { ApiResponse } from "@utils/response.util";
 
-/**
- * Location Controller class
- * Manages locations and their hierarchical relationships
- */
 class LocationController {
   /**
-   * Get all locations with optional filtering
-   *
    * @route GET /api/locations
    * @access Public
    */
-  async getAllLocations(req: Request, res: Response): Promise<void> {
+  getAll = async (req: Request, res: Response): Promise<void> => {
     const { type, parentId, isActive = true } = req.query;
 
     const locations = await LocationModel.findAll({
@@ -30,16 +24,13 @@ class LocationController {
     });
 
     ApiResponse.success(res, locations, "Locations retrieved successfully");
-  }
+  };
 
   /**
-   * Get location hierarchy
-   * Returns locations in tree structure
-   *
    * @route GET /api/locations/hierarchy
    * @access Public
    */
-  async getHierarchy(req: Request, res: Response): Promise<void> {
+  getHierarchy = async (req: Request, res: Response): Promise<void> => {
     const { parentId } = req.query;
 
     const hierarchy = await LocationModel.getHierarchy(
@@ -51,72 +42,51 @@ class LocationController {
       hierarchy,
       "Location hierarchy retrieved successfully"
     );
-  }
+  };
 
   /**
-   * Get location by slug
-   *
-   * @route GET /api/locations/:slug
+   * @route GET /api/locations/:identifier
    * @access Public
    */
-  async getLocationBySlug(req: Request, res: Response): Promise<void> {
-    const { slug } = req.params;
+  getOne = async (req: Request, res: Response): Promise<void> => {
+    const { identifier } = req.params;
+    const { includeProjects } = req.query;
 
-    const location = await LocationModel.findBySlug(slug);
+    const isNumeric = /^\d+$/.test(identifier);
+    const location = isNumeric
+      ? await LocationModel.findById(Number(identifier))
+      : await LocationModel.findBySlug(identifier);
 
     if (!location) {
       ApiResponse.notFound(res, "Location not found");
       return;
     }
 
-    ApiResponse.success(res, location, "Location retrieved successfully");
-  }
+    if (includeProjects === "true") {
+      const [projects, children] = await Promise.all([
+        ProjectModel.findAll({ locationId: location.id }),
+        LocationModel.getChildren(location.id, false),
+      ]);
 
-  /**
-   * Get location with projects
-   * Returns location with all associated projects
-   *
-   * @route GET /api/locations/:slug/projects
-   * @access Public
-   */
-  async getLocationWithProjects(req: Request, res: Response): Promise<void> {
-    const { slug } = req.params;
-
-    const location = await LocationModel.findBySlug(slug);
-
-    if (!location) {
-      ApiResponse.notFound(res, "Location not found");
-      return;
+      ApiResponse.success(
+        res,
+        {
+          ...location,
+          projects,
+          childLocations: children,
+        },
+        "Location with projects retrieved successfully"
+      );
+    } else {
+      ApiResponse.success(res, location, "Location retrieved successfully");
     }
-
-    // Get projects in this location
-    const projects = await ProjectModel.findAll({
-      locationId: location.id,
-    });
-
-    // Get child locations
-    const children = await LocationModel.getChildren(location.id, false);
-
-    const response = {
-      ...location,
-      projects,
-      childLocations: children,
-    };
-
-    ApiResponse.success(
-      res,
-      response,
-      "Location with projects retrieved successfully"
-    );
-  }
+  };
 
   /**
-   * Get location children
-   *
    * @route GET /api/locations/:id/children
    * @access Public
    */
-  async getLocationChildren(req: Request, res: Response): Promise<void> {
+  getChildren = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     const { recursive = "false" } = req.query;
 
@@ -130,15 +100,13 @@ class LocationController {
       children,
       "Location children retrieved successfully"
     );
-  }
+  };
 
   /**
-   * Get location parents (breadcrumb)
-   *
    * @route GET /api/locations/:id/parents
    * @access Public
    */
-  async getLocationParents(req: Request, res: Response): Promise<void> {
+  getParents = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
 
     const parents = await LocationModel.getParents(Number(id));
@@ -148,7 +116,7 @@ class LocationController {
       parents,
       "Location breadcrumb retrieved successfully"
     );
-  }
+  };
 }
 
 export default new LocationController();

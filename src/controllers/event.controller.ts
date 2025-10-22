@@ -1,13 +1,9 @@
 /**
- * Events Controller (Unified)
- * Consolidates all event-related operations:
- * - Event registration
- * - Check-in/Check-out management
- * - Time slot booking
- * - Special events (inaugurations, networking, etc.)
- * - Attendance tracking and statistics
- *
- * @module controllers/events.controller
+ * ============================================
+ * EVENTS CONTROLLER (UNIFIED)
+ * ============================================
+ * Consolidates: event registration, check-in, time slots, special events
+ * Merges duplicated functionality from form.controller.ts
  */
 
 import { Request, Response } from "express";
@@ -26,18 +22,14 @@ import { EVENT_CONFIG, CAMPAIGN_TABLES } from "@/constants/app.constants";
 const { MIN_SCAN_INTERVAL_SECONDS, SLOT_LIMITS, DEFAULT_TIME_SLOTS } =
   EVENT_CONFIG;
 
-/**
- * Unified Events Controller
- * Manages all event-related operations in one place
- */
 class EventsController {
   // ============================================
   // REGISTRATION
   // ============================================
 
   /**
-   * Register for an event
-   * @route POST /api/events/register
+   * @route POST /api/events/registrations
+   * @desc Register for an event
    * @access Public
    */
   register = async (req: Request, res: Response): Promise<void> => {
@@ -146,11 +138,11 @@ class EventsController {
   };
 
   /**
-   * Get all registrations with filtering
    * @route GET /api/events/registrations
+   * @desc Get all registrations with filtering
    * @access Private (Admin)
    */
-  getAllRegistrations = async (req: Request, res: Response): Promise<void> => {
+  getAll = async (req: Request, res: Response): Promise<void> => {
     const {
       eventType,
       eventDate,
@@ -185,13 +177,12 @@ class EventsController {
   };
 
   /**
-   * Get registration by ID
    * @route GET /api/events/registrations/:id
+   * @desc Get registration by ID
    * @access Private (Admin)
    */
-  getRegistrationById = async (req: Request, res: Response): Promise<void> => {
+  getOne = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
-
     const registration = await EventRegistrationModel.findById(Number(id));
 
     if (!registration) {
@@ -211,11 +202,11 @@ class EventsController {
   // ============================================
 
   /**
-   * Process check-in or check-out
-   * @route POST /api/events/check-in
+   * @route POST /api/events/checkin
+   * @desc Process check-in or check-out
    * @access Public
    */
-  checkIn = async (req: Request, res: Response): Promise<void> => {
+  processCheckIn = async (req: Request, res: Response): Promise<void> => {
     const { firstName, lastName } = req.body;
 
     if (!firstName || !lastName) {
@@ -249,7 +240,6 @@ class EventsController {
       // First scan: Check-in
       if (!registration.checkedInAt) {
         const success = await EventRegistrationModel.checkIn(registration.id);
-
         if (!success) {
           ApiResponse.error(res, "Failed to check in", 500);
           return;
@@ -288,7 +278,6 @@ class EventsController {
         }
 
         const success = await EventRegistrationModel.checkOut(registration.id);
-
         if (!success) {
           ApiResponse.error(res, "Failed to check out", 500);
           return;
@@ -324,21 +313,18 @@ class EventsController {
   };
 
   /**
-   * Manual check-in (admin function)
-   * @route POST /api/events/check-in/manual/:id
+   * @route POST /api/events/checkin/manual/:id
+   * @desc Manual check-in (admin function)
    * @access Private (Admin)
    */
   manualCheckIn = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
-
     try {
       const success = await EventRegistrationModel.checkIn(Number(id));
-
       if (!success) {
         ApiResponse.notFound(res, "Registration not found");
         return;
       }
-
       ApiResponse.success(res, null, "Manual check-in successful");
     } catch (error) {
       console.error("Error in manual check-in:", error);
@@ -347,21 +333,18 @@ class EventsController {
   };
 
   /**
-   * Manual check-out (admin function)
-   * @route POST /api/events/check-out/manual/:id
+   * @route POST /api/events/checkout/manual/:id
+   * @desc Manual check-out (admin function)
    * @access Private (Admin)
    */
   manualCheckOut = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
-
     try {
       const success = await EventRegistrationModel.checkOut(Number(id));
-
       if (!success) {
         ApiResponse.notFound(res, "Registration not found or not checked in");
         return;
       }
-
       ApiResponse.success(res, null, "Manual check-out successful");
     } catch (error) {
       console.error("Error in manual check-out:", error);
@@ -370,15 +353,14 @@ class EventsController {
   };
 
   /**
-   * Get today's check-ins
-   * @route GET /api/events/check-ins/today
+   * @route GET /api/events/checkin/today
+   * @desc Get today's check-ins
    * @access Private (Admin)
    */
   getTodayCheckIns = async (req: Request, res: Response): Promise<void> => {
     try {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
 
@@ -426,8 +408,8 @@ class EventsController {
   // ============================================
 
   /**
-   * Book a time slot
-   * @route POST /api/events/slots/book
+   * @route POST /api/events/slots
+   * @desc Book a time slot
    * @access Public
    */
   bookSlot = async (req: Request, res: Response): Promise<void> => {
@@ -468,7 +450,6 @@ class EventsController {
         return;
       }
 
-      // Count participants in this time slot
       const slotRegistrations = await EventRegistrationModel.findAll({
         eventDate: new Date(eventDate),
       });
@@ -515,8 +496,8 @@ class EventsController {
   };
 
   /**
-   * Cancel a time slot booking
-   * @route DELETE /api/events/slots/cancel
+   * @route DELETE /api/events/slots
+   * @desc Cancel a time slot booking
    * @access Public
    */
   cancelSlot = async (req: Request, res: Response): Promise<void> => {
@@ -568,8 +549,8 @@ class EventsController {
   };
 
   /**
-   * Get available slots for a date
    * @route GET /api/events/slots/available/:date
+   * @desc Get available slots for a date
    * @access Public
    */
   getAvailableSlots = async (req: Request, res: Response): Promise<void> => {
@@ -607,11 +588,11 @@ class EventsController {
   };
 
   /**
-   * Get user's booked slots
-   * @route GET /api/events/slots/my-bookings
+   * @route GET /api/events/slots/bookings
+   * @desc Get user's booked slots
    * @access Public
    */
-  getMySlots = async (req: Request, res: Response): Promise<void> => {
+  getUserSlots = async (req: Request, res: Response): Promise<void> => {
     const { email } = req.query;
 
     if (!email || typeof email !== "string") {
@@ -648,12 +629,12 @@ class EventsController {
   };
 
   // ============================================
-  // SPECIAL EVENTS
+  // SPECIAL EVENTS (Merged from form.controller)
   // ============================================
 
   /**
-   * Register for inauguration event
    * @route POST /api/events/special/inauguration
+   * @desc Register for inauguration event
    * @access Public
    */
   registerInauguration = async (req: Request, res: Response): Promise<void> => {
@@ -718,8 +699,8 @@ class EventsController {
   };
 
   /**
-   * Register for networking event
    * @route POST /api/events/special/networking
+   * @desc Register for networking event
    * @access Public
    */
   registerNetworking = async (req: Request, res: Response): Promise<void> => {
@@ -755,8 +736,8 @@ class EventsController {
   };
 
   /**
-   * Submit on-site registration (JPO/Open House)
    * @route POST /api/events/special/onsite
+   * @desc Submit on-site registration (JPO/Open House)
    * @access Public
    */
   registerOnsite = async (req: Request, res: Response): Promise<void> => {
@@ -813,13 +794,100 @@ class EventsController {
     );
   };
 
+  /**
+   * @route POST /api/events/special/children
+   * @desc Register child for activity
+   * @access Public
+   */
+  registerChildActivity = async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
+    const { nom_enfant, email, telephone, responsabilite_parent, droit_image } =
+      req.body;
+
+    try {
+      if (!nom_enfant || !email || !telephone) {
+        ApiResponse.badRequest(
+          res,
+          "Le nom de l'enfant, l'email et le téléphone sont requis"
+        );
+        return;
+      }
+
+      if (responsabilite_parent === undefined || !responsabilite_parent) {
+        ApiResponse.badRequest(
+          res,
+          "La responsabilité parentale doit être acceptée"
+        );
+        return;
+      }
+
+      if (droit_image === undefined) {
+        ApiResponse.badRequest(
+          res,
+          "Le consentement pour le droit à l'image doit être fourni"
+        );
+        return;
+      }
+
+      if (!validateEmail(email)) {
+        ApiResponse.badRequest(res, "Format d'email invalide");
+        return;
+      }
+
+      if (!validatePhone(telephone)) {
+        ApiResponse.badRequest(res, "Format de téléphone invalide");
+        return;
+      }
+
+      const existing = await db("activite_enfant")
+        .where({
+          email: email.toLowerCase(),
+          nom_enfant: nom_enfant.trim(),
+        })
+        .first();
+
+      if (existing) {
+        ApiResponse.conflict(
+          res,
+          "Cet enfant est déjà inscrit pour cette activité"
+        );
+        return;
+      }
+
+      const [id] = await db("activite_enfant").insert({
+        nom_enfant: nom_enfant.trim(),
+        email: email.toLowerCase(),
+        telephone: telephone.trim(),
+        responsabilite_parent: responsabilite_parent ? 1 : 0,
+        droit_image: droit_image ? 1 : 0,
+        created_at: db.fn.now(),
+      });
+
+      ApiResponse.created(
+        res,
+        {
+          id,
+          childName: nom_enfant.trim(),
+          email: email.toLowerCase(),
+          photoConsent: Boolean(droit_image),
+        },
+        "Inscription enregistrée avec succès"
+      );
+    } catch (error) {
+      console.error("Error in registerChildActivity:", error);
+      ApiResponse.error(res, "Erreur lors de l'enregistrement", 500);
+    }
+  };
+
   // ============================================
   // FEEDBACK
   // ============================================
 
   /**
-   * Submit event feedback
-   * @route POST /api/events/feedback/:id
+   * @route POST /api/events/registrations/:id/feedback
+   * @desc Submit event feedback
    * @access Public
    */
   submitFeedback = async (req: Request, res: Response): Promise<void> => {
@@ -867,8 +935,8 @@ class EventsController {
   // ============================================
 
   /**
-   * Assign salesperson to registration
    * @route PATCH /api/events/registrations/:id/assign
+   * @desc Assign salesperson to registration
    * @access Private (Admin/Sales Manager)
    */
   assignSalesperson = async (req: Request, res: Response): Promise<void> => {
@@ -893,29 +961,37 @@ class EventsController {
   };
 
   /**
-   * Get attendance statistics
-   * @route GET /api/events/statistics/attendance/:eventType/:eventDate
+   * @route GET /api/events/statistics/attendance
+   * @desc Get attendance statistics
    * @access Private (Admin)
    */
   getAttendanceStats = async (req: Request, res: Response): Promise<void> => {
-    const { eventType, eventDate } = req.params;
+    const { eventType, eventDate } = req.query;
 
-    if (!Object.values(EventType).includes(eventType as EventType)) {
-      ApiResponse.badRequest(res, "Invalid event type");
+    if (
+      !eventType ||
+      !Object.values(EventType).includes(eventType as EventType)
+    ) {
+      ApiResponse.badRequest(res, "Valid event type is required");
+      return;
+    }
+
+    if (!eventDate) {
+      ApiResponse.badRequest(res, "Event date is required");
       return;
     }
 
     const stats = await EventRegistrationModel.getAttendanceStats(
       eventType as EventType,
-      new Date(eventDate)
+      new Date(eventDate as string)
     );
 
     ApiResponse.success(res, stats, "Statistics retrieved successfully");
   };
 
   /**
-   * Get check-in statistics
-   * @route GET /api/events/statistics/check-ins
+   * @route GET /api/events/statistics/checkins
+   * @desc Get check-in statistics
    * @access Private (Admin)
    */
   getCheckInStats = async (req: Request, res: Response): Promise<void> => {
@@ -968,23 +1044,14 @@ class EventsController {
     }
   };
 
+  // ============================================
+  // INFLUENCER CAMPAIGNS
+  // ============================================
+
   /**
-   * Registers a user for an influencer event campaign
-   * Prevents duplicate registrations based on email
-   *
-   * @route POST /api/influencer-events/:campaign/register
+   * @route POST /api/events/campaigns/:campaign/registrations
+   * @desc Register for influencer event campaign
    * @access Public
-   *
-   * @example
-   * POST /api/influencer-events/aminawissem/register
-   * {
-   *   "email": "user@example.com",
-   *   "first_name": "John",
-   *   "last_name": "Doe",
-   *   "n_telephone": "+213555123456",
-   *   "selected_days": ["2025-11-01", "2025-11-02"],
-   *   "selected_times": ["10:00", "14:00"]
-   * }
    */
   registerForCampaign = async (req: Request, res: Response): Promise<void> => {
     const { campaign } = req.params;
@@ -997,14 +1064,12 @@ class EventsController {
       selected_times,
     } = req.body;
 
-    // Validate campaign
     const tableName = CAMPAIGN_TABLES[campaign.toLowerCase()];
     if (!tableName) {
       ApiResponse.badRequest(res, "Invalid campaign specified");
       return;
     }
 
-    // Validate required fields
     if (!email || !first_name || !last_name || !n_telephone) {
       ApiResponse.badRequest(
         res,
@@ -1013,13 +1078,11 @@ class EventsController {
       return;
     }
 
-    // Validate email format
     if (!validateEmail(email)) {
       ApiResponse.badRequest(res, "Invalid email format");
       return;
     }
 
-    // Validate phone format
     if (!validatePhone(n_telephone)) {
       ApiResponse.badRequest(res, "Invalid phone number format");
       return;
@@ -1028,18 +1091,15 @@ class EventsController {
     try {
       const model = new InfluencerEventModel(tableName);
 
-      // Check for duplicate registration
       const existing = await model.findByEmail(email.toLowerCase());
       if (existing) {
         ApiResponse.conflict(res, "Vous vous êtes déjà inscrit");
         return;
       }
 
-      // Transform and validate arrays
       const days = Array.isArray(selected_days) ? selected_days : [];
       const times = Array.isArray(selected_times) ? selected_times : [];
 
-      // Create registration
       const registration = await model.create({
         email: email.toLowerCase(),
         first_name,
@@ -1070,15 +1130,11 @@ class EventsController {
   };
 
   /**
-   * Gets all registrations for a specific campaign
-   *
-   * @route GET /api/influencer-events/:campaign
+   * @route GET /api/events/campaigns/:campaign/registrations
+   * @desc Get all campaign registrations
    * @access Private (Admin)
-   *
-   * @example
-   * GET /api/influencer-events/aminawissem?page=1&limit=50
    */
-  getAllCampaignRegistrations = async (
+  getCampaignRegistrations = async (
     req: Request,
     res: Response
   ): Promise<void> => {
@@ -1090,7 +1146,6 @@ class EventsController {
       sortOrder = "desc",
     } = req.query;
 
-    // Validate campaign
     const tableName = CAMPAIGN_TABLES[campaign.toLowerCase()];
     if (!tableName) {
       ApiResponse.badRequest(res, "Invalid campaign specified");
@@ -1119,21 +1174,16 @@ class EventsController {
   };
 
   /**
-   * Gets a single registration by ID
-   *
-   * @route GET /api/influencer-events/:campaign/:id
+   * @route GET /api/events/campaigns/:campaign/registrations/:id
+   * @desc Get campaign registration by ID
    * @access Private (Admin)
-   *
-   * @example
-   * GET /api/influencer-events/aminawissem/123
    */
-  getCampaignRegistrationById = async (
+  getCampaignRegistration = async (
     req: Request,
     res: Response
   ): Promise<void> => {
     const { campaign, id } = req.params;
 
-    // Validate campaign
     const tableName = CAMPAIGN_TABLES[campaign.toLowerCase()];
     if (!tableName) {
       ApiResponse.badRequest(res, "Invalid campaign specified");
@@ -1161,13 +1211,9 @@ class EventsController {
   };
 
   /**
-   * Gets list of available campaigns
-   *
-   * @route GET /api/influencer-events/campaigns
+   * @route GET /api/events/campaigns
+   * @desc Get available campaigns
    * @access Public
-   *
-   * @example
-   * GET /api/influencer-events/campaigns
    */
   getAvailableCampaigns = async (
     req: Request,
@@ -1186,13 +1232,9 @@ class EventsController {
   };
 
   /**
-   * Gets registration statistics for a campaign
-   *
-   * @route GET /api/influencer-events/:campaign/statistics
+   * @route GET /api/events/campaigns/:campaign/statistics
+   * @desc Get campaign statistics
    * @access Private (Admin)
-   *
-   * @example
-   * GET /api/influencer-events/aminawissem/statistics
    */
   getCampaignStatistics = async (
     req: Request,
@@ -1200,7 +1242,6 @@ class EventsController {
   ): Promise<void> => {
     const { campaign } = req.params;
 
-    // Validate campaign
     const tableName = CAMPAIGN_TABLES[campaign.toLowerCase()];
     if (!tableName) {
       ApiResponse.badRequest(res, "Invalid campaign specified");
