@@ -1,120 +1,51 @@
 /**
- * Unified Leads Controller
- * Handles ALL lead capture: contacts, appointments, inquiries, catalog downloads
- *
- * REPLACES: lead-management.controller.ts (remove this file)
- * INTEGRATES WITH: appointment.controller.ts, project-inquiry.controller.ts, catalog.controller.ts
- * (Keep the individual files above for detailed functionality, this provides unified access)
+ * ============================================
+ * LEADS CONTROLLER (UNIFIED)
+ * ============================================
+ * Consolidates: appointments, catalogs, project inquiries
  *
  * Routes:
- * - POST   /api/leads/contact         - Submit contact form
- * - POST   /api/leads/appointment     - Request appointment
- * - POST   /api/leads/inquiry         - Submit project inquiry
- * - POST   /api/leads/catalog         - Request catalog download
- * - GET    /api/leads                 - Get all leads (unified view)
- * - GET    /api/leads/statistics      - Get lead statistics
- * - GET    /api/leads/pipeline        - Get sales pipeline
+ * - POST   /api/leads/appointments/request
+ * - GET    /api/leads/appointments
+ * - PATCH  /api/leads/appointments/:id/status
+ *
+ * - POST   /api/leads/catalogs/request
+ * - GET    /api/leads/catalogs
+ *
+ * - POST   /api/leads/inquiries/submit
+ * - GET    /api/leads/inquiries
+ * - PATCH  /api/leads/inquiries/:id/assign
+ *
+ * - GET    /api/leads/statistics/overview
+ * - GET    /api/leads/pipeline/metrics
  */
-
 import { Request, Response } from "express";
 import {
-  ContactSubmissionModel,
   AppointmentRequestModel,
-  ProjectInquiryModel,
   CatalogDownloadRequestModel,
+  ProjectInquiryModel,
   LeadSourceModel,
   MarketingConsentModel,
-  ContactSubmissionStatus,
+  ProjectModel,
+} from "@models";
+import {
   AppointmentRequestStatus,
   ProjectInquiryStatus,
-  LeadType,
   FinancingMethod,
   PurchaseTimeline,
+  LeadType,
 } from "@models";
 import { ApiResponse } from "@utils/response.util";
-import { validateEmail, validatePhone } from "@utils/validators.util";
-import emailService from "@/services/email.service";
+import { BLOCKED_EMAIL_DOMAINS } from "@constants/app.constants";
 
 class LeadsController {
   // ============================================
-  // LEAD SUBMISSION ENDPOINTS
+  // APPOINTMENTS
   // ============================================
-
   /**
-   * Submit general contact form
-   * @route POST /api/leads/contact
-   */
-  submitContact = async (req: Request, res: Response): Promise<void> => {
-    const {
-      firstName,
-      lastName,
-      email,
-      phone,
-      subject,
-      message,
-      utmSource,
-      utmMedium,
-      utmCampaign,
-      sourcePage,
-      referrer,
-    } = req.body;
-
-    if (!email || !message) {
-      ApiResponse.badRequest(res, "Email and message are required");
-      return;
-    }
-
-    if (!validateEmail(email)) {
-      ApiResponse.badRequest(res, "Invalid email format");
-      return;
-    }
-
-    const contact = await ContactSubmissionModel.create({
-      firstName: firstName || null,
-      lastName: lastName || null,
-      email: email.toLowerCase(),
-      phone: phone || null,
-      subject: subject || null,
-      message,
-      sourcePage: sourcePage || null,
-      utmSource: utmSource || null,
-      utmMedium: utmMedium || null,
-      utmCampaign: utmCampaign || null,
-      referrer: referrer || null,
-    });
-
-    LeadSourceModel.create({
-      leadEmail: email.toLowerCase(),
-      leadType: LeadType.CONTACT_FORM,
-      leadReferenceId: contact.id,
-      utmSource: utmSource || null,
-      utmMedium: utmMedium || null,
-      utmCampaign: utmCampaign || null,
-      referrerUrl: referrer || null,
-      landingPageUrl: sourcePage || null,
-      sourceIp: req.ip || null,
-      userAgent: req.get("user-agent") || null,
-    }).catch((err) => console.error("Error tracking lead:", err));
-
-    emailService
-      .sendContactForm({
-        name: `${firstName || ""} ${lastName || ""}`.trim() || email,
-        email,
-        phone: phone || "Not provided",
-        message,
-      })
-      .catch((err) => console.error("Error sending email:", err));
-
-    ApiResponse.created(
-      res,
-      { id: contact.id },
-      "Contact submitted successfully"
-    );
-  };
-
-  /**
-   * Request property viewing appointment
-   * @route POST /api/leads/appointment
+   * @route POST /api/leads/appointments/request
+   * @desc Request a property viewing appointment
+   * @access Public
    */
   requestAppointment = async (req: Request, res: Response): Promise<void> => {
     const {
@@ -136,7 +67,7 @@ class LeadsController {
       return;
     }
 
-    // Anti-spam check
+    // Anti-spam check (72 hours cooldown)
     const recentAppointments = await AppointmentRequestModel.findByEmail(
       email.toLowerCase()
     );
@@ -179,18 +110,189 @@ class LeadsController {
 
     ApiResponse.created(
       res,
-      { id: appointment.id },
+      { id: appointment.id, fullName: appointment.fullName },
       "Appointment request submitted successfully"
     );
   };
+  /**
+   * @route GET /api/leads/appointments
+   * @desc Get all appointments with filters
+   * @access Private (Admin/Sales)
+   */
+  getAppointments = async (req: Request, res: Response): Promise<void> => {
+    const {
+      status,
+      email,
+      preferredDate,
+      dateFrom,
+      dateTo,
+      page = 1,
+      limit = 50,
+    } = req.query;
+
+    const appointments = await AppointmentRequestModel.findAll({
+      status: status as AppointmentRequestStatus,
+      email: email as string,
+      preferredDate: preferredDate
+        ? new Date(preferredDate as string)
+        : undefined,
+      dateFrom: dateFrom ? new Date(dateFrom as string) : undefined,
+      dateTo: dateTo ? new Date(dateTo as string) : undefined,
+      page: Number(page),
+      limit: Number(limit),
+    });
+
+    ApiResponse.success(
+      res,
+      appointments,
+      "Appointments retrieved successfully"
+    );
+  };
+  /**
+   * @route GET /api/leads/appointments/pending
+   * @desc Get pending appointments
+   * @access Private (Admin/Sales)
+   */
+  getPendingAppointments = async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
+    const { limit = 20 } = req.query;
+    const appointments = await AppointmentRequestModel.getPending(
+      Number(limit)
+    );
+    ApiResponse.success(res, appointments, "Pending appointments retrieved");
+  };
 
   /**
-   * Submit detailed project inquiry
-   * @route POST /api/leads/inquiry
+   * @route PATCH /api/leads/appointments/:id/status
+   * @desc Update appointment status
+   * @access Private (Admin/Sales)
+   */
+  updateAppointmentStatus = async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status || !Object.values(AppointmentRequestStatus).includes(status)) {
+      ApiResponse.badRequest(res, "Valid status is required");
+      return;
+    }
+
+    const updated = await AppointmentRequestModel.updateStatus(
+      Number(id),
+      status as AppointmentRequestStatus
+    );
+
+    if (!updated) {
+      ApiResponse.notFound(res, "Appointment not found");
+      return;
+    }
+
+    ApiResponse.success(res, null, "Appointment status updated");
+  };
+  // ============================================
+  // CATALOG DOWNLOADS
+  // ============================================
+  /**
+   * @route POST /api/leads/catalogs/request
+   * @desc Request catalog download
+   * @access Public
+   */
+  requestCatalog = async (req: Request, res: Response): Promise<void> => {
+    const {
+      fullName,
+      email,
+      phone,
+      catalogType,
+      projectId,
+      marketingConsent = false,
+      utmSource,
+      utmMedium,
+      utmCampaign,
+    } = req.body;
+
+    if (!fullName || !email || !phone) {
+      ApiResponse.badRequest(res, "Name, email and phone are required");
+      return;
+    }
+
+    const emailDomain = email.split("@")[1]?.toLowerCase();
+    if (emailDomain && BLOCKED_EMAIL_DOMAINS.includes(emailDomain)) {
+      ApiResponse.badRequest(res, "Disposable email addresses not allowed");
+      return;
+    }
+
+    const existing = await CatalogDownloadRequestModel.findByEmail(
+      email.toLowerCase()
+    );
+
+    if (existing.length > 0) {
+      ApiResponse.conflict(res, "You have already requested a catalog");
+      return;
+    }
+
+    const request = await CatalogDownloadRequestModel.create({
+      fullName,
+      email: email.toLowerCase(),
+      phone,
+      catalogType: catalogType || null,
+      projectId: projectId ? Number(projectId) : null,
+      marketingConsent,
+      downloadIp: req.ip || null,
+    });
+
+    LeadSourceModel.create({
+      leadEmail: email.toLowerCase(),
+      leadType: LeadType.CATALOG_DOWNLOAD,
+      leadReferenceId: request.id,
+      utmSource: utmSource || null,
+      utmMedium: utmMedium || null,
+      utmCampaign: utmCampaign || null,
+      sourceIp: req.ip || null,
+      userAgent: req.get("user-agent") || null,
+    }).catch((err) => console.error("Error tracking lead:", err));
+
+    if (marketingConsent) {
+      MarketingConsentModel.grantAllConsents(
+        email.toLowerCase(),
+        "catalog-download"
+      ).catch((err) => console.error("Error tracking consent:", err));
+    }
+
+    ApiResponse.created(res, { id: request.id }, "Catalog request submitted");
+  };
+  /**
+   * @route GET /api/leads/catalogs
+   * @desc Get all catalog requests
+   * @access Private (Admin)
+   */
+  getCatalogRequests = async (req: Request, res: Response): Promise<void> => {
+    const { email, projectId, page = 1, limit = 50 } = req.query;
+
+    const requests = await CatalogDownloadRequestModel.findAll({
+      email: email as string,
+      projectId: projectId ? Number(projectId) : undefined,
+      page: Number(page),
+      limit: Number(limit),
+    });
+
+    ApiResponse.success(res, requests, "Catalog requests retrieved");
+  };
+  // ============================================
+  // PROJECT INQUIRIES
+  // ============================================
+  /**
+   * @route POST /api/leads/inquiries/submit
+   * @desc Submit detailed project inquiry
+   * @access Public
    */
   submitInquiry = async (req: Request, res: Response): Promise<void> => {
     const {
       projectId,
+      projectSlug,
       firstName,
       lastName,
       email,
@@ -220,12 +322,18 @@ class LeadsController {
     }
 
     if (!acceptedTerms) {
-      ApiResponse.badRequest(res, "Terms and conditions must be accepted");
+      ApiResponse.badRequest(res, "Terms must be accepted");
       return;
     }
 
+    let resolvedProjectId = projectId;
+    if (!resolvedProjectId && projectSlug) {
+      const project = await ProjectModel.findBySlug(projectSlug);
+      resolvedProjectId = project?.id || null;
+    }
+
     const inquiry = await ProjectInquiryModel.create({
-      projectId: projectId || null,
+      projectId: resolvedProjectId,
       firstName,
       lastName,
       email: email.toLowerCase(),
@@ -264,143 +372,121 @@ class LeadsController {
       ).catch((err) => console.error("Error tracking consent:", err));
     }
 
-    ApiResponse.created(
-      res,
-      { id: inquiry.id },
-      "Inquiry submitted successfully"
-    );
+    ApiResponse.created(res, { id: inquiry.id }, "Inquiry submitted");
   };
-
   /**
-   * Request catalog download
-   * @route POST /api/leads/catalog
+   * @route GET /api/leads/inquiries
+   * @desc Get all inquiries with filters
+   * @access Private (Admin/Sales)
    */
-  requestCatalog = async (req: Request, res: Response): Promise<void> => {
+  getInquiries = async (req: Request, res: Response): Promise<void> => {
     const {
-      fullName,
-      email,
-      phone,
-      catalogType,
       projectId,
-      marketingConsent,
-      utmSource,
-      utmMedium,
-      utmCampaign,
-    } = req.body;
+      status,
+      assignedTo,
+      financingMethod,
+      purchaseTimeline,
+      page = 1,
+      limit = 50,
+    } = req.query;
 
-    if (!fullName || !email || !phone) {
-      ApiResponse.badRequest(res, "Name, email and phone are required");
-      return;
-    }
-
-    const existing = await CatalogDownloadRequestModel.findByEmail(
-      email.toLowerCase()
-    );
-
-    if (existing.length > 0) {
-      ApiResponse.conflict(
-        res,
-        "You have already requested a catalog download"
-      );
-      return;
-    }
-
-    const request = await CatalogDownloadRequestModel.create({
-      fullName,
-      email: email.toLowerCase(),
-      phone,
-      catalogType: catalogType || null,
-      projectId: projectId ? Number(projectId) : null,
-      marketingConsent: Boolean(marketingConsent),
-      downloadIp: req.ip || null,
+    const inquiries = await ProjectInquiryModel.findAll({
+      projectId: projectId ? Number(projectId) : undefined,
+      status: status as ProjectInquiryStatus,
+      assignedTo: assignedTo as string,
+      financingMethod: financingMethod as FinancingMethod,
+      purchaseTimeline: purchaseTimeline as PurchaseTimeline,
+      page: Number(page),
+      limit: Number(limit),
     });
 
-    LeadSourceModel.create({
-      leadEmail: email.toLowerCase(),
-      leadType: LeadType.CATALOG_DOWNLOAD,
-      leadReferenceId: request.id,
-      utmSource: utmSource || null,
-      utmMedium: utmMedium || null,
-      utmCampaign: utmCampaign || null,
-      sourceIp: req.ip || null,
-      userAgent: req.get("user-agent") || null,
-    }).catch((err) => console.error("Error tracking lead:", err));
+    ApiResponse.success(res, inquiries, "Inquiries retrieved");
+  };
+  /**
+   * @route PATCH /api/leads/inquiries/:id/assign
+   * @desc Assign inquiry to salesperson
+   * @access Private (Admin/Sales Manager)
+   */
+  assignInquiry = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const { assignedTo } = req.body;
 
-    if (marketingConsent) {
-      MarketingConsentModel.grantAllConsents(
-        email.toLowerCase(),
-        "catalog-download"
-      ).catch((err) => console.error("Error tracking consent:", err));
+    if (!assignedTo) {
+      ApiResponse.badRequest(res, "Salesperson required");
+      return;
     }
 
-    ApiResponse.created(
-      res,
-      { id: request.id },
-      "Catalog request submitted successfully"
+    const updated = await ProjectInquiryModel.assign(Number(id), assignedTo);
+
+    if (!updated) {
+      ApiResponse.notFound(res, "Inquiry not found");
+      return;
+    }
+
+    ApiResponse.success(res, null, "Inquiry assigned");
+  };
+  /**
+   * @route PATCH /api/leads/inquiries/:id/status
+   * @desc Update inquiry status
+   * @access Private (Admin/Sales)
+   */
+  updateInquiryStatus = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status || !Object.values(ProjectInquiryStatus).includes(status)) {
+      ApiResponse.badRequest(res, "Valid status required");
+      return;
+    }
+
+    const updated = await ProjectInquiryModel.updateStatus(
+      Number(id),
+      status as ProjectInquiryStatus
     );
-  };
 
-  // ============================================
-  // UNIFIED LEAD MANAGEMENT
-  // ============================================
-
-  /**
-   * Get all leads (unified view)
-   * @route GET /api/leads
-   */
-  getAllLeads = async (req: Request, res: Response): Promise<void> => {
-    const { type, status, dateFrom, dateTo, page = 1, limit = 50 } = req.query;
-
-    try {
-      // This would need a custom query to join all lead tables
-      // For now, return a TODO message
-      ApiResponse.success(
-        res,
-        { message: "Unified leads view - to be implemented" },
-        "Feature in development"
-      );
-    } catch (error) {
-      console.error("Error in getAllLeads:", error);
-      ApiResponse.error(res, "Failed to retrieve leads", 500);
+    if (!updated) {
+      ApiResponse.notFound(res, "Inquiry not found");
+      return;
     }
-  };
 
+    ApiResponse.success(res, null, "Status updated");
+  };
+  // ============================================
+  // UNIFIED ANALYTICS
+  // ============================================
   /**
-   * Get lead statistics across all types
-   * @route GET /api/leads/statistics
+   * @route GET /api/leads/statistics/overview
+   * @desc Get statistics across all lead types
+   * @access Private (Admin/Manager)
    */
-  getStatistics = async (req: Request, res: Response): Promise<void> => {
-    const [contactStats, appointmentStats, inquiryStats, catalogStats] =
-      await Promise.all([
-        ContactSubmissionModel.getStatusStatistics(),
-        AppointmentRequestModel.getStatusStatistics(),
-        ProjectInquiryModel.getStatusStatistics(),
-        CatalogDownloadRequestModel.getDownloadStatistics(),
-      ]);
+  getStatisticsOverview = async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
+    const [appointmentStats, catalogStats, inquiryStats] = await Promise.all([
+      AppointmentRequestModel.getStatusStatistics(),
+      CatalogDownloadRequestModel.getDownloadStatistics(),
+      ProjectInquiryModel.getStatusStatistics(),
+    ]);
 
     ApiResponse.success(
       res,
       {
-        contacts: contactStats,
         appointments: appointmentStats,
+        catalogs: catalogStats,
         inquiries: inquiryStats,
-        catalogDownloads: catalogStats,
       },
-      "Statistics retrieved successfully"
+      "Statistics retrieved"
     );
   };
-
   /**
-   * Get sales pipeline metrics
-   * @route GET /api/leads/pipeline
+   * @route GET /api/leads/pipeline/metrics
+   * @desc Get sales pipeline metrics
+   * @access Private (Admin/Sales Manager)
    */
-  getPipeline = async (req: Request, res: Response): Promise<void> => {
+  getPipelineMetrics = async (req: Request, res: Response): Promise<void> => {
     const pipeline = await ProjectInquiryModel.getPipelineStatistics();
-    ApiResponse.success(
-      res,
-      pipeline,
-      "Pipeline metrics retrieved successfully"
-    );
+    ApiResponse.success(res, pipeline, "Pipeline metrics retrieved");
   };
 }
 
