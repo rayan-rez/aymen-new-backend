@@ -96,16 +96,56 @@ class PhotoModel extends BaseModel<Photo, CreatePhotoDto, UpdatePhotoDto> {
   protected tableName = "photos";
 
   /**
+   * Table name mapping for entity validation
+   */
+  private readonly tableMap: Record<PhotoableType, string> = {
+    [PhotoableType.PROJECT]: "projects",
+    [PhotoableType.APARTMENT]: "apartments",
+    [PhotoableType.COMMERCIAL_PROPERTY]: "commercial_properties",
+    [PhotoableType.BLOG_POST]: "blog_posts",
+  };
+
+  /**
+   * Validates if entity exists before creating photo
+   */
+  private async validateEntity(
+    type: PhotoableType,
+    id: number
+  ): Promise<boolean> {
+    const table = this.tableMap[type];
+    const result = await this.db(table).where({ id }).first();
+    return !!result;
+  }
+
+  /**
+   * Type guard for PhotoableType
+   */
+  static isValidPhotoableType(type: string): type is PhotoableType {
+    return Object.values(PhotoableType).includes(type as PhotoableType);
+  }
+
+  /**
+   * Creates a new photo with entity validation
+   * @override
+   */
+  async create(data: CreatePhotoDto): Promise<Photo> {
+    // Validate entity exists
+    const entityExists = await this.validateEntity(
+      data.photoableType,
+      data.photoableId
+    );
+
+    if (!entityExists) {
+      throw new Error(
+        `Entity ${data.photoableType}:${data.photoableId} does not exist`
+      );
+    }
+
+    return super.create(data);
+  }
+
+  /**
    * Finds all photos matching query parameters
-   *
-   * @param params - Query parameters
-   * @returns Promise<Photo[]> - Array of photos
-   *
-   * @example
-   * const photos = await PhotoModel.findAll({
-   *   photoableType: PhotoableType.PROJECT,
-   *   photoableId: 1
-   * });
    */
   async findAll(params: PhotoQueryParams = {}): Promise<Photo[]> {
     let query = this.db(this.tableName);
@@ -139,13 +179,6 @@ class PhotoModel extends BaseModel<Photo, CreatePhotoDto, UpdatePhotoDto> {
 
   /**
    * Gets photos for a specific entity
-   *
-   * @param photoableType - Entity type
-   * @param photoableId - Entity ID
-   * @returns Promise<Photo[]> - Entity photos
-   *
-   * @example
-   * const projectPhotos = await PhotoModel.getForEntity(PhotoableType.PROJECT, 1);
    */
   async getForEntity(
     photoableType: PhotoableType,
@@ -156,13 +189,6 @@ class PhotoModel extends BaseModel<Photo, CreatePhotoDto, UpdatePhotoDto> {
 
   /**
    * Gets cover photo for an entity
-   *
-   * @param photoableType - Entity type
-   * @param photoableId - Entity ID
-   * @returns Promise<Photo | null> - Cover photo or null
-   *
-   * @example
-   * const cover = await PhotoModel.getCoverPhoto(PhotoableType.PROJECT, 1);
    */
   async getCoverPhoto(
     photoableType: PhotoableType,
@@ -181,42 +207,37 @@ class PhotoModel extends BaseModel<Photo, CreatePhotoDto, UpdatePhotoDto> {
 
   /**
    * Sets a photo as cover (unsets others)
-   *
-   * @param photoId - Photo ID
-   * @returns Promise<boolean> - Success status
-   *
-   * @example
-   * await PhotoModel.setCover(5);
    */
   async setCover(photoId: number): Promise<boolean> {
     const photo = await this.findById(photoId);
     if (!photo) return false;
 
-    // Unset all other covers for this entity
-    await this.db(this.tableName)
-      .where({
-        photoable_type: photo.photoableType,
-        photoable_id: photo.photoableId,
-      })
-      .update({ is_cover: false });
+    const trx = await this.db.transaction();
 
-    // Set this photo as cover
-    const updated = await this.db(this.tableName)
-      .where({ id: photoId })
-      .update({ is_cover: true, updated_at: this.db.fn.now() });
+    try {
+      // Unset all other covers for this entity
+      await trx(this.tableName)
+        .where({
+          photoable_type: photo.photoableType,
+          photoable_id: photo.photoableId,
+        })
+        .update({ is_cover: false });
 
-    return updated > 0;
+      // Set this photo as cover
+      await trx(this.tableName)
+        .where({ id: photoId })
+        .update({ is_cover: true, updated_at: trx.fn.now() });
+
+      await trx.commit();
+      return true;
+    } catch (error) {
+      await trx.rollback();
+      throw error;
+    }
   }
 
   /**
    * Deletes all photos for an entity
-   *
-   * @param photoableType - Entity type
-   * @param photoableId - Entity ID
-   * @returns Promise<boolean> - Success status
-   *
-   * @example
-   * await PhotoModel.deleteForEntity(PhotoableType.PROJECT, 1);
    */
   async deleteForEntity(
     photoableType: PhotoableType,
@@ -234,14 +255,6 @@ class PhotoModel extends BaseModel<Photo, CreatePhotoDto, UpdatePhotoDto> {
 
   /**
    * Reorders photos for an entity
-   *
-   * @param photoableType - Entity type
-   * @param photoableId - Entity ID
-   * @param photoIds - Array of photo IDs in desired order
-   * @returns Promise<boolean> - Success status
-   *
-   * @example
-   * await PhotoModel.reorder(PhotoableType.PROJECT, 1, [5, 3, 7, 2]);
    */
   async reorder(
     photoableType: PhotoableType,
@@ -258,26 +271,19 @@ class PhotoModel extends BaseModel<Photo, CreatePhotoDto, UpdatePhotoDto> {
             photoable_type: photoableType,
             photoable_id: photoableId,
           })
-          .update({ display_order: i });
+          .update({ display_order: i, updated_at: trx.fn.now() });
       }
 
       await trx.commit();
       return true;
     } catch (error) {
       await trx.rollback();
-      return false;
+      throw error;
     }
   }
 
   /**
    * Gets photo count for an entity
-   *
-   * @param photoableType - Entity type
-   * @param photoableId - Entity ID
-   * @returns Promise<number> - Photo count
-   *
-   * @example
-   * const count = await PhotoModel.countForEntity(PhotoableType.PROJECT, 1);
    */
   async countForEntity(
     photoableType: PhotoableType,
@@ -290,52 +296,103 @@ class PhotoModel extends BaseModel<Photo, CreatePhotoDto, UpdatePhotoDto> {
   }
 
   /**
-   * Bulk creates photos for an entity
-   *
-   * @param photoableType - Entity type
-   * @param photoableId - Entity ID
-   * @param photos - Array of photo data
-   * @returns Promise<Photo[]> - Created photos
-   *
-   * @example
-   * const photos = await PhotoModel.bulkCreate(PhotoableType.PROJECT, 1, [
-   *   { url: "photo1.jpg", caption: "Front view" },
-   *   { url: "photo2.jpg", caption: "Side view" }
-   * ]);
+   * Bulk creates photos for an entity with transaction safety
    */
   async bulkCreate(
     photoableType: PhotoableType,
     photoableId: number,
     photos: Array<Omit<CreatePhotoDto, "photoableType" | "photoableId">>
   ): Promise<Photo[]> {
-    const photoData = photos.map((photo, index) => ({
-      photoable_type: photoableType,
-      photoable_id: photoableId,
-      url: photo.url,
-      external_url: photo.externalUrl || null,
-      caption: photo.caption || null,
-      display_order:
-        photo.displayOrder !== undefined ? photo.displayOrder : index,
-      is_cover: photo.isCover || false,
-    }));
+    // Validate entity exists
+    const entityExists = await this.validateEntity(photoableType, photoableId);
+    if (!entityExists) {
+      throw new Error(
+        `Entity ${photoableType}:${photoableId} does not exist`
+      );
+    }
 
-    const ids = await this.db(this.tableName).insert(photoData);
+    const trx = await this.db.transaction();
 
-    // Fetch and return created photos
-    const createdPhotos = await this.db(this.tableName)
-      .whereIn("id", ids)
-      .orderBy("display_order", "asc");
+    try {
+      const timestamp = new Date();
+      const photoData = photos.map((photo, index) => ({
+        photoable_type: photoableType,
+        photoable_id: photoableId,
+        url: photo.url,
+        external_url: photo.externalUrl || null,
+        caption: photo.caption || null,
+        display_order:
+          photo.displayOrder !== undefined ? photo.displayOrder : index,
+        is_cover: photo.isCover || false,
+        created_at: timestamp,
+        updated_at: timestamp,
+      }));
 
-    return createdPhotos.map(this.mapToEntity);
+      await trx(this.tableName).insert(photoData);
+
+      // Re-fetch the inserted records
+      const createdPhotos = await trx(this.tableName)
+        .where({
+          photoable_type: photoableType,
+          photoable_id: photoableId,
+        })
+        .where("created_at", ">=", timestamp)
+        .orderBy("display_order", "asc");
+
+      await trx.commit();
+      return createdPhotos.map(this.mapToEntity);
+    } catch (error) {
+      await trx.rollback();
+      throw error;
+    }
+  }
+
+  /**
+   * Updates multiple photos at once
+   */
+  async bulkUpdate(
+    updates: Array<{ id: number; data: UpdatePhotoDto }>
+  ): Promise<boolean> {
+    const trx = await this.db.transaction();
+
+    try {
+      for (const update of updates) {
+        const updateData = this.mapToDatabase(update.data);
+        await trx(this.tableName)
+          .where({ id: update.id })
+          .update({
+            ...updateData,
+            updated_at: trx.fn.now(),
+          });
+      }
+
+      await trx.commit();
+      return true;
+    } catch (error) {
+      await trx.rollback();
+      throw error;
+    }
+  }
+
+  /**
+   * Deletes multiple photos at once
+   */
+  async bulkDelete(photoIds: number[]): Promise<boolean> {
+    const trx = await this.db.transaction();
+
+    try {
+      await trx(this.tableName).whereIn("id", photoIds).del();
+
+      await trx.commit();
+      return true;
+    } catch (error) {
+      await trx.rollback();
+      throw error;
+    }
   }
 
   /**
    * Maps database record to Photo entity
-   *
-   * @param record - Database record
-   * @returns Photo entity
-   *
-   * @protected
    */
   protected mapToEntity(record: any): Photo {
     return {

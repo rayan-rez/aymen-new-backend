@@ -1,6 +1,7 @@
 /**
- * Media Helper Service
+ * Media Service
  * Provides utility functions for working with polymorphic media (photos, floor plans)
+ * Includes transaction safety, validation, and cascade operations
  *
  * @module services/media.service
  */
@@ -10,20 +11,45 @@ import FloorPlanModel, {
   PlannableType,
   FloorPlan,
 } from "../models/floor-plan.model";
+import db from "../config/database";
 
 /**
- * Media Helper Service Class
+ * Media Service Class
  * Centralizes common media operations across different entity types
  */
 export class MediaService {
   /**
+   * Type guard for PhotoableType
+   */
+  static isValidPhotoableType(type: string): type is PhotoableType {
+    return Object.values(PhotoableType).includes(type as PhotoableType);
+  }
+
+  /**
+   * Type guard for PlannableType
+   */
+  static isValidPlannableType(type: string): type is PlannableType {
+    return Object.values(PlannableType).includes(type as PlannableType);
+  }
+
+  /**
+   * Maps PhotoableType to PlannableType
+   */
+  private static mapToPlannableType(
+    photoableType: PhotoableType
+  ): PlannableType | null {
+    switch (photoableType) {
+      case PhotoableType.PROJECT:
+        return PlannableType.PROJECT;
+      case PhotoableType.APARTMENT:
+        return PlannableType.APARTMENT;
+      default:
+        return null;
+    }
+  }
+
+  /**
    * Gets all media (photos and floor plans) for a project
-   *
-   * @param projectId - Project ID
-   * @returns Promise with photos and floor plans
-   *
-   * @example
-   * const media = await MediaHelperService.getProjectMedia(1);
    */
   static async getProjectMedia(projectId: number) {
     const [photos, floorPlans] = await Promise.all([
@@ -36,12 +62,6 @@ export class MediaService {
 
   /**
    * Gets all media for an apartment
-   *
-   * @param apartmentId - Apartment ID
-   * @returns Promise with photos and floor plans
-   *
-   * @example
-   * const media = await MediaHelperService.getApartmentMedia(5);
    */
   static async getApartmentMedia(apartmentId: number) {
     const [photos, floorPlans] = await Promise.all([
@@ -54,12 +74,6 @@ export class MediaService {
 
   /**
    * Gets all photos for a commercial property
-   *
-   * @param propertyId - Commercial property ID
-   * @returns Promise with photos
-   *
-   * @example
-   * const photos = await MediaHelperService.getCommercialPropertyPhotos(3);
    */
   static async getCommercialPropertyPhotos(
     propertyId: number
@@ -72,34 +86,33 @@ export class MediaService {
 
   /**
    * Gets all photos for a blog post
-   *
-   * @param blogPostId - Blog post ID
-   * @returns Promise with photos
-   *
-   * @example
-   * const photos = await MediaHelperService.getBlogPostPhotos(7);
    */
   static async getBlogPostPhotos(blogPostId: number): Promise<Photo[]> {
     return PhotoModel.getForEntity(PhotoableType.BLOG_POST, blogPostId);
   }
 
   /**
-   * Adds photos to any entity
-   *
-   * @param entityType - Entity type
-   * @param entityId - Entity ID
-   * @param photoData - Array of photo data
-   * @returns Promise with created photos
-   *
-   * @example
-   * const photos = await MediaHelperService.addPhotos(
-   *   PhotoableType.PROJECT,
-   *   1,
-   *   [
-   *     { url: "photo1.jpg", caption: "Front view" },
-   *     { url: "photo2.jpg", caption: "Side view" }
-   *   ]
-   * );
+   * Gets media for any entity type with validation
+   */
+  static async getEntityMedia(entityType: string, entityId: number) {
+    if (!this.isValidPhotoableType(entityType)) {
+      throw new Error(`Invalid entity type: ${entityType}`);
+    }
+
+    const photos = await PhotoModel.getForEntity(entityType, entityId);
+
+    const plannableType = this.mapToPlannableType(entityType);
+    let floorPlans: FloorPlan[] | undefined;
+
+    if (plannableType) {
+      floorPlans = await FloorPlanModel.getForEntity(plannableType, entityId);
+    }
+
+    return { photos, floorPlans };
+  }
+
+  /**
+   * Adds photos to any entity with validation
    */
   static async addPhotos(
     entityType: PhotoableType,
@@ -116,22 +129,7 @@ export class MediaService {
   }
 
   /**
-   * Adds floor plans to any entity
-   *
-   * @param entityType - Entity type
-   * @param entityId - Entity ID
-   * @param planData - Array of floor plan data
-   * @returns Promise with created floor plans
-   *
-   * @example
-   * const plans = await MediaHelperService.addFloorPlans(
-   *   PlannableType.APARTMENT,
-   *   3,
-   *   [
-   *     { name: "Ground Floor", imageUrl: "plan1.jpg", pdfUrl: "plan1.pdf" },
-   *     { name: "First Floor", imageUrl: "plan2.jpg" }
-   *   ]
-   * );
+   * Adds floor plans to any entity with validation
    */
   static async addFloorPlans(
     entityType: PlannableType,
@@ -147,61 +145,79 @@ export class MediaService {
   }
 
   /**
-   * Deletes all media for an entity
-   *
-   * @param entityType - Entity type (project, apartment, etc.)
-   * @param entityId - Entity ID
-   * @param includeFloorPlans - Whether to delete floor plans too
-   * @returns Promise with deletion status
-   *
-   * @example
-   * await MediaHelperService.deleteEntityMedia(PhotoableType.PROJECT, 1, true);
+   * Deletes all media for an entity with cascade
    */
   static async deleteEntityMedia(
     entityType: PhotoableType,
     entityId: number,
     includeFloorPlans: boolean = false
   ): Promise<{ photosDeleted: boolean; plansDeleted?: boolean }> {
-    const photosDeleted = await PhotoModel.deleteForEntity(
-      entityType,
-      entityId
-    );
+    const trx = await db.transaction();
 
-    let plansDeleted: boolean | undefined;
-    if (includeFloorPlans) {
-      // Map PhotoableType to PlannableType
-      const plannableType =
-        entityType === PhotoableType.PROJECT
-          ? PlannableType.PROJECT
-          : entityType === PhotoableType.APARTMENT
-          ? PlannableType.APARTMENT
-          : null;
+    try {
+      // Delete photos
+      const photosDeleted = await PhotoModel.deleteForEntity(
+        entityType,
+        entityId
+      );
 
-      if (plannableType) {
-        plansDeleted = await FloorPlanModel.deleteForEntity(
-          plannableType,
-          entityId
-        );
+      let plansDeleted: boolean | undefined;
+      if (includeFloorPlans) {
+        const plannableType = this.mapToPlannableType(entityType);
+
+        if (plannableType) {
+          plansDeleted = await FloorPlanModel.deleteForEntity(
+            plannableType,
+            entityId
+          );
+        }
       }
-    }
 
-    return { photosDeleted, plansDeleted };
+      await trx.commit();
+      return { photosDeleted, plansDeleted };
+    } catch (error) {
+      await trx.rollback();
+      throw error;
+    }
+  }
+
+  /**
+   * Deletes an entity with all its media (cascade delete)
+   */
+  static async deleteEntityWithMedia(
+    entityType: PhotoableType,
+    entityId: number,
+    entityTable: string
+  ): Promise<boolean> {
+    const trx = await db.transaction();
+
+    try {
+      // Delete photos
+      await trx("photos")
+        .where({ photoable_type: entityType, photoable_id: entityId })
+        .del();
+
+      // Delete floor plans if applicable
+      const plannableType = this.mapToPlannableType(entityType);
+      if (plannableType) {
+        await trx("floor_plans")
+          .where({ plannable_type: plannableType, plannable_id: entityId })
+          .del();
+      }
+
+      // Delete main entity
+      await trx(entityTable).where({ id: entityId }).del();
+
+      await trx.commit();
+      return true;
+    } catch (error) {
+      await trx.rollback();
+      throw error;
+    }
   }
 
   /**
    * Gets or sets cover photo for an entity
-   *
-   * @param entityType - Entity type
-   * @param entityId - Entity ID
-   * @param photoId - Photo ID to set as cover (optional)
-   * @returns Promise with cover photo
-   *
-   * @example
-   * // Get current cover
-   * const cover = await MediaHelperService.manageCoverPhoto(PhotoableType.PROJECT, 1);
-   *
-   * // Set new cover
-   * const newCover = await MediaHelperService.manageCoverPhoto(PhotoableType.PROJECT, 1, 5);
    */
   static async manageCoverPhoto(
     entityType: PhotoableType,
@@ -217,20 +233,6 @@ export class MediaService {
 
   /**
    * Reorders media for an entity
-   *
-   * @param entityType - Entity type
-   * @param entityId - Entity ID
-   * @param photoIds - Array of photo IDs in desired order
-   * @param planIds - Array of floor plan IDs in desired order (optional)
-   * @returns Promise with reorder status
-   *
-   * @example
-   * await MediaHelperService.reorderMedia(
-   *   PhotoableType.PROJECT,
-   *   1,
-   *   [5, 3, 7, 2], // photo order
-   *   [10, 11]      // floor plan order
-   * );
    */
   static async reorderMedia(
     entityType: PhotoableType,
@@ -238,31 +240,34 @@ export class MediaService {
     photoIds: number[],
     planIds?: number[]
   ): Promise<{ photosReordered: boolean; plansReordered?: boolean }> {
-    const photosReordered = await PhotoModel.reorder(
-      entityType,
-      entityId,
-      photoIds
-    );
+    const trx = await db.transaction();
 
-    let plansReordered: boolean | undefined;
-    if (planIds && planIds.length > 0) {
-      const plannableType =
-        entityType === PhotoableType.PROJECT
-          ? PlannableType.PROJECT
-          : entityType === PhotoableType.APARTMENT
-          ? PlannableType.APARTMENT
-          : null;
+    try {
+      const photosReordered = await PhotoModel.reorder(
+        entityType,
+        entityId,
+        photoIds
+      );
 
-      if (plannableType) {
-        plansReordered = await FloorPlanModel.reorder(
-          plannableType,
-          entityId,
-          planIds
-        );
+      let plansReordered: boolean | undefined;
+      if (planIds && planIds.length > 0) {
+        const plannableType = this.mapToPlannableType(entityType);
+
+        if (plannableType) {
+          plansReordered = await FloorPlanModel.reorder(
+            plannableType,
+            entityId,
+            planIds
+          );
+        }
       }
-    }
 
-    return { photosReordered, plansReordered };
+      await trx.commit();
+      return { photosReordered, plansReordered };
+    } catch (error) {
+      await trx.rollback();
+      throw error;
+    }
   }
 
   /**
