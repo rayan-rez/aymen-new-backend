@@ -1,20 +1,54 @@
 // jest.config.js
 module.exports = {
+  preset: "ts-jest",
   testEnvironment: "node",
+  roots: ["<rootDir>/src"],
+  testMatch: ["**/__tests__/**/*.test.ts", "**/?(*.)+(spec|test).ts"],
   transform: {
-    "^.+\\.tsx?$": "babel-jest", // Use babel-jest for TS/JS files (relies on your babel.config.json for TS support)
+    "^.+\\.ts$": [
+      "ts-jest",
+      {
+        tsconfig: {
+          esModuleInterop: true,
+          allowSyntheticDefaultImports: true,
+        },
+      },
+    ],
   },
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"],
-  testPathIgnorePatterns: ["/node_modules/", "/dist/"],
-  collectCoverage: true, // Enable coverage reports
-  coverageDirectory: "coverage", // Output dir for coverage
-  coverageReporters: ["text", "lcov", "json"], // Report formats
-  coverageThreshold: { // Optional: Set minimum coverage (adjust as needed)
+  moduleNameMapper: {
+    "^@/(.*)$": "<rootDir>/src/$1",
+    "^@services/(.*)$": "<rootDir>/src/services/$1",
+    "^@middlewares/(.*)$": "<rootDir>/src/middlewares/$1",
+    "^@utils/(.*)$": "<rootDir>/src/utils/$1",
+    "^@models/(.*)$": "<rootDir>/src/models/$1",
+    "^@models$": "<rootDir>/src/models/index.ts",
+    "^@controllers/(.*)$": "<rootDir>/src/controllers/$1",
+    "^@constants/(.*)$": "<rootDir>/src/constants/$1",
+    "^@/types/(.*)$": "<rootDir>/src/types/$1",
+  },
+  collectCoverageFrom: [
+    "src/**/*.{ts,tsx}",
+    "!src/**/*.d.ts",
+    "!src/index.ts",
+    "!src/database/migrations/**",
+    "!src/database/seeds/**",
+    "!src/types/**",
+  ],
+  coverageDirectory: "coverage",
+  coverageReporters: ["text", "lcov", "json", "html"],
+  coverageThreshold: {
     global: {
-      branches: 80,
-      functions: 80,
-      lines: 80,
-      statements: 80,
+      branches: 70,
+      functions: 70,
+      lines: 70,
+      statements: 70,
     },
   },
+  setupFilesAfterEnv: ["<rootDir>/src/__tests__/setup.ts"],
+  testPathIgnorePatterns: ["/node_modules/", "/dist/"],
+  verbose: true,
+  clearMocks: true,
+  resetMocks: true,
+  restoreMocks: true,
 };

@@ -99,14 +99,14 @@ export const isNotEmpty = (value: any): boolean => {
  * @returns Sanitized string
  */
 export const sanitizeString = (value: string): string => {
-  if (!value || typeof value !== "string") {
-    return "";
-  }
+  if (!value || typeof value !== "string") return "";
 
   return value
-    .trim()
-    .replace(/[<>]/g, "") // Remove potential HTML tags
-    .replace(/\s+/g, " "); // Normalize whitespace
+    .replace(/<[^>]*>/g, "") // Remove all HTML tags and their content
+    .replace(/&[a-zA-Z0-9#]+;/g, "") // Remove HTML entities like &nbsp;, &#x27;
+    .replace(/[\u0000-\u001F\u007F]/g, "") // Remove control characters
+    .replace(/\s+/g, " ") // Normalize whitespace
+    .trim();
 };
 
 /**
