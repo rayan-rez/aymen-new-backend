@@ -51,6 +51,34 @@ export async function up(knex: Knex): Promise<void> {
     table.index("status");
     table.index("is_featured");
   });
+
+  // Add CHECK constraint for area_sqm (positive)
+  await knex.raw(`
+    ALTER TABLE commercial_properties 
+    ADD CONSTRAINT commercial_properties_area_sqm_check 
+    CHECK (area_sqm > 0)
+  `);
+
+  // Add CHECK constraint for price (positive)
+  await knex.raw(`
+    ALTER TABLE commercial_properties 
+    ADD CONSTRAINT commercial_properties_price_check 
+    CHECK (price > 0)
+  `);
+
+  // Add CHECK constraint for latitude
+  await knex.raw(`
+    ALTER TABLE commercial_properties 
+    ADD CONSTRAINT commercial_properties_latitude_check 
+    CHECK (latitude >= -90 AND latitude <= 90)
+  `);
+
+  // Add CHECK constraint for longitude
+  await knex.raw(`
+    ALTER TABLE commercial_properties 
+    ADD CONSTRAINT commercial_properties_longitude_check 
+    CHECK (longitude >= -180 AND longitude <= 180)
+  `);
 }
 
 export async function down(knex: Knex): Promise<void> {

@@ -26,7 +26,26 @@ export async function up(knex: Knex): Promise<void> {
     table.index(["photoable_type", "photoable_id"]);
     table.index(["photoable_type", "photoable_id", "display_order"]);
     table.index(["photoable_type", "photoable_id", "is_cover"]);
+    
+    // Composite unique constraint: only one cover photo per entity
+    table.unique(["photoable_type", "photoable_id", "is_cover"], {
+      predicate: knex.whereRaw("is_cover = true"),
+    });
   });
+
+  // Add CHECK constraint for valid photoable_type values
+  await knex.raw(`
+    ALTER TABLE photos 
+    ADD CONSTRAINT photos_photoable_type_check 
+    CHECK (photoable_type IN ('project', 'apartment', 'commercial_property', 'blog_post'))
+  `);
+
+  // Add CHECK constraint for display_order (non-negative)
+  await knex.raw(`
+    ALTER TABLE photos 
+    ADD CONSTRAINT photos_display_order_check 
+    CHECK (display_order >= 0)
+  `);
 }
 
 export async function down(knex: Knex): Promise<void> {

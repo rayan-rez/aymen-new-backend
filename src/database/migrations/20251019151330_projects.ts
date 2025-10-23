@@ -36,8 +36,7 @@ export async function up(knex: Knex): Promise<void> {
     table
       .integer("completion_percentage")
       .unsigned()
-      .defaultTo(0)
-      .checkBetween([0, 100]);
+      .defaultTo(0);
     table.integer("total_blocks").unsigned().nullable();
 
     // Media and marketing
@@ -54,6 +53,27 @@ export async function up(knex: Knex): Promise<void> {
     table.index("is_featured");
     table.index("location_id");
   });
+
+  // Add CHECK constraint for completion_percentage
+  await knex.raw(`
+    ALTER TABLE projects 
+    ADD CONSTRAINT projects_completion_percentage_check 
+    CHECK (completion_percentage >= 0 AND completion_percentage <= 100)
+  `);
+
+  // Add CHECK constraint for latitude
+  await knex.raw(`
+    ALTER TABLE projects 
+    ADD CONSTRAINT projects_latitude_check 
+    CHECK (latitude >= -90 AND latitude <= 90)
+  `);
+
+  // Add CHECK constraint for longitude
+  await knex.raw(`
+    ALTER TABLE projects 
+    ADD CONSTRAINT projects_longitude_check 
+    CHECK (longitude >= -180 AND longitude <= 180)
+  `);
 }
 
 export async function down(knex: Knex): Promise<void> {

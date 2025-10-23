@@ -60,6 +60,20 @@ export async function up(knex: Knex): Promise<void> {
     table.index(["blog_post_id", "display_order"]);
   });
 
+  // Add CHECK constraint for view_count (non-negative)
+  await knex.raw(`
+    ALTER TABLE blog_posts 
+    ADD CONSTRAINT blog_posts_view_count_check 
+    CHECK (view_count >= 0)
+  `);
+
+  // Add CHECK constraint for blog_post_sections display_order
+  await knex.raw(`
+    ALTER TABLE blog_post_sections 
+    ADD CONSTRAINT blog_post_sections_display_order_check 
+    CHECK (display_order >= 0)
+  `);
+
   // Note: blog_post_gallery_images is now handled by the polymorphic photos table
   // Use PhotoableType.BLOG_POST with the blog post ID
 }

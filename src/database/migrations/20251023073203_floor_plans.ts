@@ -24,7 +24,24 @@ export async function up(knex: Knex): Promise<void> {
     // Indexes for efficient polymorphic queries
     table.index(["plannable_type", "plannable_id"]);
     table.index(["plannable_type", "plannable_id", "display_order"]);
+    
+    // Prevent duplicate floor plan names per entity
+    table.unique(["plannable_type", "plannable_id", "name"]);
   });
+
+  // Add CHECK constraint for valid plannable_type values
+  await knex.raw(`
+    ALTER TABLE floor_plans 
+    ADD CONSTRAINT floor_plans_plannable_type_check 
+    CHECK (plannable_type IN ('project', 'apartment'))
+  `);
+
+  // Add CHECK constraint for display_order (non-negative)
+  await knex.raw(`
+    ALTER TABLE floor_plans 
+    ADD CONSTRAINT floor_plans_display_order_check 
+    CHECK (display_order >= 0)
+  `);
 }
 
 export async function down(knex: Knex): Promise<void> {

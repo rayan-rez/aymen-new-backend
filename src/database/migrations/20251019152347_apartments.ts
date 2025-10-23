@@ -42,7 +42,40 @@ export async function up(knex: Knex): Promise<void> {
     table.index("project_id");
     table.index("status");
     table.index(["project_id", "status"]);
+
+    // Ensure unique apartment names within a project
+    table.unique(["project_id", "name"], {
+      predicate: knex.whereNull("deleted_at"),
+    });
   });
+
+  // Add CHECK constraint for area_sqm (positive)
+  await knex.raw(`
+    ALTER TABLE apartments 
+    ADD CONSTRAINT apartments_area_sqm_check 
+    CHECK (area_sqm > 0)
+  `);
+
+  // Add CHECK constraint for bedrooms (non-negative)
+  await knex.raw(`
+    ALTER TABLE apartments 
+    ADD CONSTRAINT apartments_bedrooms_check 
+    CHECK (bedrooms >= 0)
+  `);
+
+  // Add CHECK constraint for bathrooms (non-negative)
+  await knex.raw(`
+    ALTER TABLE apartments 
+    ADD CONSTRAINT apartments_bathrooms_check 
+    CHECK (bathrooms >= 0)
+  `);
+
+  // Add CHECK constraint for price (positive)
+  await knex.raw(`
+    ALTER TABLE apartments 
+    ADD CONSTRAINT apartments_price_check 
+    CHECK (price > 0)
+  `);
 }
 
 export async function down(knex: Knex): Promise<void> {
