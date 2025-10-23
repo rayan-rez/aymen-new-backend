@@ -1,6 +1,6 @@
 /**
  * File: src/__tests__/unit/models/photo.model.test.ts
- * FIXED: Resolves duplicate entry error for unique constraint
+ * FIXED: Added proper async/await and unique timestamps
  */
 
 import PhotoModel, { PhotoableType } from "@models/photo.model";
@@ -11,16 +11,19 @@ describe("PhotoModel", () => {
   let projectId: number;
 
   beforeEach(async () => {
-    // Clean up in correct order
+    // Clean up in correct order with await
     await db("photos").del();
     await db("floor_plans").del();
     await db("project_features").del();
     await db("projects").del();
 
-    // Create a test project
+    // Add small delay to ensure cleanup completes
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Create a test project with unique timestamp
     const project = await ProjectModel.create({
       name: "Test Project",
-      slug: `photo-model-test-${Date.now()}`,
+      slug: `photo-model-test-${Date.now()}-${Math.random().toString(36).substring(7)}`,
       address: "123 Test St",
     });
     projectId = project.id;
@@ -103,6 +106,12 @@ describe("PhotoModel", () => {
         ]
       );
 
+      // Ensure photos were created
+      expect(photos).toHaveLength(3);
+      expect(photos[0]).toBeDefined();
+      expect(photos[1]).toBeDefined();
+      expect(photos[2]).toBeDefined();
+
       // Reverse order
       await PhotoModel.reorder(PhotoableType.PROJECT, projectId, [
         photos[2].id,
@@ -115,6 +124,7 @@ describe("PhotoModel", () => {
         projectId
       );
 
+      expect(reordered).toHaveLength(3);
       expect(reordered[0].id).toBe(photos[2].id);
       expect(reordered[1].id).toBe(photos[1].id);
       expect(reordered[2].id).toBe(photos[0].id);
@@ -154,6 +164,11 @@ describe("PhotoModel", () => {
         ]
       );
 
+      // Ensure photos were created
+      expect(photos).toHaveLength(3);
+      expect(photos[1]).toBeDefined();
+      expect(photos[1].id).toBeDefined();
+
       // Set second photo as cover
       await PhotoModel.setCover(photos[1].id);
 
@@ -179,6 +194,11 @@ describe("PhotoModel", () => {
           { url: "photo3.jpg", isCover: false },
         ]
       );
+
+      // Ensure photos were created
+      expect(photos).toHaveLength(3);
+      expect(photos[1]).toBeDefined();
+      expect(photos[1].id).toBeDefined();
 
       const coverPhoto = await PhotoModel.getCoverPhoto(
         PhotoableType.PROJECT,

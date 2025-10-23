@@ -51,4 +51,10 @@ module.exports = {
   clearMocks: true,
   resetMocks: true,
   restoreMocks: true,
+  
+  // CRITICAL FIX: Run tests serially to prevent race conditions
+  maxWorkers: 1,
+  
+  // Increase timeout for database operations
+  testTimeout: 30000,
 };

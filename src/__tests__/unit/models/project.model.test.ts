@@ -1,6 +1,6 @@
 /**
  * File: src/__tests__/unit/models/project.model.test.ts
- * FIXED: Resolves photo unique constraint issues
+ * FIXED: Proper cleanup and unique identifiers
  */
 
 import ProjectModel, { ProjectStatus } from "@models/project.model";
@@ -8,16 +8,27 @@ import PhotoModel, { PhotoableType } from "@models/photo.model";
 import FloorPlanModel, { PlannableType } from "@models/floor-plan.model";
 import db from "@/config/database";
 
+// Helper to generate unique slug
+const uniqueSlug = (prefix: string) => 
+  `${prefix}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+
 describe("ProjectModel", () => {
   beforeEach(async () => {
-    // Clean up in correct order
+    // Clean up in correct order with proper await
     await db("floor_plans").del();
     await db("photos").del();
     await db("project_features").del();
     await db("projects").del();
+    
+    // Small delay to ensure cleanup completes
+    await new Promise(resolve => setTimeout(resolve, 100));
   });
 
   afterAll(async () => {
+    await db("floor_plans").del();
+    await db("photos").del();
+    await db("project_features").del();
+    await db("projects").del();
     await db.destroy();
   });
 
@@ -25,7 +36,7 @@ describe("ProjectModel", () => {
     it("should create a new project", async () => {
       const projectData = {
         name: "Test Project",
-        slug: `test-project-${Date.now()}`,
+        slug: uniqueSlug("test-project"),
         address: "123 Test St",
         status: ProjectStatus.PLANNING,
       };
@@ -40,9 +51,10 @@ describe("ProjectModel", () => {
     });
 
     it("should fail to create project with duplicate slug", async () => {
+      const slug = uniqueSlug("duplicate-slug");
       const projectData = {
         name: "Test Project",
-        slug: `duplicate-slug-${Date.now()}`,
+        slug,
         address: "123 Test St",
       };
 
@@ -55,7 +67,7 @@ describe("ProjectModel", () => {
     it("should find project by id", async () => {
       const created = await ProjectModel.create({
         name: "Test Project",
-        slug: `find-by-id-${Date.now()}`,
+        slug: uniqueSlug("find-by-id"),
         address: "123 Test St",
       });
 
@@ -74,7 +86,7 @@ describe("ProjectModel", () => {
 
   describe("findBySlug", () => {
     it("should find project by slug", async () => {
-      const slug = `test-slug-${Date.now()}`;
+      const slug = uniqueSlug("test-slug");
       const created = await ProjectModel.create({
         name: "Test Project",
         slug,
@@ -98,7 +110,7 @@ describe("ProjectModel", () => {
     it("should update project fields", async () => {
       const created = await ProjectModel.create({
         name: "Original Name",
-        slug: `original-slug-${Date.now()}`,
+        slug: uniqueSlug("original-slug"),
         address: "123 Test St",
       });
 
@@ -121,7 +133,7 @@ describe("ProjectModel", () => {
 
   describe("softDelete", () => {
     it("should soft delete a project", async () => {
-      const slug = `delete-test-${Date.now()}`;
+      const slug = uniqueSlug("delete-test");
       const created = await ProjectModel.create({
         name: "Test Project",
         slug,
@@ -144,21 +156,21 @@ describe("ProjectModel", () => {
     it("should return only featured projects", async () => {
       await ProjectModel.create({
         name: "Featured 1",
-        slug: `featured-1-${Date.now()}`,
+        slug: uniqueSlug("featured-1"),
         address: "123 Test St",
         isFeatured: true,
       });
 
       await ProjectModel.create({
         name: "Not Featured",
-        slug: `not-featured-${Date.now()}`,
+        slug: uniqueSlug("not-featured"),
         address: "456 Test St",
         isFeatured: false,
       });
 
       await ProjectModel.create({
         name: "Featured 2",
-        slug: `featured-2-${Date.now()}`,
+        slug: uniqueSlug("featured-2"),
         address: "789 Test St",
         isFeatured: true,
       });
@@ -173,7 +185,7 @@ describe("ProjectModel", () => {
       for (let i = 0; i < 5; i++) {
         await ProjectModel.create({
           name: `Featured ${i}`,
-          slug: `featured-${i}-${Date.now()}`,
+          slug: uniqueSlug(`featured-${i}`),
           address: "123 Test St",
           isFeatured: true,
         });
@@ -188,7 +200,7 @@ describe("ProjectModel", () => {
     it("should update completion percentage", async () => {
       const project = await ProjectModel.create({
         name: "Test Project",
-        slug: `completion-test-${Date.now()}`,
+        slug: uniqueSlug("completion-test"),
         address: "123 Test St",
       });
 
@@ -205,7 +217,7 @@ describe("ProjectModel", () => {
     it("should reject invalid percentages", async () => {
       const project = await ProjectModel.create({
         name: "Test Project",
-        slug: `invalid-percentage-${Date.now()}`,
+        slug: uniqueSlug("invalid-percentage"),
         address: "123 Test St",
       });
 
@@ -223,7 +235,7 @@ describe("ProjectModel", () => {
     it("should add and retrieve photos", async () => {
       const project = await ProjectModel.create({
         name: "Test Project",
-        slug: `photo-test-${Date.now()}`,
+        slug: uniqueSlug("photo-test"),
         address: "123 Test St",
       });
 
@@ -248,7 +260,7 @@ describe("ProjectModel", () => {
     it("should add and retrieve floor plans", async () => {
       const project = await ProjectModel.create({
         name: "Test Project",
-        slug: `floor-plan-test-${Date.now()}`,
+        slug: uniqueSlug("floor-plan-test"),
         address: "123 Test St",
       });
 
@@ -273,7 +285,7 @@ describe("ProjectModel", () => {
     it("should set cover photo correctly", async () => {
       const project = await ProjectModel.create({
         name: "Test Project",
-        slug: `cover-photo-test-${Date.now()}`,
+        slug: uniqueSlug("cover-photo-test"),
         address: "123 Test St",
       });
 
@@ -286,6 +298,11 @@ describe("ProjectModel", () => {
           { url: "photo3.jpg", isCover: false },
         ]
       );
+
+      // Ensure photos were created properly
+      expect(photos).toHaveLength(3);
+      expect(photos[1]).toBeDefined();
+      expect(photos[1].id).toBeDefined();
 
       await PhotoModel.setCover(photos[1].id);
 
