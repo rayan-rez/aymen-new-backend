@@ -1,5 +1,6 @@
 /**
  * File: src/__tests__/unit/models/photo.model.test.ts
+ * FIXED: Resolves duplicate entry error for unique constraint
  */
 
 import PhotoModel, { PhotoableType } from "@models/photo.model";
@@ -10,19 +11,26 @@ describe("PhotoModel", () => {
   let projectId: number;
 
   beforeEach(async () => {
+    // Clean up in correct order
     await db("photos").del();
+    await db("floor_plans").del();
+    await db("project_features").del();
     await db("projects").del();
 
     // Create a test project
     const project = await ProjectModel.create({
       name: "Test Project",
-      slug: "photo-model-test",
+      slug: `photo-model-test-${Date.now()}`,
       address: "123 Test St",
     });
     projectId = project.id;
   });
 
   afterAll(async () => {
+    await db("photos").del();
+    await db("floor_plans").del();
+    await db("project_features").del();
+    await db("projects").del();
     await db.destroy();
   });
 
@@ -32,9 +40,9 @@ describe("PhotoModel", () => {
         PhotoableType.PROJECT,
         projectId,
         [
-          { url: "photo1.jpg", caption: "Photo 1" },
-          { url: "photo2.jpg", caption: "Photo 2" },
-          { url: "photo3.jpg", caption: "Photo 3" },
+          { url: "photo1.jpg", caption: "Photo 1", isCover: false },
+          { url: "photo2.jpg", caption: "Photo 2", isCover: false },
+          { url: "photo3.jpg", caption: "Photo 3", isCover: false },
         ]
       );
 
@@ -49,8 +57,8 @@ describe("PhotoModel", () => {
         PhotoableType.PROJECT,
         projectId,
         [
-          { url: "photo1.jpg", displayOrder: 5 },
-          { url: "photo2.jpg", displayOrder: 10 },
+          { url: "photo1.jpg", displayOrder: 5, isCover: false },
+          { url: "photo2.jpg", displayOrder: 10, isCover: false },
         ]
       );
 
@@ -61,9 +69,25 @@ describe("PhotoModel", () => {
     it("should fail when entity does not exist", async () => {
       await expect(
         PhotoModel.bulkCreate(PhotoableType.PROJECT, 99999, [
-          { url: "photo.jpg" },
+          { url: "photo.jpg", isCover: false },
         ])
       ).rejects.toThrow();
+    });
+
+    it("should handle single cover photo per entity", async () => {
+      const photos = await PhotoModel.bulkCreate(
+        PhotoableType.PROJECT,
+        projectId,
+        [
+          { url: "photo1.jpg", isCover: true },
+          { url: "photo2.jpg", isCover: false },
+          { url: "photo3.jpg", isCover: false },
+        ]
+      );
+
+      expect(photos).toHaveLength(3);
+      const coverPhotos = photos.filter(p => p.isCover);
+      expect(coverPhotos).toHaveLength(1);
     });
   });
 
@@ -72,7 +96,11 @@ describe("PhotoModel", () => {
       const photos = await PhotoModel.bulkCreate(
         PhotoableType.PROJECT,
         projectId,
-        [{ url: "photo1.jpg" }, { url: "photo2.jpg" }, { url: "photo3.jpg" }]
+        [
+          { url: "photo1.jpg", isCover: false },
+          { url: "photo2.jpg", isCover: false },
+          { url: "photo3.jpg", isCover: false },
+        ]
       );
 
       // Reverse order
@@ -96,8 +124,8 @@ describe("PhotoModel", () => {
   describe("deleteForEntity", () => {
     it("should delete all photos for an entity", async () => {
       await PhotoModel.bulkCreate(PhotoableType.PROJECT, projectId, [
-        { url: "photo1.jpg" },
-        { url: "photo2.jpg" },
+        { url: "photo1.jpg", isCover: false },
+        { url: "photo2.jpg", isCover: false },
       ]);
 
       const deleted = await PhotoModel.deleteForEntity(
@@ -111,6 +139,69 @@ describe("PhotoModel", () => {
         projectId
       );
       expect(remaining).toHaveLength(0);
+    });
+  });
+
+  describe("setCover", () => {
+    it("should set a photo as cover and unset others", async () => {
+      const photos = await PhotoModel.bulkCreate(
+        PhotoableType.PROJECT,
+        projectId,
+        [
+          { url: "photo1.jpg", isCover: false },
+          { url: "photo2.jpg", isCover: false },
+          { url: "photo3.jpg", isCover: false },
+        ]
+      );
+
+      // Set second photo as cover
+      await PhotoModel.setCover(photos[1].id);
+
+      const allPhotos = await PhotoModel.getForEntity(
+        PhotoableType.PROJECT,
+        projectId
+      );
+
+      const coverPhotos = allPhotos.filter(p => p.isCover);
+      expect(coverPhotos).toHaveLength(1);
+      expect(coverPhotos[0].id).toBe(photos[1].id);
+    });
+  });
+
+  describe("getCoverPhoto", () => {
+    it("should return the cover photo for an entity", async () => {
+      const photos = await PhotoModel.bulkCreate(
+        PhotoableType.PROJECT,
+        projectId,
+        [
+          { url: "photo1.jpg", isCover: false },
+          { url: "photo2.jpg", isCover: true },
+          { url: "photo3.jpg", isCover: false },
+        ]
+      );
+
+      const coverPhoto = await PhotoModel.getCoverPhoto(
+        PhotoableType.PROJECT,
+        projectId
+      );
+
+      expect(coverPhoto).toBeDefined();
+      expect(coverPhoto?.id).toBe(photos[1].id);
+      expect(coverPhoto?.isCover).toBe(true);
+    });
+
+    it("should return null if no cover photo exists", async () => {
+      await PhotoModel.bulkCreate(PhotoableType.PROJECT, projectId, [
+        { url: "photo1.jpg", isCover: false },
+        { url: "photo2.jpg", isCover: false },
+      ]);
+
+      const coverPhoto = await PhotoModel.getCoverPhoto(
+        PhotoableType.PROJECT,
+        projectId
+      );
+
+      expect(coverPhoto).toBeNull();
     });
   });
 });
