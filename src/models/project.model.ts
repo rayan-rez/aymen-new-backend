@@ -167,6 +167,25 @@ class ProjectModel extends BaseModel<
   /**
    * Finds a project by slug
    *
+   * @param data - Project data
+   * @returns Promise<Project> - Project entity
+   *
+   * @example
+   * const project = await ProjectModel.create(data);
+   */
+  async create(data: CreateProjectDto): Promise<Project> {
+    // Check for duplicate slug
+    const existing = await this.findBySlug(data.slug);
+    if (existing) {
+      throw new Error(`Project with slug '${data.slug}' already exists`);
+    }
+
+    return super.create(data);
+  }
+
+  /**
+   * Finds a project by slug
+   *
    * @param slug - Project slug
    * @param includeDeleted - Whether to include soft-deleted projects
    * @returns Promise<Project | null> - Project or null if not found
@@ -317,6 +336,7 @@ class ProjectModel extends BaseModel<
    * @example
    * if(await ProjectModel.delete(1));
    */
+
   async delete(id: number): Promise<boolean> {
     const trx = await this.db.transaction();
 
@@ -444,7 +464,10 @@ class ProjectModel extends BaseModel<
 
     const updated = await this.db(this.tableName)
       .where({ id: projectId })
-      .update({ completion_percentage: percentage });
+      .update({
+        completion_percentage: percentage,
+        updated_at: this.db.fn.now(),
+      });
 
     return updated > 0;
   }

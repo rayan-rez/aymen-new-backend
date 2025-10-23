@@ -1,8 +1,11 @@
 import type { Knex } from "knex";
 
 /**
- * Migration: Polymorphic photos table
+ * Migration: Polymorphic photos table (FIXED for MySQL)
  * Handles photos for: projects, apartments, commercial properties, blog posts
+ * 
+ * FIX: MySQL doesn't support filtered indexes with WHERE clause
+ * Solution: Use application-level logic in the model instead of database constraint
  */
 export async function up(knex: Knex): Promise<void> {
   await knex.schema.createTable("photos", (table) => {
@@ -10,15 +13,14 @@ export async function up(knex: Knex): Promise<void> {
     
     // Polymorphic relationship fields
     table.string("photoable_type", 50).notNullable(); 
-    // Values: 'project', 'apartment', 'commercial_property', 'blog_post'
     table.integer("photoable_id").unsigned().notNullable();
     
     // Photo data
     table.string("url", 500).notNullable();
-    table.string("external_url", 500).nullable(); // For CDN or external hosting
+    table.string("external_url", 500).nullable();
     table.string("caption", 255).nullable();
     table.integer("display_order").defaultTo(0);
-    table.boolean("is_cover").defaultTo(false); // Main/cover photo flag
+    table.boolean("is_cover").defaultTo(false);
     
     table.timestamps(true, true);
 
@@ -26,11 +28,6 @@ export async function up(knex: Knex): Promise<void> {
     table.index(["photoable_type", "photoable_id"]);
     table.index(["photoable_type", "photoable_id", "display_order"]);
     table.index(["photoable_type", "photoable_id", "is_cover"]);
-    
-    // Composite unique constraint: only one cover photo per entity
-    table.unique(["photoable_type", "photoable_id", "is_cover"], {
-      predicate: knex.whereRaw("is_cover = true"),
-    });
   });
 
   // Add CHECK constraint for valid photoable_type values

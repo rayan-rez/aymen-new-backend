@@ -325,19 +325,41 @@ class PhotoModel extends BaseModel<Photo, CreatePhotoDto, UpdatePhotoDto> {
     const trx = await this.db.transaction();
 
     try {
+      // Check if any photo in the batch is marked as cover
+      const hasCoverPhoto = photos.some((p) => p.isCover);
+
+      // If we're adding a new cover photo, unset existing covers first
+      if (hasCoverPhoto) {
+        await trx(this.tableName)
+          .where({
+            photoable_type: photoableType,
+            photoable_id: photoableId,
+            is_cover: true,
+          })
+          .update({ is_cover: false });
+      }
+
       const timestamp = new Date();
-      const photoData = photos.map((photo, index) => ({
-        photoable_type: photoableType,
-        photoable_id: photoableId,
-        url: photo.url,
-        external_url: photo.externalUrl || null,
-        caption: photo.caption || null,
-        display_order:
-          photo.displayOrder !== undefined ? photo.displayOrder : index,
-        is_cover: photo.isCover || false,
-        created_at: timestamp,
-        updated_at: timestamp,
-      }));
+
+      // Ensure only one photo is marked as cover
+      let coverAssigned = false;
+      const photoData = photos.map((photo, index) => {
+        const shouldBeCover = photo.isCover && !coverAssigned;
+        if (shouldBeCover) coverAssigned = true;
+
+        return {
+          photoable_type: photoableType,
+          photoable_id: photoableId,
+          url: photo.url,
+          external_url: photo.externalUrl || null,
+          caption: photo.caption || null,
+          display_order:
+            photo.displayOrder !== undefined ? photo.displayOrder : index,
+          is_cover: shouldBeCover,
+          created_at: timestamp,
+          updated_at: timestamp,
+        };
+      });
 
       await trx(this.tableName).insert(photoData);
 
@@ -357,6 +379,7 @@ class PhotoModel extends BaseModel<Photo, CreatePhotoDto, UpdatePhotoDto> {
       throw error;
     }
   }
+
 
   /**
    * Updates multiple photos at once
