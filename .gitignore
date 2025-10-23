@@ -37,4 +37,9 @@ logs/
 *.log
 
 concat-files.js
-new-controllers-files.txt
+controllers.txt
+routes.txt
+models.txt
+middlewares.txt
+services.txt
+utils.txt
