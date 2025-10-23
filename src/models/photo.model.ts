@@ -206,6 +206,19 @@ class PhotoModel extends BaseModel<Photo, CreatePhotoDto, UpdatePhotoDto> {
   }
 
   /**
+   * Updates a photo with validation
+   * @override
+   */
+  async update(id: number, data: UpdatePhotoDto): Promise<Photo | null> {
+    const existing = await this.findById(id);
+    if (!existing) {
+      throw new Error(`Photo ${id} not found`);
+    }
+
+    return super.update(id, data);
+  }
+
+  /**
    * Sets a photo as cover (unsets others)
    */
   async setCover(photoId: number): Promise<boolean> {
@@ -306,9 +319,7 @@ class PhotoModel extends BaseModel<Photo, CreatePhotoDto, UpdatePhotoDto> {
     // Validate entity exists
     const entityExists = await this.validateEntity(photoableType, photoableId);
     if (!entityExists) {
-      throw new Error(
-        `Entity ${photoableType}:${photoableId} does not exist`
-      );
+      throw new Error(`Entity ${photoableType}:${photoableId} does not exist`);
     }
 
     const trx = await this.db.transaction();

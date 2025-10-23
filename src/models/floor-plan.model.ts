@@ -247,9 +247,7 @@ class FloorPlanModel extends BaseModel<
     // Validate entity exists
     const entityExists = await this.validateEntity(plannableType, plannableId);
     if (!entityExists) {
-      throw new Error(
-        `Entity ${plannableType}:${plannableId} does not exist`
-      );
+      throw new Error(`Entity ${plannableType}:${plannableId} does not exist`);
     }
 
     const trx = await this.db.transaction();
@@ -285,6 +283,19 @@ class FloorPlanModel extends BaseModel<
       await trx.rollback();
       throw error;
     }
+  }
+
+  /**
+   * Updates a photo with validation
+   * @override
+   */
+  async update(id: number, data: UpdateFloorPlanDto): Promise<FloorPlan | null> {
+    const existing = await this.findById(id);
+    if (!existing) {
+      throw new Error(`Photo ${id} not found`);
+    }
+
+    return super.update(id, data);
   }
 
   /**

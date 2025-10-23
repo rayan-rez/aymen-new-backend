@@ -309,6 +309,40 @@ class ProjectModel extends BaseModel<
   }
 
   /**
+   * Deletes a project with all its media (override)
+   *
+   * @param id - Project ID
+   * @returns Promise<boolean> - if delete successful
+   *
+   * @example
+   * if(await ProjectModel.delete(1));
+   */
+  async delete(id: number): Promise<boolean> {
+    const trx = await this.db.transaction();
+
+    try {
+      // Delete photos
+      await trx("photos")
+        .where({ photoable_type: PhotoableType.PROJECT, photoable_id: id })
+        .del();
+
+      // Delete floor plans
+      await trx("floor_plans")
+        .where({ plannable_type: PlannableType.PROJECT, plannable_id: id })
+        .del();
+
+      // Delete project
+      await trx(this.tableName).where({ id }).del();
+
+      await trx.commit();
+      return true;
+    } catch (error) {
+      await trx.rollback();
+      throw error;
+    }
+  }
+
+  /**
    * Gets complete project with all relations
    * UPDATED: Now uses polymorphic models
    *

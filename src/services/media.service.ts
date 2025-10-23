@@ -49,15 +49,20 @@ export class MediaService {
   }
 
   /**
-   * Gets all media (photos and floor plans) for a project
+   * Gets all media with error handling
    */
   static async getProjectMedia(projectId: number) {
-    const [photos, floorPlans] = await Promise.all([
-      PhotoModel.getForEntity(PhotoableType.PROJECT, projectId),
-      FloorPlanModel.getForEntity(PlannableType.PROJECT, projectId),
-    ]);
+    try {
+      const [photos, floorPlans] = await Promise.all([
+        PhotoModel.getForEntity(PhotoableType.PROJECT, projectId),
+        FloorPlanModel.getForEntity(PlannableType.PROJECT, projectId),
+      ]);
 
-    return { photos, floorPlans };
+      return { photos, floorPlans };
+    } catch (error) {
+      console.error(`Error getting media for project ${projectId}:`, error);
+      throw new Error(`Failed to retrieve media for project ${projectId}`);
+    }
   }
 
   /**

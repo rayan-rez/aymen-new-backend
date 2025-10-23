@@ -339,18 +339,25 @@ export abstract class BaseModel<T, TCreate, TUpdate> {
    */
   protected mapToDatabase(data: any): Record<string, any> {
     const mapped: Record<string, any> = {};
-
     for (const [key, value] of Object.entries(data)) {
       if (value !== undefined) {
-        // Convert camelCase to snake_case
         const snakeKey = key.replace(
           /[A-Z]/g,
           (letter) => `_${letter.toLowerCase()}`
         );
-        mapped[snakeKey] = value;
+        // Serialize arrays and objects to JSON
+        if (
+          Array.isArray(value) ||
+          (typeof value === "object" &&
+            value !== null &&
+            !(value instanceof Date))
+        ) {
+          mapped[snakeKey] = JSON.stringify(value);
+        } else {
+          mapped[snakeKey] = value;
+        }
       }
     }
-
     return mapped;
   }
 
@@ -379,9 +386,6 @@ export abstract class BaseModel<T, TCreate, TUpdate> {
   protected camelToSnake(str: string): string {
     return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
   }
-
-
-  
 }
 
 export default BaseModel;
