@@ -7,6 +7,8 @@
  */
 
 import { BaseModel, BaseQueryParams } from "./base.model";
+import PhotoModel, { PhotoableType } from "./photo.model";
+import FloorPlanModel, { PlannableType } from "./floor-plan.model";
 
 /**
  * Apartment status enumeration
@@ -217,6 +219,7 @@ class ApartmentModel extends BaseModel<
 
   /**
    * Gets apartment with photos
+   * UPDATED: Now uses polymorphic PhotoModel
    */
   async getWithPhotos(
     apartmentId: number
@@ -224,15 +227,17 @@ class ApartmentModel extends BaseModel<
     const apartment = await this.findById(apartmentId);
     if (!apartment) return null;
 
-    const photos = await this.db("apartment_photos")
-      .where({ apartment_id: apartmentId })
-      .orderBy("display_order", "asc");
+    const photos = await PhotoModel.getForEntity(
+      PhotoableType.APARTMENT,
+      apartmentId
+    );
 
     return { ...apartment, photos };
   }
 
   /**
    * Gets complete apartment data
+   * UPDATED: Now uses polymorphic models
    */
   async getComplete(
     apartmentId: number
@@ -241,13 +246,9 @@ class ApartmentModel extends BaseModel<
     if (!apartment) return null;
 
     const [photos, floorPlans, project] = await Promise.all([
-      this.db("apartment_photos")
-        .where({ apartment_id: apartmentId })
-        .orderBy("display_order", "asc"),
+      PhotoModel.getForEntity(PhotoableType.APARTMENT, apartmentId),
 
-      this.db("apartment_floor_plans")
-        .where({ apartment_id: apartmentId })
-        .orderBy("display_order", "asc"),
+      FloorPlanModel.getForEntity(PlannableType.APARTMENT, apartmentId),
 
       this.db("projects").where({ id: apartment.projectId }).first(),
     ]);

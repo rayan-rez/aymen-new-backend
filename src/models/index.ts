@@ -63,6 +63,26 @@ export {
   CommercialPropertyWithRelations,
 } from "./commercial-property.model";
 
+// Polymorphic Photo Model (NEW)
+export {
+  default as PhotoModel,
+  Photo,
+  PhotoableType,
+  CreatePhotoDto,
+  UpdatePhotoDto,
+  PhotoQueryParams,
+} from "./photo.model";
+
+// Polymorphic Floor Plan Model (NEW)
+export {
+  default as FloorPlanModel,
+  FloorPlan,
+  PlannableType,
+  CreateFloorPlanDto,
+  UpdateFloorPlanDto,
+  FloorPlanQueryParams,
+} from "./floor-plan.model";
+
 // Contact Submission Model
 export {
   default as ContactSubmissionModel,
@@ -187,45 +207,65 @@ export {
 } from "./user.model";
 
 /**
- * Usage Examples:
+ * Usage Examples with Polymorphic Models:
  *
  * @example
- * // Import specific model
- * import { LocationModel, ProjectInquiryModel } from './models';
+ * // Working with polymorphic photos
+ * import { PhotoModel, PhotoableType } from './models';
  *
- * @example
- * // Use location model
- * const locations = await LocationModel.findAll({ type: LocationType.CITY });
- *
- * @example
- * // Create new project inquiry
- * const inquiry = await ProjectInquiryModel.create({
- *   firstName: "John",
- *   lastName: "Doe",
- *   email: "john@example.com",
- *   phone: "+213555123456",
- *   country: "Algeria"
- * });
- *
- * @example
- * // Get blog posts
- * const posts = await BlogPostModel.getPublished(10);
- *
- * @example
- * // Track lead source
- * const lead = await LeadSourceModel.create({
- *   leadEmail: "john@example.com",
- *   leadType: LeadType.CONTACT_FORM,
- *   utmSource: "facebook",
- *   utmMedium: "cpc",
- *   utmCampaign: "summer-2025"
- * });
- *
- * @example
- * // Manage marketing consent
- * await MarketingConsentModel.upsertConsent(
- *   "john@example.com",
- *   { email: true, sms: false, phone: true },
- *   "newsletter-signup"
+ * // Add photos to a project
+ * const projectPhotos = await PhotoModel.bulkCreate(
+ *   PhotoableType.PROJECT,
+ *   1,
+ *   [
+ *     { url: "photo1.jpg", caption: "Front view", isCover: true },
+ *     { url: "photo2.jpg", caption: "Side view" }
+ *   ]
  * );
+ *
+ * // Get all photos for an apartment
+ * const apartmentPhotos = await PhotoModel.getForEntity(
+ *   PhotoableType.APARTMENT,
+ *   5
+ * );
+ *
+ * // Set cover photo
+ * await PhotoModel.setCover(photoId);
+ *
+ * @example
+ * // Working with polymorphic floor plans
+ * import { FloorPlanModel, PlannableType } from './models';
+ *
+ * // Add floor plans to a project
+ * const plans = await FloorPlanModel.bulkCreate(
+ *   PlannableType.PROJECT,
+ *   1,
+ *   [
+ *     { name: "Ground Floor", imageUrl: "plan1.jpg", pdfUrl: "plan1.pdf" },
+ *     { name: "First Floor", imageUrl: "plan2.jpg" }
+ *   ]
+ * );
+ *
+ * // Get floor plans for an apartment
+ * const apartmentPlans = await FloorPlanModel.getForEntity(
+ *   PlannableType.APARTMENT,
+ *   3
+ * );
+ *
+ * // Reorder floor plans
+ * await FloorPlanModel.reorder(PlannableType.PROJECT, 1, [5, 3, 7, 2]);
+ *
+ * @example
+ * // Updated project queries with polymorphic relations
+ * import { ProjectModel, PhotoModel, FloorPlanModel, PhotoableType, PlannableType } from './models';
+ *
+ * const project = await ProjectModel.findById(1);
+ * const photos = await PhotoModel.getForEntity(PhotoableType.PROJECT, project.id);
+ * const plans = await FloorPlanModel.getForEntity(PlannableType.PROJECT, project.id);
+ *
+ * const projectWithMedia = {
+ *   ...project,
+ *   photos,
+ *   floorPlans: plans
+ * };
  */

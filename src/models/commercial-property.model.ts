@@ -7,6 +7,7 @@
  */
 
 import { BaseModel, BaseQueryParams } from "./base.model";
+import PhotoModel, { PhotoableType } from "./photo.model";
 
 /**
  * Commercial property type enumeration
@@ -301,6 +302,7 @@ class CommercialPropertyModel extends BaseModel<
 
   /**
    * Gets property with photos
+   * UPDATED: Now uses polymorphic PhotoModel
    *
    * @param propertyId - Property ID
    * @returns Promise<CommercialPropertyWithRelations | null> - Property with photos
@@ -314,15 +316,17 @@ class CommercialPropertyModel extends BaseModel<
     const property = await this.findById(propertyId);
     if (!property) return null;
 
-    const photos = await this.db("commercial_property_photos")
-      .where({ property_id: propertyId })
-      .orderBy("display_order", "asc");
+    const photos = await PhotoModel.getForEntity(
+      PhotoableType.COMMERCIAL_PROPERTY,
+      propertyId
+    );
 
     return { ...property, photos };
   }
 
   /**
    * Gets complete property data with all relations
+   * UPDATED: Now uses polymorphic PhotoModel
    *
    * @param propertyId - Property ID
    * @returns Promise<CommercialPropertyWithRelations | null> - Complete property data
@@ -337,9 +341,7 @@ class CommercialPropertyModel extends BaseModel<
     if (!property) return null;
 
     const [photos, locations] = await Promise.all([
-      this.db("commercial_property_photos")
-        .where({ property_id: propertyId })
-        .orderBy("display_order", "asc"),
+      PhotoModel.getForEntity(PhotoableType.COMMERCIAL_PROPERTY, propertyId),
 
       this.db("commercial_property_locations as cpl")
         .join("locations as l", "cpl.location_id", "l.id")

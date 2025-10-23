@@ -7,6 +7,7 @@
  */
 
 import { BaseModel, BaseQueryParams } from "./base.model";
+import PhotoModel, { PhotoableType } from "./photo.model";
 
 /**
  * Blog post entity interface
@@ -258,6 +259,7 @@ class BlogPostModel extends BaseModel<
 
   /**
    * Gets post with sections and gallery
+   * UPDATED: Now uses polymorphic PhotoModel for gallery images
    *
    * @param postId - Post ID
    * @returns Promise<BlogPostWithRelations | null> - Complete post data
@@ -274,9 +276,7 @@ class BlogPostModel extends BaseModel<
         .where({ blog_post_id: postId })
         .orderBy("display_order", "asc"),
 
-      this.db("blog_post_gallery_images")
-        .where({ blog_post_id: postId })
-        .orderBy("display_order", "asc"),
+      PhotoModel.getForEntity(PhotoableType.BLOG_POST, postId),
     ]);
 
     return { ...post, sections, galleryImages };

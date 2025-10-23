@@ -7,6 +7,8 @@
  */
 
 import { BaseModel, BaseQueryParams } from "./base.model";
+import PhotoModel, { PhotoableType } from "./photo.model";
+import FloorPlanModel, { PlannableType } from "./floor-plan.model";
 
 /**
  * Project status enumeration
@@ -283,6 +285,7 @@ class ProjectModel extends BaseModel<
 
   /**
    * Gets project with all its photos
+   * UPDATED: Now uses polymorphic PhotoModel
    *
    * @param projectId - Project ID
    * @returns Promise<ProjectWithRelations | null> - Project with photos
@@ -294,9 +297,10 @@ class ProjectModel extends BaseModel<
     const project = await this.findById(projectId);
     if (!project) return null;
 
-    const photos = await this.db("project_photos")
-      .where({ project_id: projectId })
-      .orderBy("display_order", "asc");
+    const photos = await PhotoModel.getForEntity(
+      PhotoableType.PROJECT,
+      projectId
+    );
 
     return {
       ...project,
@@ -306,6 +310,7 @@ class ProjectModel extends BaseModel<
 
   /**
    * Gets complete project with all relations
+   * UPDATED: Now uses polymorphic models
    *
    * @param projectId - Project ID
    * @returns Promise<ProjectWithRelations | null> - Complete project data
@@ -329,15 +334,11 @@ class ProjectModel extends BaseModel<
           .where("pl.project_id", projectId)
           .select("l.*"),
 
-        this.db("project_photos")
-          .where({ project_id: projectId })
-          .orderBy("display_order", "asc"),
+        PhotoModel.getForEntity(PhotoableType.PROJECT, projectId),
 
         this.db("virtual_tours").where({ project_id: projectId }),
 
-        this.db("floor_plans")
-          .where({ project_id: projectId })
-          .orderBy("display_order", "asc"),
+        FloorPlanModel.getForEntity(PlannableType.PROJECT, projectId),
       ]);
 
     return {

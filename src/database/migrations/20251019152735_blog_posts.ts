@@ -2,6 +2,7 @@ import type { Knex } from "knex";
 
 /**
  * Migration: Blog and content management
+ * Note: blog_post_gallery_images has been replaced by polymorphic photos table
  */
 export async function up(knex: Knex): Promise<void> {
   await knex.schema.createTable("blog_posts", (table) => {
@@ -59,27 +60,11 @@ export async function up(knex: Knex): Promise<void> {
     table.index(["blog_post_id", "display_order"]);
   });
 
-  // Blog carousel images
-  await knex.schema.createTable("blog_post_gallery_images", (table) => {
-    table.increments("id").primary();
-    table
-      .integer("blog_post_id")
-      .unsigned()
-      .notNullable()
-      .references("id")
-      .inTable("blog_posts")
-      .onDelete("CASCADE");
-    table.string("image_url", 500).notNullable();
-    table.string("caption", 255).nullable();
-    table.integer("display_order").defaultTo(0);
-    table.timestamps(true, true);
-
-    table.index("blog_post_id");
-  });
+  // Note: blog_post_gallery_images is now handled by the polymorphic photos table
+  // Use PhotoableType.BLOG_POST with the blog post ID
 }
 
 export async function down(knex: Knex): Promise<void> {
-  await knex.schema.dropTableIfExists("blog_post_gallery_images");
   await knex.schema.dropTableIfExists("blog_post_sections");
   await knex.schema.dropTableIfExists("blog_posts");
 }
