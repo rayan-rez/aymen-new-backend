@@ -429,14 +429,6 @@ class ProjectInquiryModel extends BaseModel<
     return stats;
   }
 
-  /**
-   * Gets pipeline statistics by stage
-   *
-   * @returns Promise<any> - Sales pipeline metrics
-   *
-   * @example
-   * const pipeline = await ProjectInquiryModel.getPipelineStatistics();
-   */
   async getPipelineStatistics(): Promise<any> {
     const stats = await this.getStatusStatistics();
 
