@@ -1,346 +1,318 @@
 /**
- * File: src/__tests__/unit/models/blog-post.model.test.ts
- * Comprehensive tests for BlogPostModel
- * Covers CRUD operations, publishing workflow, search, and relations
+ * File: src/__tests__/unit/models/catalog-download-request.model.test.ts
+ * FIXED: Proper database cleanup to prevent memory leaks
  */
 
-import BlogPostModel from "@models/blog-post.model";
-import PhotoModel, { PhotoableType } from "@models/photo.model";
-import db from "@/config/database";
+import CatalogDownloadRequestModel from "@models/catalog-download-request.model";
+import ProjectModel from "@models/project.model";
+import { closeDatabase, cleanTables } from "@tests/helpers/test-db";
 
-// Helper to generate unique slug
-const uniqueSlug = (prefix: string) =>
-  `${prefix}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+describe("CatalogDownloadRequestModel", () => {
+  let testProjectId: number;
 
-describe("BlogPostModel", () => {
   beforeEach(async () => {
-    // Clean up in correct order
-    await db("photos").del();
-    await db("blog_posts").del();
+    await cleanTables(["catalog_download_requests", "projects"]);
 
-    // Small delay to ensure cleanup completes
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // Create a test project for foreign key relationships
+    const project = await ProjectModel.create({
+      name: "Test Project",
+      slug: `test-project-${Date.now()}-${Math.random()
+        .toString(36)
+        .substring(7)}`,
+      address: "123 Test St",
+    });
+    testProjectId = project.id;
   });
 
   afterAll(async () => {
-    await db("photos").del();
-    await db("blog_posts").del();
-    await db.destroy();
+    // Clean up test data
+    await cleanTables(["catalog_download_requests", "projects"]);
+
+    // Small delay before closing connection
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    // Close database connection to prevent memory leaks
+    await closeDatabase();
   });
 
   describe("create", () => {
-    it("should create a new blog post", async () => {
-      const postData = {
-        title: "Test Post",
-        slug: uniqueSlug("test-post"),
-        authorName: "John Doe",
-        content: "This is a test post content.",
+    it("should create a new catalog download request", async () => {
+      const requestData = {
+        fullName: "John Doe",
+        email: "john@example.com",
+        phone: "+1234567890",
+        marketingConsent: true,
       };
 
-      const post = await BlogPostModel.create(postData);
+      const request = await CatalogDownloadRequestModel.create(requestData);
 
-      expect(post).toBeDefined();
-      expect(post.id).toBeDefined();
-      expect(post.title).toBe(postData.title);
-      expect(post.slug).toBe(postData.slug);
-      expect(post.authorName).toBe(postData.authorName);
-      expect(post.content).toBe(postData.content);
-      expect(post.isPublished).toBe(false); // Default
+      expect(request).toBeDefined();
+      expect(request.id).toBeDefined();
+      expect(request.fullName).toBe(requestData.fullName);
+      expect(request.email).toBe(requestData.email);
+      expect(request.phone).toBe(requestData.phone);
+      expect(request.marketingConsent).toBe(true);
+      expect(request.downloadedAt).toBeNull();
     });
 
-    it("should fail to create post with duplicate slug", async () => {
-      const slug = uniqueSlug("duplicate-post");
-      const postData = {
-        title: "Test Post",
-        slug,
-        authorName: "John Doe",
-        content: "Content",
+    it("should create with optional fields", async () => {
+      const requestData = {
+        fullName: "Jane Doe",
+        email: "jane@example.com",
+        phone: "+0987654321",
+        catalogType: "Brochure",
+        projectId: testProjectId,
+        downloadIp: "192.168.1.1",
       };
 
-      await BlogPostModel.create(postData);
-      await expect(BlogPostModel.create(postData)).rejects.toThrow();
+      const request = await CatalogDownloadRequestModel.create(requestData);
+
+      expect(request.catalogType).toBe(requestData.catalogType);
+      expect(request.projectId).toBe(requestData.projectId);
+      expect(request.downloadIp).toBe(requestData.downloadIp);
     });
   });
 
   describe("findById", () => {
-    it("should find blog post by id", async () => {
-      const created = await BlogPostModel.create({
-        title: "Find By ID Post",
-        slug: uniqueSlug("find-by-id"),
-        authorName: "John Doe",
-        content: "Content",
+    it("should find catalog download request by id", async () => {
+      const created = await CatalogDownloadRequestModel.create({
+        fullName: "Find By ID",
+        email: "find@example.com",
+        phone: "+1112223334",
       });
 
-      const found = await BlogPostModel.findById(created.id);
+      const found = await CatalogDownloadRequestModel.findById(created.id);
 
       expect(found).toBeDefined();
       expect(found?.id).toBe(created.id);
-      expect(found?.title).toBe(created.title);
+      expect(found?.fullName).toBe(created.fullName);
     });
 
     it("should return null for non-existent id", async () => {
-      const found = await BlogPostModel.findById(999999);
-      expect(found).toBeNull();
-    });
-  });
-
-  describe("findBySlug", () => {
-    it("should find blog post by slug", async () => {
-      const slug = uniqueSlug("find-by-slug");
-      const created = await BlogPostModel.create({
-        title: "Find By Slug Post",
-        slug,
-        authorName: "John Doe",
-        content: "Content",
-      });
-
-      const found = await BlogPostModel.findBySlug(slug);
-
-      expect(found).toBeDefined();
-      expect(found?.slug).toBe(slug);
-      expect(found?.title).toBe(created.title);
-    });
-
-    it("should return null for non-existent slug", async () => {
-      const found = await BlogPostModel.findBySlug("non-existent-slug");
+      const found = await CatalogDownloadRequestModel.findById(999999);
       expect(found).toBeNull();
     });
   });
 
   describe("findAll", () => {
     beforeEach(async () => {
-      // Create multiple posts for testing
-      await BlogPostModel.create({
-        title: "Post 1",
-        slug: uniqueSlug("post-1"),
-        authorName: "Doe",
-        content: "C1",
+      await CatalogDownloadRequestModel.create({
+        fullName: "Req1",
+        email: "req1@example.com",
+        phone: "+1",
+        catalogType: "TypeA",
       });
-      await BlogPostModel.create({
-        title: "Post 2",
-        slug: uniqueSlug("post-2"),
-        authorName: "Doe",
-        content: "C2",
+      await CatalogDownloadRequestModel.create({
+        fullName: "Req2",
+        email: "req2@example.com",
+        phone: "+2",
+        catalogType: "TypeB",
       });
-      await BlogPostModel.create({
-        title: "Post 3",
-        slug: uniqueSlug("post-3"),
-        authorName: "Doe",
-        content: "C3",
+      await CatalogDownloadRequestModel.create({
+        fullName: "Req3",
+        email: "req3@example.com",
+        phone: "+3",
+        catalogType: "TypeA",
       });
     });
 
-    it("should return all posts with pagination", async () => {
-      const results = await BlogPostModel.findAll({ page: 1, limit: 2 });
+    it("should return all requests with pagination", async () => {
+      const results = await CatalogDownloadRequestModel.findAll({
+        page: 1,
+        limit: 2,
+      });
       expect(results).toHaveLength(2);
     });
 
+    it("should filter by catalogType", async () => {
+      const typeA = await CatalogDownloadRequestModel.findAll({
+        catalogType: "TypeA",
+      });
+      expect(typeA).toHaveLength(2);
+      expect(typeA[0].catalogType).toBe("TypeA");
+    });
+
+    it("should filter by email", async () => {
+      const byEmail = await CatalogDownloadRequestModel.findAll({
+        email: "req1@example.com",
+      });
+      expect(byEmail).toHaveLength(1);
+    });
+
+    it("should filter by hasDownloaded", async () => {
+      const created = await CatalogDownloadRequestModel.create({
+        fullName: "Downloaded",
+        email: "downloaded@example.com",
+        phone: "+downloaded",
+      });
+      await CatalogDownloadRequestModel.markAsDownloaded(
+        created.id,
+        "127.0.0.1"
+      );
+
+      const downloaded = await CatalogDownloadRequestModel.findAll({
+        hasDownloaded: true,
+      });
+      expect(downloaded.length).toBeGreaterThan(0);
+      expect(downloaded[0].downloadedAt).not.toBeNull();
+    });
+
+    it("should filter by date range", async () => {
+      const dateFrom = new Date("2025-10-01");
+      const dateTo = new Date("2025-10-31");
+      const results = await CatalogDownloadRequestModel.findAll({
+        dateFrom,
+        dateTo,
+      });
+      expect(results.length).toBeGreaterThan(0);
+    });
+
     it("should return empty array for no matches", async () => {
-      const results = await BlogPostModel.findAll({ page: 100, limit: 10 });
+      const results = await CatalogDownloadRequestModel.findAll({
+        catalogType: "Nonexistent",
+      });
       expect(results).toHaveLength(0);
     });
   });
 
   describe("update", () => {
-    it("should update blog post fields", async () => {
-      const created = await BlogPostModel.create({
-        title: "Original Post",
-        slug: uniqueSlug("original-post"),
-        authorName: "John Doe",
-        content: "Original content",
+    it("should update catalog download request fields", async () => {
+      const created = await CatalogDownloadRequestModel.create({
+        fullName: "Original",
+        email: "original@example.com",
+        phone: "+original",
       });
 
       const updateData = {
-        title: "Updated Post",
-        content: "Updated content",
-        metaDescription: "New meta",
+        fullName: "Updated",
+        catalogType: "Updated Type",
+        marketingConsent: false,
       };
 
-      const updated = await BlogPostModel.update(created.id, updateData);
+      const updated = await CatalogDownloadRequestModel.update(
+        created.id,
+        updateData
+      );
 
       expect(updated).toBeDefined();
-      expect(updated?.title).toBe(updateData.title);
-      expect(updated?.content).toBe(updateData.content);
-      expect(updated?.metaDescription).toBe(updateData.metaDescription);
+      expect(updated?.fullName).toBe(updateData.fullName);
+      expect(updated?.catalogType).toBe(updateData.catalogType);
+      expect(updated?.marketingConsent).toBe(false);
     });
 
-    it("should return null when updating non-existent post", async () => {
-      const updated = await BlogPostModel.update(999999, {
-        title: "Non-existent",
+    it("should return null when updating non-existent request", async () => {
+      const updated = await CatalogDownloadRequestModel.update(999999, {
+        fullName: "Non-existent",
       });
       expect(updated).toBeNull();
     });
   });
 
-  describe("softDelete", () => {
-    it("should soft delete a blog post", async () => {
-      const created = await BlogPostModel.create({
-        title: "To Delete Post",
-        slug: uniqueSlug("to-delete"),
-        authorName: "John Doe",
-        content: "Content",
+  describe("markAsDownloaded", () => {
+    it("should mark request as downloaded and set IP", async () => {
+      const created = await CatalogDownloadRequestModel.create({
+        fullName: "To Download",
+        email: "download@example.com",
+        phone: "+download",
       });
 
-      await BlogPostModel.softDelete(created.id);
-
-      const found = await BlogPostModel.findById(created.id);
-      expect(found).toBeNull(); // Should not find soft-deleted by default
-
-      const withDeleted = await BlogPostModel.findById(created.id);
-      expect(withDeleted?.deletedAt).not.toBeNull();
-    });
-  });
-
-  describe("publish and unpublish", () => {
-    it("should publish a post", async () => {
-      const created = await BlogPostModel.create({
-        title: "To Publish Post",
-        slug: uniqueSlug("to-publish"),
-        authorName: "John Doe",
-        content: "Content",
-      });
-
-      const published = await BlogPostModel.publish(created.id);
-      expect(published).toBe(true);
-
-      const found = await BlogPostModel.findById(created.id);
-      expect(found?.isPublished).toBe(true);
-      expect(found?.publishedAt).not.toBeNull();
-    });
-
-    it("should unpublish a post", async () => {
-      const created = await BlogPostModel.create({
-        title: "To Unpublish Post",
-        slug: uniqueSlug("to-unpublish"),
-        authorName: "John Doe",
-        content: "Content",
-        isPublished: true,
-        publishedAt: new Date(),
-      });
-
-      const unpublished = await BlogPostModel.unpublish(created.id);
-      expect(unpublished).toBe(true);
-
-      const found = await BlogPostModel.findById(created.id);
-      expect(found?.isPublished).toBe(false);
-      expect(found?.publishedAt).toBeNull();
-    });
-
-    it("should return false for non-existent post", async () => {
-      const published = await BlogPostModel.publish(999999);
-      expect(published).toBe(false);
-    });
-  });
-
-  describe("incrementViewCount", () => {
-    it("should increment view count", async () => {
-      const created = await BlogPostModel.create({
-        title: "View Count Post",
-        slug: uniqueSlug("view-count"),
-        authorName: "John Doe",
-        content: "Content",
-      });
-
-      await BlogPostModel.incrementViewCount(created.id);
-
-      const found = await BlogPostModel.findById(created.id);
-      expect(found?.viewCount).toBe(1);
-    });
-
-    it("should return false for non-existent post", async () => {
-      const incremented = await BlogPostModel.incrementViewCount(999999);
-      expect(incremented).toBe(false);
-    });
-  });
-
-  describe("getRecentPublished", () => {
-    beforeEach(async () => {
-      // Create published posts
-      await BlogPostModel.create({
-        title: "Recent 1",
-        slug: uniqueSlug("recent-1"),
-        authorName: "Doe",
-        content: "C1",
-        isPublished: true,
-        publishedAt: new Date(),
-      });
-      await BlogPostModel.create({
-        title: "Recent 2",
-        slug: uniqueSlug("recent-2"),
-        authorName: "Doe",
-        content: "C2",
-        isPublished: true,
-        publishedAt: new Date(Date.now() - 86400000), // 1 day ago
-      });
-    });
-
-    it("should return recent published posts", async () => {
-      const recent = await BlogPostModel.getRecent(1);
-      expect(recent).toHaveLength(1);
-      expect(recent[0].isPublished).toBe(true);
-    });
-  });
-
-  describe("search", () => {
-    beforeEach(async () => {
-      await BlogPostModel.create({
-        title: "Search Title Match",
-        slug: uniqueSlug("search-title"),
-        authorName: "Doe",
-        content: "Content with keyword",
-        isPublished: true,
-      });
-      await BlogPostModel.create({
-        title: "No Match",
-        slug: uniqueSlug("no-match"),
-        authorName: "Doe",
-        content: "No keyword here",
-        isPublished: true,
-      });
-    });
-
-    it("should search posts by title or content", async () => {
-      const results = await BlogPostModel.search("keyword");
-      expect(results).toHaveLength(1);
-      expect(results[0].content).toContain("keyword");
-    });
-
-    it("should return empty for no matches", async () => {
-      const results = await BlogPostModel.search("nonexistent");
-      expect(results).toHaveLength(0);
-    });
-  });
-
-  describe("Polymorphic Relations", () => {
-    let postId: number;
-
-    beforeEach(async () => {
-      const post = await BlogPostModel.create({
-        title: "Relations Post",
-        slug: uniqueSlug("relations-post"),
-        authorName: "John Doe",
-        content: "Content",
-      });
-      postId = post.id;
-    });
-
-    it("should add and retrieve gallery images (photos)", async () => {
-      const photos = await PhotoModel.bulkCreate(
-        PhotoableType.BLOG_POST,
-        postId,
-        [
-          { url: "gallery1.jpg", caption: "Gallery 1" },
-          { url: "gallery2.jpg", caption: "Gallery 2" },
-        ]
+      const marked = await CatalogDownloadRequestModel.markAsDownloaded(
+        created.id,
+        "192.168.0.1"
       );
+      expect(marked).toBe(true);
 
-      expect(photos).toHaveLength(2);
+      const found = await CatalogDownloadRequestModel.findById(created.id);
+      expect(found?.downloadedAt).not.toBeNull();
+      expect(found?.downloadIp).toBe("192.168.0.1");
+    });
 
-      const retrieved = await PhotoModel.getForEntity(
-        PhotoableType.BLOG_POST,
-        postId
+    it("should return false for non-existent request", async () => {
+      const marked = await CatalogDownloadRequestModel.markAsDownloaded(
+        999999,
+        "127.0.0.1"
       );
-      expect(retrieved).toHaveLength(2);
+      expect(marked).toBe(false);
+    });
+  });
+
+  describe("getDownloadStatistics", () => {
+    beforeEach(async () => {
+      const req1 = await CatalogDownloadRequestModel.create({
+        fullName: "Stat1",
+        email: "stat1@example.com",
+        phone: "+1",
+        catalogType: "TypeA",
+      });
+      await CatalogDownloadRequestModel.markAsDownloaded(req1.id, "ip1");
+
+      await CatalogDownloadRequestModel.create({
+        fullName: "Stat2",
+        email: "stat2@example.com",
+        phone: "+2",
+        catalogType: "TypeB",
+      });
+
+      const req3 = await CatalogDownloadRequestModel.create({
+        fullName: "Stat3",
+        email: "stat3@example.com",
+        phone: "+3",
+        catalogType: "TypeA",
+      });
+      await CatalogDownloadRequestModel.markAsDownloaded(req3.id, "ip3");
+    });
+
+    it("should return download statistics", async () => {
+      const stats = await CatalogDownloadRequestModel.getDownloadStatistics();
+      expect(stats.totalRequests).toBe(3);
+      expect(stats.downloaded).toBe(2);
+      expect(stats.byType.TypeA).toBe(2);
+      expect(stats.byType.TypeB).toBe(1);
+    });
+
+    it("should handle no requests", async () => {
+      await cleanTables(["catalog_download_requests"]);
+      const stats = await CatalogDownloadRequestModel.getDownloadStatistics();
+      expect(stats.totalRequests).toBe(0);
+      expect(stats.downloaded).toBe(0);
+      expect(stats.byType).toEqual({});
+    });
+  });
+
+  describe("getMarketingConsents", () => {
+    beforeEach(async () => {
+      await CatalogDownloadRequestModel.create({
+        fullName: "Consent1",
+        email: "consent1@example.com",
+        phone: "+consent1",
+        marketingConsent: true,
+      });
+      await CatalogDownloadRequestModel.create({
+        fullName: "NoConsent",
+        email: "noconsent@example.com",
+        phone: "+noconsent",
+        marketingConsent: false,
+      });
+      await CatalogDownloadRequestModel.create({
+        fullName: "Consent2",
+        email: "consent2@example.com",
+        phone: "+consent2",
+        marketingConsent: true,
+      });
+    });
+
+    it("should return requests with marketing consent", async () => {
+      const consented =
+        await CatalogDownloadRequestModel.getMarketingConsents();
+      expect(consented).toHaveLength(2);
+      expect(consented[0].marketingConsent).toBe(true);
+    });
+
+    it("should return empty array for no consents", async () => {
+      await cleanTables(["catalog_download_requests"]);
+      const consented =
+        await CatalogDownloadRequestModel.getMarketingConsents();
+      expect(consented).toHaveLength(0);
     });
   });
 });

@@ -1,4 +1,4 @@
-// jest.config.js - IMPROVED VERSION
+// jest.config.js - FIXED VERSION
 module.exports = {
   preset: "ts-jest",
   testEnvironment: "node",
@@ -26,6 +26,7 @@ module.exports = {
     "^@controllers/(.*)$": "<rootDir>/src/controllers/$1",
     "^@constants/(.*)$": "<rootDir>/src/constants/$1",
     "^@/types/(.*)$": "<rootDir>/src/types/$1",
+    "^@tests/(.*)$": "<rootDir>/src/__tests__/$1",
   },
   collectCoverageFrom: [
     "src/**/*.{ts,tsx}",
@@ -48,7 +49,7 @@ module.exports = {
   setupFilesAfterEnv: ["<rootDir>/src/__tests__/setup.ts"],
   testPathIgnorePatterns: ["/node_modules/", "/dist/"],
 
-  // IMPROVED: Better test isolation and reliability
+  // Better test isolation and reliability
   verbose: true,
   clearMocks: true,
   resetMocks: true,
@@ -60,21 +61,25 @@ module.exports = {
   // Increase timeout for database operations
   testTimeout: 30000,
 
-  // IMPROVED: Better error reporting
-  bail: false, // Continue running tests even if some fail
+  // Better error reporting
+  bail: false,
   errorOnDeprecated: true,
 
-  // IMPROVED: Global setup and teardown
+  // Global setup and teardown
   globalSetup: "<rootDir>/src/__tests__/global-setup.ts",
   globalTeardown: "<rootDir>/src/__tests__/global-teardown.ts",
 
-  // IMPROVED: Detect async operations that weren't stopped
-  detectOpenHandles: false, // Set to true for debugging
-  forceExit: true, // Force exit after tests complete
+  // FIXED: Properly handle async operations and prevent memory leaks
+  detectOpenHandles: true,
+  forceExit: true,
+  detectLeaks: false, // Disable leak detection as it's experimental
 
-  // IMPROVED: Better module resolution
+  // Better module resolution
   moduleDirectories: ["node_modules", "src"],
 
-  // IMPROVED: Test sequencer for deterministic order
+  // Test sequencer for deterministic order
   testSequencer: "<rootDir>/src/__tests__/test-sequencer.js",
+
+  // Reduce console noise
+  silent: false,
 };

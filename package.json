@@ -15,7 +15,7 @@
     "db:setup": "npm run migrate:latest && npm run seed:run",
     "lint": "eslint . --ext .ts",
     "type-check": "tsc --noEmit",
-    "test": "jest --verbose",
+    "test": "jest --verbose --runInBand --logHeapUsage",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage --verbose",
     "test:ci": "jest --ci --coverage --maxWorkers=2",

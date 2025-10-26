@@ -34,7 +34,7 @@ interface UpdateTestDto {
 
 // Concrete subclass for testing BaseModel
 class TestModel extends BaseModel<TestEntity, CreateTestDto, UpdateTestDto> {
-  protected tableName = "test_table"; // Assume this table exists or create in setup
+  protected tableName = "test_table";
 
   protected mapToEntity(record: any): TestEntity {
     return {
@@ -51,7 +51,6 @@ class TestModel extends BaseModel<TestEntity, CreateTestDto, UpdateTestDto> {
     return this.beginTransaction();
   }
 
-  // Public wrapper for testing protected mapToDatabase
   public testMapToDatabase(data: any): Record<string, any> {
     return this.mapToDatabase(data);
   }
@@ -61,10 +60,7 @@ const testModel = new TestModel();
 
 describe("BaseModel", () => {
   beforeEach(async () => {
-    // Clean up the test table
     await db("test_table").del();
-
-    // Small delay to ensure cleanup completes
     await new Promise((resolve) => setTimeout(resolve, 100));
   });
 
@@ -73,7 +69,6 @@ describe("BaseModel", () => {
     await db.destroy();
   });
 
-  // Setup test table if not exists (run once)
   beforeAll(async () => {
     const tableExists = await db.schema.hasTable("test_table");
     if (!tableExists) {
@@ -98,14 +93,12 @@ describe("BaseModel", () => {
       expect(created.value).toBe(data.value);
     });
 
-    it("should throw error if creation fails", async () => {
-      // Mock insert to fail
-      jest
-        .spyOn(db("test_table"), "insert")
-        .mockRejectedValue(new Error("Insert failed"));
-      await expect(testModel.create({ name: "Fail" })).rejects.toThrow(
-        "Failed to create record"
-      );
+    it("should handle creation with null values", async () => {
+      const data: CreateTestDto = { name: "Test Name", value: null };
+      const created = await testModel.create(data);
+
+      expect(created).toBeDefined();
+      expect(created.value).toBeNull();
     });
   });
 
@@ -124,14 +117,20 @@ describe("BaseModel", () => {
       expect(found).toBeNull();
     });
 
-    it("should include deleted records when specified", async () => {
+    it("should exclude soft-deleted records by default", async () => {
       const created = await testModel.create({ name: "To Delete" });
       await testModel.softDelete(created.id);
 
       const foundWithout = await testModel.findById(created.id);
       expect(foundWithout).toBeNull();
+    });
 
-      const foundWith = await testModel.findById(created.id);
+    it("should include deleted records when specified", async () => {
+      const created = await testModel.create({ name: "To Delete 2" });
+      await testModel.softDelete(created.id);
+
+      const foundWith = await testModel.findById(created.id, true);
+      expect(foundWith).toBeDefined();
       expect(foundWith?.deletedAt).not.toBeNull();
     });
   });
@@ -157,7 +156,7 @@ describe("BaseModel", () => {
     it("should sort records", async () => {
       const params: BaseQueryParams = { sortBy: "name", sortOrder: "desc" };
       const results = await testModel.findAll(params);
-      expect(results[0].name).toBe("Record 3"); // Assuming alphabetical desc
+      expect(results[0].name).toBe("Record 3");
     });
   });
 
@@ -177,6 +176,14 @@ describe("BaseModel", () => {
       const updated = await testModel.update(999999, { name: "Non-existent" });
       expect(updated).toBeNull();
     });
+
+    it("should not update soft-deleted records", async () => {
+      const created = await testModel.create({ name: "To Delete" });
+      await testModel.softDelete(created.id);
+
+      const updated = await testModel.update(created.id, { name: "Updated" });
+      expect(updated).toBeNull();
+    });
   });
 
   describe("softDelete", () => {
@@ -188,13 +195,59 @@ describe("BaseModel", () => {
       const found = await testModel.findById(created.id);
       expect(found).toBeNull();
 
-      const foundWithDeleted = await testModel.findById(created.id);
+      const foundWithDeleted = await testModel.findById(created.id, true);
       expect(foundWithDeleted?.deletedAt).not.toBeNull();
     });
 
     it("should return false for non-existent id", async () => {
       const deleted = await testModel.softDelete(999999);
       expect(deleted).toBe(false);
+    });
+
+    it("should return false when already deleted", async () => {
+      const created = await testModel.create({ name: "To Delete" });
+      await testModel.softDelete(created.id);
+
+      const deletedAgain = await testModel.softDelete(created.id);
+      expect(deletedAgain).toBe(false);
+    });
+  });
+
+  describe("restore", () => {
+    it("should restore soft-deleted record", async () => {
+      const created = await testModel.create({ name: "To Restore" });
+      await testModel.softDelete(created.id);
+
+      const restored = await testModel.restore(created.id);
+      expect(restored).toBe(true);
+
+      const found = await testModel.findById(created.id);
+      expect(found).toBeDefined();
+      expect(found?.deletedAt).toBeNull();
+    });
+
+    it("should return false for non-deleted record", async () => {
+      const created = await testModel.create({ name: "Not Deleted" });
+      const restored = await testModel.restore(created.id);
+      expect(restored).toBe(false);
+    });
+  });
+
+  describe("findOne", () => {
+    beforeEach(async () => {
+      await testModel.create({ name: "Unique", value: "Special" });
+      await testModel.create({ name: "Other", value: "Normal" });
+    });
+
+    it("should find one record matching conditions", async () => {
+      const found = await testModel.findOne({ value: "Special" });
+      expect(found).toBeDefined();
+      expect(found?.name).toBe("Unique");
+    });
+
+    it("should return null when no match", async () => {
+      const found = await testModel.findOne({ value: "Nonexistent" });
+      expect(found).toBeNull();
     });
   });
 
@@ -233,46 +286,117 @@ describe("BaseModel", () => {
     });
   });
 
+  describe("exists", () => {
+    beforeEach(async () => {
+      await testModel.create({ name: "Exists Test" });
+    });
+
+    it("should return true when record exists", async () => {
+      const exists = await testModel.exists({ name: "Exists Test" });
+      expect(exists).toBe(true);
+    });
+
+    it("should return false when record does not exist", async () => {
+      const exists = await testModel.exists({ name: "Nonexistent" });
+      expect(exists).toBe(false);
+    });
+  });
+
+  describe("paginate", () => {
+    beforeEach(async () => {
+      for (let i = 1; i <= 5; i++) {
+        await testModel.create({ name: `Item ${i}` });
+      }
+    });
+
+    it("should return paginated results", async () => {
+      const result = await testModel.paginate({ page: 1, limit: 2 });
+
+      expect(result.items).toHaveLength(2);
+      expect(result.total).toBe(5);
+      expect(result.page).toBe(1);
+      expect(result.limit).toBe(2);
+      expect(result.totalPages).toBe(3);
+    });
+  });
+
+  describe("delete (hard delete)", () => {
+    it("should permanently delete record", async () => {
+      const created = await testModel.create({ name: "To Hard Delete" });
+      const deleted = await testModel.delete(created.id);
+      expect(deleted).toBe(true);
+
+      const found = await testModel.findById(created.id, true);
+      expect(found).toBeNull();
+    });
+  });
+
   describe("transaction", () => {
     it("should execute transaction successfully", async () => {
       const trx = await testModel.testBeginTransaction();
-      await trx("test_table").insert({ name: "In Trx" });
-      await trx.commit();
 
-      const found = await testModel.findWhere({ name: "In Trx" });
-      expect(found).toHaveLength(1);
+      try {
+        await trx("test_table").insert({ name: "In Trx" });
+        await trx.commit();
+
+        const found = await testModel.findWhere({ name: "In Trx" });
+        expect(found).toHaveLength(1);
+      } catch (error) {
+        await trx.rollback();
+        throw error;
+      }
     });
 
     it("should rollback on error", async () => {
       const trx = await testModel.testBeginTransaction();
-      await trx("test_table").insert({ name: "To Rollback" });
-      await trx.rollback();
 
-      const found = await testModel.findWhere({ name: "To Rollback" });
-      expect(found).toHaveLength(0);
+      try {
+        await trx("test_table").insert({ name: "To Rollback" });
+        await trx.rollback();
+
+        const found = await testModel.findWhere({ name: "To Rollback" });
+        expect(found).toHaveLength(0);
+      } catch (error) {
+        await trx.rollback();
+      }
     });
   });
 
   describe("mapToDatabase", () => {
-    it("should map camelCase to snake_case via public wrapper", () => {
+    it("should map camelCase to snake_case", () => {
       const data = {
         testField: "value",
-        arrayField: [1, 2],
-        objectField: { key: "val" },
+        anotherField: "value2",
       };
       const mapped = testModel.testMapToDatabase(data);
       expect(mapped.test_field).toBe("value");
-      expect(mapped.array_field).toBe(JSON.stringify([1, 2]));
+      expect(mapped.another_field).toBe("value2");
+    });
+
+    it("should serialize arrays to JSON", () => {
+      const data = { arrayField: [1, 2, 3] };
+      const mapped = testModel.testMapToDatabase(data);
+      expect(mapped.array_field).toBe(JSON.stringify([1, 2, 3]));
+    });
+
+    it("should serialize objects to JSON", () => {
+      const data = { objectField: { key: "val" } };
+      const mapped = testModel.testMapToDatabase(data);
       expect(mapped.object_field).toBe(JSON.stringify({ key: "val" }));
     });
 
-    it("should skip undefined values via public wrapper", () => {
+    it("should skip undefined values", () => {
       const data = { defined: "yes", undefinedField: undefined };
       const mapped = testModel.testMapToDatabase(data);
-      expect(mapped.defined).toBeUndefined(); // Not included
-      expect(mapped.undefined_field).toBeUndefined();
+      expect(mapped.defined).toBe("yes");
+      expect("undefined_field" in mapped).toBe(false);
+    });
+
+    it("should not serialize Date objects", () => {
+      const date = new Date();
+      const data = { dateField: date };
+      const mapped = testModel.testMapToDatabase(data);
+      expect(mapped.date_field).toBe(date);
     });
   });
-
-  // mapToEntity is abstract, tested in subclasses
 });

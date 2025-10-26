@@ -1,5 +1,5 @@
 /**
- * Photo Model (Polymorphic) - FIXED VERSION
+ * Photo Model (Polymorphic)
  * Represents photos for multiple entity types
  * Replaces: project_photos, apartment_photos, commercial_property_photos, blog_post_gallery_images
  *

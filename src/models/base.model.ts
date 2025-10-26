@@ -1,5 +1,5 @@
 /**
- * Base Model - FIXED VERSION
+ * Base Model
  * Abstract base class for all database models
  * Provides common CRUD operations and query building functionality
  *

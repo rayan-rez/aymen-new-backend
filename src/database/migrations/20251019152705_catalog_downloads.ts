@@ -34,6 +34,7 @@ export async function up(knex: Knex): Promise<void> {
     table.index("email");
     table.index("project_id");
     table.index(["created_at", "catalog_type"]);
+    table.timestamp("deleted_at").nullable();
   });
 }
 

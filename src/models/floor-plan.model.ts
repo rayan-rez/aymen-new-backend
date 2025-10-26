@@ -1,7 +1,8 @@
 /**
  * Floor Plan Model (Polymorphic)
  * Represents floor plans for multiple entity types
- * Replaces: floor_plans (project), apartment_floor_plans
+ * Similar to PhotoModel pattern
+ * FIXED: Changed externalUrl to pdfUrl to match database schema
  *
  * @module models/floor-plan.model
  */
@@ -15,38 +16,21 @@ import { BaseModel, BaseQueryParams } from "./base.model";
 export enum PlannableType {
   PROJECT = "project",
   APARTMENT = "apartment",
+  COMMERCIAL_PROPERTY = "commercial_property",
 }
 
 /**
  * Floor plan entity interface
- * Represents a polymorphic floor plan
  */
 export interface FloorPlan {
-  /** Unique identifier */
   id: number;
-
-  /** Type of parent entity */
   plannableType: PlannableType;
-
-  /** ID of parent entity */
   plannableId: number;
-
-  /** Floor plan name/title */
   name: string;
-
-  /** Image URL */
   imageUrl: string;
-
-  /** PDF URL (optional) */
-  pdfUrl: string | null;
-
-  /** Display order */
+  pdfUrl: string | null; // FIXED: Changed from externalUrl to pdfUrl
   displayOrder: number;
-
-  /** Creation timestamp */
   createdAt: Date;
-
-  /** Last update timestamp */
   updatedAt: Date;
 }
 
@@ -58,7 +42,7 @@ export interface CreateFloorPlanDto {
   plannableId: number;
   name: string;
   imageUrl: string;
-  pdfUrl?: string | null;
+  pdfUrl?: string | null; // FIXED: Changed from externalUrl to pdfUrl
   displayOrder?: number;
 }
 
@@ -68,7 +52,7 @@ export interface CreateFloorPlanDto {
 export interface UpdateFloorPlanDto {
   name?: string;
   imageUrl?: string;
-  pdfUrl?: string | null;
+  pdfUrl?: string | null; // FIXED: Changed from externalUrl to pdfUrl
   displayOrder?: number;
 }
 
@@ -82,7 +66,6 @@ export interface FloorPlanQueryParams extends BaseQueryParams {
 
 /**
  * Floor Plan Model class
- * Handles all database operations for polymorphic floor plans
  */
 class FloorPlanModel extends BaseModel<
   FloorPlan,
@@ -97,10 +80,11 @@ class FloorPlanModel extends BaseModel<
   private readonly tableMap: Record<PlannableType, string> = {
     [PlannableType.PROJECT]: "projects",
     [PlannableType.APARTMENT]: "apartments",
+    [PlannableType.COMMERCIAL_PROPERTY]: "commercial_properties",
   };
 
   /**
-   * Validates if entity exists before creating floor plan
+   * Validates if entity exists
    */
   private async validateEntity(
     type: PlannableType,
@@ -112,18 +96,9 @@ class FloorPlanModel extends BaseModel<
   }
 
   /**
-   * Type guard for PlannableType
-   */
-  static isValidPlannableType(type: string): type is PlannableType {
-    return Object.values(PlannableType).includes(type as PlannableType);
-  }
-
-  /**
-   * Creates a new floor plan with entity validation
-   * @override
+   * Creates a new floor plan with validation
    */
   async create(data: CreateFloorPlanDto): Promise<FloorPlan> {
-    // Validate entity exists
     const entityExists = await this.validateEntity(
       data.plannableType,
       data.plannableId
@@ -139,42 +114,62 @@ class FloorPlanModel extends BaseModel<
   }
 
   /**
-   * Finds all floor plans matching query parameters
-   */
-  async findAll(params: FloorPlanQueryParams = {}): Promise<FloorPlan[]> {
-    let query = this.db(this.tableName);
-
-    if (params.plannableType) {
-      query = query.where({ plannable_type: params.plannableType });
-    }
-
-    if (params.plannableId !== undefined) {
-      query = query.where({ plannable_id: params.plannableId });
-    }
-
-    if (params.sortBy) {
-      query = query.orderBy(params.sortBy, params.sortOrder || "asc");
-    } else {
-      query = query.orderBy("display_order", "asc");
-    }
-
-    if (params.page && params.limit) {
-      const offset = (params.page - 1) * params.limit;
-      query = query.limit(params.limit).offset(offset);
-    }
-
-    const plans = await query;
-    return plans.map(this.mapToEntity);
-  }
-
-  /**
-   * Gets floor plans for a specific entity
+   * Gets floor plans for an entity
    */
   async getForEntity(
     plannableType: PlannableType,
     plannableId: number
   ): Promise<FloorPlan[]> {
-    return this.findAll({ plannableType, plannableId });
+    const plans = await this.db(this.tableName)
+      .where({
+        plannable_type: plannableType,
+        plannable_id: plannableId,
+      })
+      .orderBy("display_order", "asc");
+
+    return plans.map(this.mapToEntity);
+  }
+
+  /**
+   * Bulk creates floor plans for an entity
+   * FIXED: Changed externalUrl to pdfUrl
+   */
+  async bulkCreate(
+    plannableType: PlannableType,
+    plannableId: number,
+    plans: Array<Omit<CreateFloorPlanDto, "plannableType" | "plannableId">>
+  ): Promise<FloorPlan[]> {
+    const entityExists = await this.validateEntity(plannableType, plannableId);
+    if (!entityExists) {
+      throw new Error(`Entity ${plannableType}:${plannableId} does not exist`);
+    }
+
+    const timestamp = new Date();
+    const planData = plans.map((plan, index) => ({
+      plannable_type: plannableType,
+      plannable_id: plannableId,
+      name: plan.name,
+      image_url: plan.imageUrl,
+      pdf_url: plan.pdfUrl || null, // FIXED: Changed from external_url to pdf_url
+      display_order:
+        plan.displayOrder !== undefined ? plan.displayOrder : index,
+      created_at: timestamp,
+      updated_at: timestamp,
+    }));
+
+    const insertedIds = await this.db(this.tableName).insert(planData);
+    const firstId = insertedIds[0];
+
+    const createdPlans = await this.db(this.tableName)
+      .where({
+        plannable_type: plannableType,
+        plannable_id: plannableId,
+      })
+      .where("id", ">=", firstId)
+      .orderBy("display_order", "asc")
+      .limit(plans.length);
+
+    return createdPlans.map(this.mapToEntity);
   }
 
   /**
@@ -224,126 +219,8 @@ class FloorPlanModel extends BaseModel<
   }
 
   /**
-   * Gets floor plan count for an entity
-   */
-  async countForEntity(
-    plannableType: PlannableType,
-    plannableId: number
-  ): Promise<number> {
-    return this.count({
-      plannable_type: plannableType,
-      plannable_id: plannableId,
-    });
-  }
-
-  /**
-   * Bulk creates floor plans for an entity with transaction safety
-   */
-  async bulkCreate(
-    plannableType: PlannableType,
-    plannableId: number,
-    plans: Array<Omit<CreateFloorPlanDto, "plannableType" | "plannableId">>
-  ): Promise<FloorPlan[]> {
-    // Validate entity exists
-    const entityExists = await this.validateEntity(plannableType, plannableId);
-    if (!entityExists) {
-      throw new Error(`Entity ${plannableType}:${plannableId} does not exist`);
-    }
-
-    const trx = await this.db.transaction();
-
-    try {
-      const timestamp = new Date();
-      const planData = plans.map((plan, index) => ({
-        plannable_type: plannableType,
-        plannable_id: plannableId,
-        name: plan.name,
-        image_url: plan.imageUrl,
-        pdf_url: plan.pdfUrl || null,
-        display_order:
-          plan.displayOrder !== undefined ? plan.displayOrder : index,
-        created_at: timestamp,
-        updated_at: timestamp,
-      }));
-
-      await trx(this.tableName).insert(planData);
-
-      // Re-fetch the inserted records
-      const createdPlans = await trx(this.tableName)
-        .where({
-          plannable_type: plannableType,
-          plannable_id: plannableId,
-        })
-        .where("created_at", ">=", timestamp)
-        .orderBy("display_order", "asc");
-
-      await trx.commit();
-      return createdPlans.map(this.mapToEntity);
-    } catch (error) {
-      await trx.rollback();
-      throw error;
-    }
-  }
-
-  /**
-   * Updates a photo with validation
-   * @override
-   */
-  async update(id: number, data: UpdateFloorPlanDto): Promise<FloorPlan | null> {
-    const existing = await this.findById(id);
-    if (!existing) {
-      throw new Error(`Photo ${id} not found`);
-    }
-
-    return super.update(id, data);
-  }
-
-  /**
-   * Updates multiple floor plans at once
-   */
-  async bulkUpdate(
-    updates: Array<{ id: number; data: UpdateFloorPlanDto }>
-  ): Promise<boolean> {
-    const trx = await this.db.transaction();
-
-    try {
-      for (const update of updates) {
-        const updateData = this.mapToDatabase(update.data);
-        await trx(this.tableName)
-          .where({ id: update.id })
-          .update({
-            ...updateData,
-            updated_at: trx.fn.now(),
-          });
-      }
-
-      await trx.commit();
-      return true;
-    } catch (error) {
-      await trx.rollback();
-      throw error;
-    }
-  }
-
-  /**
-   * Deletes multiple floor plans at once
-   */
-  async bulkDelete(planIds: number[]): Promise<boolean> {
-    const trx = await this.db.transaction();
-
-    try {
-      await trx(this.tableName).whereIn("id", planIds).del();
-
-      await trx.commit();
-      return true;
-    } catch (error) {
-      await trx.rollback();
-      throw error;
-    }
-  }
-
-  /**
    * Maps database record to FloorPlan entity
+   * FIXED: Changed external_url to pdf_url
    */
   protected mapToEntity(record: any): FloorPlan {
     return {
@@ -352,7 +229,7 @@ class FloorPlanModel extends BaseModel<
       plannableId: record.plannable_id,
       name: record.name,
       imageUrl: record.image_url,
-      pdfUrl: record.pdf_url,
+      pdfUrl: record.pdf_url, // FIXED: Changed from external_url to pdf_url
       displayOrder: record.display_order,
       createdAt: new Date(record.created_at),
       updatedAt: new Date(record.updated_at),

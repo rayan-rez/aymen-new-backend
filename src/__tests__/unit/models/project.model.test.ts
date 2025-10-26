@@ -1,12 +1,12 @@
 /**
  * File: src/__tests__/unit/models/project.model.test.ts
- * FIXED: Proper cleanup and unique identifiers
+ * FIXED: Proper cleanup and unique identifiers with memory leak prevention
  */
 
 import ProjectModel, { ProjectStatus } from "@models/project.model";
 import PhotoModel, { PhotoableType } from "@models/photo.model";
 import FloorPlanModel, { PlannableType } from "@models/floor-plan.model";
-import db from "@/config/database";
+import { closeDatabase, cleanTables } from "@tests/helpers/test-db";
 
 // Helper to generate unique slug
 const uniqueSlug = (prefix: string) => 
@@ -14,22 +14,29 @@ const uniqueSlug = (prefix: string) =>
 
 describe("ProjectModel", () => {
   beforeEach(async () => {
-    // Clean up in correct order with proper await
-    await db("floor_plans").del();
-    await db("photos").del();
-    await db("project_features").del();
-    await db("projects").del();
-    
-    // Small delay to ensure cleanup completes
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Clean up in correct order (respecting foreign keys)
+    await cleanTables([
+      "floor_plans",
+      "photos", 
+      "project_features",
+      "projects"
+    ]);
   });
 
   afterAll(async () => {
-    await db("floor_plans").del();
-    await db("photos").del();
-    await db("project_features").del();
-    await db("projects").del();
-    await db.destroy();
+    // Clean up test data
+    await cleanTables([
+      "floor_plans",
+      "photos",
+      "project_features", 
+      "projects"
+    ]);
+    
+    // Small delay before closing connection
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
+    // CRITICAL: Close database connection to prevent memory leaks
+    await closeDatabase();
   });
 
   describe("create", () => {

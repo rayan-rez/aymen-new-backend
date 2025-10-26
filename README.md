@@ -292,6 +292,7 @@ UserModel.getSalesTeam(); // Get all sales staff
 ```
 
 **Important Notes:**
+
 - `findAll()` returns full User entities (with sensitive data) - use internally only
 - `findAllSafe()` returns SafeUser entities (without passwordHash/resetToken) - use for API responses
 - Always use SafeUser type for API responses to prevent data leaks
@@ -336,6 +337,7 @@ ProjectInquiryModel.getPipelineStatistics(); // Sales conversion metrics
 ```
 
 **Sales Pipeline Stages:**
+
 - `new` - Fresh inquiry, not yet contacted
 - `contacted` - Initial contact made
 - `qualified` - Lead meets criteria
@@ -543,12 +545,15 @@ const inquiry = await ProjectInquiryModel.create({
   financingMethod: FinancingMethod.CASH,
   purchaseTimeline: PurchaseTimeline.IMMEDIATE,
   interestTypes: ["buy", "invest"],
-  propertyTypes: ["apartment", "villa"]
+  propertyTypes: ["apartment", "villa"],
 });
 
 // Sales pipeline management
 await ProjectInquiryModel.assign(inquiryId, "sales_agent_1");
-await ProjectInquiryModel.updateStatus(inquiryId, ProjectInquiryStatus.QUALIFIED);
+await ProjectInquiryModel.updateStatus(
+  inquiryId,
+  ProjectInquiryStatus.QUALIFIED
+);
 const pipeline = await ProjectInquiryModel.getPipelineStatistics();
 
 // Event management

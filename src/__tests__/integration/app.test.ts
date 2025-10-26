@@ -1,5 +1,5 @@
 /**
- * Application Integration Tests (FIXED)
+ * Application Integration Tests
  * Tests for core application functionality and routes
  */
 

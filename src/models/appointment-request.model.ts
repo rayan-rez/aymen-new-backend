@@ -105,6 +105,7 @@ export interface AppointmentRequestQueryParams extends BaseQueryParams {
 /**
  * Appointment Request Model class
  * Handles all database operations for appointment requests
+ * FIXED: No soft delete support (table doesn't have deleted_at column)
  */
 class AppointmentRequestModel extends BaseModel<
   AppointmentRequest,
@@ -113,17 +114,103 @@ class AppointmentRequestModel extends BaseModel<
 > {
   protected tableName = "appointment_requests";
 
+  // FIXED: Cache the deleted_at column check to prevent repeated queries
+  private _hasDeletedAtColumn: boolean | null = null;
+
+  /**
+   * Checks if table has deleted_at column (cached)
+   */
+  private async hasDeletedAtColumn(): Promise<boolean> {
+    if (this._hasDeletedAtColumn !== null) {
+      return this._hasDeletedAtColumn;
+    }
+
+    try {
+      const result = await this.db.raw(`
+        SELECT COLUMN_NAME 
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() 
+        AND TABLE_NAME = '${this.tableName}' 
+        AND COLUMN_NAME = 'deleted_at'
+      `);
+      this._hasDeletedAtColumn = result[0].length > 0;
+      return this._hasDeletedAtColumn;
+    } catch {
+      this._hasDeletedAtColumn = false;
+      return false;
+    }
+  }
+
+  /**
+   * Override findById to handle missing deleted_at column
+   */
+  async findById(id: number): Promise<AppointmentRequest | null> {
+    const hasDeletedAt = await this.hasDeletedAtColumn();
+    let query = this.db(this.tableName).where({ id });
+
+    if (hasDeletedAt) {
+      query = query.whereNull("deleted_at");
+    }
+
+    const record = await query.first();
+    return record ? this.mapToEntity(record) : null;
+  }
+
+  /**
+   * Override findWhere to handle missing deleted_at column
+   */
+  async findWhere(conditions: any): Promise<AppointmentRequest[]> {
+    const hasDeletedAt = await this.hasDeletedAtColumn();
+    let query = this.db(this.tableName).where(conditions);
+
+    if (hasDeletedAt) {
+      query = query.whereNull("deleted_at");
+    }
+
+    const records = await query;
+    return records.map(this.mapToEntity);
+  }
+
+  /**
+   * Override update to handle missing deleted_at column
+   */
+  async update(
+    id: number,
+    data: UpdateAppointmentRequestDto
+  ): Promise<AppointmentRequest | null> {
+    const hasDeletedAt = await this.hasDeletedAtColumn();
+    const updateData = this.mapToDatabase(data);
+
+    let query = this.db(this.tableName).where({ id });
+
+    if (hasDeletedAt) {
+      query = query.whereNull("deleted_at");
+    }
+
+    await query.update({
+      ...updateData,
+      updated_at: this.db.fn.now(),
+    });
+
+    return this.findById(id);
+  }
+
+  /**
+   * Creates a new appointment request
+   * @override - Add default status
+   */
+  async create(data: CreateAppointmentRequestDto): Promise<AppointmentRequest> {
+    // Ensure status defaults to PENDING
+    const createData = {
+      ...data,
+      status: AppointmentRequestStatus.PENDING,
+    };
+
+    return super.create(createData as any);
+  }
+
   /**
    * Finds all appointment requests matching query parameters
-   *
-   * @param params - Query parameters
-   * @returns Promise<AppointmentRequest[]> - Array of appointments
-   *
-   * @example
-   * const appointments = await AppointmentRequestModel.findAll({
-   *   status: AppointmentRequestStatus.PENDING,
-   *   dateFrom: new Date('2025-01-01')
-   * });
    */
   async findAll(
     params: AppointmentRequestQueryParams = {}
@@ -169,12 +256,6 @@ class AppointmentRequestModel extends BaseModel<
 
   /**
    * Gets pending appointment requests
-   *
-   * @param limit - Maximum number of appointments
-   * @returns Promise<AppointmentRequest[]> - Pending appointments
-   *
-   * @example
-   * const pending = await AppointmentRequestModel.getPending(10);
    */
   async getPending(limit?: number): Promise<AppointmentRequest[]> {
     let query = this.db(this.tableName)
@@ -191,12 +272,6 @@ class AppointmentRequestModel extends BaseModel<
 
   /**
    * Gets appointments for a specific date
-   *
-   * @param date - Date to check
-   * @returns Promise<AppointmentRequest[]> - Appointments on that date
-   *
-   * @example
-   * const today = await AppointmentRequestModel.getByDate(new Date());
    */
   async getByDate(date: Date): Promise<AppointmentRequest[]> {
     const appointments = await this.db(this.tableName)
@@ -208,12 +283,6 @@ class AppointmentRequestModel extends BaseModel<
 
   /**
    * Gets upcoming confirmed appointments
-   *
-   * @param limit - Maximum number of appointments
-   * @returns Promise<AppointmentRequest[]> - Upcoming appointments
-   *
-   * @example
-   * const upcoming = await AppointmentRequestModel.getUpcoming(5);
    */
   async getUpcoming(limit?: number): Promise<AppointmentRequest[]> {
     let query = this.db(this.tableName)
@@ -231,13 +300,6 @@ class AppointmentRequestModel extends BaseModel<
 
   /**
    * Updates appointment status
-   *
-   * @param id - Appointment ID
-   * @param status - New status
-   * @returns Promise<boolean> - Success status
-   *
-   * @example
-   * await AppointmentRequestModel.updateStatus(1, AppointmentRequestStatus.CONFIRMED);
    */
   async updateStatus(
     id: number,
@@ -253,13 +315,6 @@ class AppointmentRequestModel extends BaseModel<
 
   /**
    * Adds notes to an appointment
-   *
-   * @param id - Appointment ID
-   * @param notes - Notes to add
-   * @returns Promise<boolean> - Success status
-   *
-   * @example
-   * await AppointmentRequestModel.addNotes(1, "Customer prefers morning viewings");
    */
   async addNotes(id: number, notes: string): Promise<boolean> {
     const appointment = await this.findById(id);
@@ -279,11 +334,6 @@ class AppointmentRequestModel extends BaseModel<
 
   /**
    * Gets appointment statistics by status
-   *
-   * @returns Promise<Record<string, number>> - Status counts
-   *
-   * @example
-   * const stats = await AppointmentRequestModel.getStatusStatistics();
    */
   async getStatusStatistics(): Promise<Record<string, number>> {
     const results = await this.db(this.tableName)
@@ -301,12 +351,6 @@ class AppointmentRequestModel extends BaseModel<
 
   /**
    * Gets appointments by email
-   *
-   * @param email - Email address
-   * @returns Promise<AppointmentRequest[]> - User's appointments
-   *
-   * @example
-   * const myAppointments = await AppointmentRequestModel.findByEmail("john@example.com");
    */
   async findByEmail(email: string): Promise<AppointmentRequest[]> {
     return this.findWhere({ email });
@@ -314,11 +358,6 @@ class AppointmentRequestModel extends BaseModel<
 
   /**
    * Maps database record to AppointmentRequest entity
-   *
-   * @param record - Database record
-   * @returns AppointmentRequest entity
-   *
-   * @protected
    */
   protected mapToEntity(record: any): AppointmentRequest {
     return {

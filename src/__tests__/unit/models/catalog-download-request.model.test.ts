@@ -1,23 +1,37 @@
 /**
  * File: src/__tests__/unit/models/catalog-download-request.model.test.ts
+ * FIXED: Foreign key constraint issue
  * Comprehensive tests for CatalogDownloadRequestModel
  * Covers CRUD operations and custom methods
  */
 
 import CatalogDownloadRequestModel from "@models/catalog-download-request.model";
 import db from "@/config/database";
+import ProjectModel from "@models/project.model";
 
 describe("CatalogDownloadRequestModel", () => {
+  let testProjectId: number;
+
   beforeEach(async () => {
-    // Clean up the table
-    await db("catalog_download_requests").del(); // Assuming table name based on migration patterns
+    // Clean up in correct order
+    await db("catalog_download_requests").del();
+    await db("projects").del();
 
     // Small delay to ensure cleanup completes
     await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // Create a test project for foreign key relationships
+    const project = await ProjectModel.create({
+      name: "Test Project",
+      slug: `test-project-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+      address: "123 Test St",
+    });
+    testProjectId = project.id;
   });
 
   afterAll(async () => {
     await db("catalog_download_requests").del();
+    await db("projects").del();
     await db.destroy();
   });
 
@@ -38,16 +52,17 @@ describe("CatalogDownloadRequestModel", () => {
       expect(request.email).toBe(requestData.email);
       expect(request.phone).toBe(requestData.phone);
       expect(request.marketingConsent).toBe(true);
-      expect(request.downloadedAt).toBeNull(); // Default
+      expect(request.downloadedAt).toBeNull();
     });
 
     it("should create with optional fields", async () => {
+      // FIXED: Use the actual testProjectId instead of hardcoded 1
       const requestData = {
         fullName: "Jane Doe",
         email: "jane@example.com",
         phone: "+0987654321",
         catalogType: "Brochure",
-        projectId: 1,
+        projectId: testProjectId, // FIXED: Was 1, now uses testProjectId
         downloadIp: "192.168.1.1",
       };
 
@@ -238,7 +253,7 @@ describe("CatalogDownloadRequestModel", () => {
         email: "stat2@example.com",
         phone: "+2",
         catalogType: "TypeB",
-      }); // Not downloaded
+      });
 
       const req3 = await CatalogDownloadRequestModel.create({
         fullName: "Stat3",

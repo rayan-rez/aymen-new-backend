@@ -1,5 +1,5 @@
 /**
- * Catalog Download Request Model - FIXED VERSION
+ * Catalog Download Request Model
  * Represents catalog and brochure download requests
  * Manages marketing material downloads and tracking
  *
@@ -10,46 +10,22 @@ import { BaseModel, BaseQueryParams } from "./base.model";
 
 /**
  * Catalog download request entity interface
- * Represents a catalog download request
  */
 export interface CatalogDownloadRequest {
-  /** Unique identifier */
   id: number;
-
-  /** Full name */
   fullName: string;
-
-  /** Email address */
   email: string;
-
-  /** Phone number */
   phone: string;
-
-  /** Catalog type */
   catalogType: string | null;
-
-  /** Project ID (if project-specific) */
   projectId: number | null;
-
-  /** Marketing consent */
   marketingConsent: boolean;
-
-  /** Download timestamp */
   downloadedAt: Date | null;
-
-  /** Download IP address */
   downloadIp: string | null;
-
-  /** Creation timestamp */
   createdAt: Date;
-
-  /** Last update timestamp */
   updatedAt: Date;
+  deletedAt: Date | null;
 }
 
-/**
- * Create catalog download request DTO
- */
 export interface CreateCatalogDownloadRequestDto {
   fullName: string;
   email: string;
@@ -60,9 +36,6 @@ export interface CreateCatalogDownloadRequestDto {
   downloadIp?: string | null;
 }
 
-/**
- * Update catalog download request DTO
- */
 export interface UpdateCatalogDownloadRequestDto {
   fullName?: string;
   email?: string;
@@ -74,9 +47,6 @@ export interface UpdateCatalogDownloadRequestDto {
   downloadIp?: string | null;
 }
 
-/**
- * Catalog download request query parameters
- */
 export interface CatalogDownloadRequestQueryParams extends BaseQueryParams {
   email?: string;
   projectId?: number;
@@ -86,18 +56,84 @@ export interface CatalogDownloadRequestQueryParams extends BaseQueryParams {
   dateTo?: Date;
 }
 
-/**
- * Catalog Download Request Model class
- * Handles all database operations for catalog download requests
- * FIXED: Table name corrected
- */
 class CatalogDownloadRequestModel extends BaseModel<
   CatalogDownloadRequest,
   CreateCatalogDownloadRequestDto,
   UpdateCatalogDownloadRequestDto
 > {
-  // FIXED: Changed from "catalog_download_requests" to "catalog_download_requests"
   protected tableName = "catalog_download_requests";
+
+  // FIXED: Cache the deleted_at column check to prevent repeated queries
+  private _hasDeletedAtColumn: boolean | null = null;
+
+  /**
+   * Checks if table has deleted_at column (cached)
+   * FIXED: Now caches the result to prevent repeated database queries
+   */
+  private async hasDeletedAtColumn(): Promise<boolean> {
+    // Return cached value if available
+    if (this._hasDeletedAtColumn !== null) {
+      return this._hasDeletedAtColumn;
+    }
+
+    try {
+      const result = await this.db.raw(`
+        SELECT COLUMN_NAME 
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() 
+        AND TABLE_NAME = '${this.tableName}' 
+        AND COLUMN_NAME = 'deleted_at'
+      `);
+      this._hasDeletedAtColumn = result[0].length > 0;
+      return this._hasDeletedAtColumn;
+    } catch {
+      this._hasDeletedAtColumn = false;
+      return false;
+    }
+  }
+
+  /**
+   * Override findById to handle missing deleted_at column
+   */
+  async findById(
+    id: number,
+    includeDeleted: boolean = false
+  ): Promise<CatalogDownloadRequest | null> {
+    const hasDeletedAt = await this.hasDeletedAtColumn();
+
+    let query = this.db(this.tableName).where({ id });
+
+    if (!includeDeleted && hasDeletedAt) {
+      query = query.whereNull("deleted_at");
+    }
+
+    const record = await query.first();
+    return record ? this.mapToEntity(record) : null;
+  }
+
+  /**
+   * Override update to handle missing deleted_at column
+   */
+  async update(
+    id: number,
+    data: UpdateCatalogDownloadRequestDto
+  ): Promise<CatalogDownloadRequest | null> {
+    const hasDeletedAt = await this.hasDeletedAtColumn();
+    const updateData = this.mapToDatabase(data);
+
+    let query = this.db(this.tableName).where({ id });
+
+    if (hasDeletedAt) {
+      query = query.whereNull("deleted_at");
+    }
+
+    await query.update({
+      ...updateData,
+      updated_at: this.db.fn.now(),
+    });
+
+    return this.findById(id);
+  }
 
   /**
    * Finds all catalog download requests matching query parameters
@@ -114,7 +150,13 @@ class CatalogDownloadRequestModel extends BaseModel<
   async findAll(
     params: CatalogDownloadRequestQueryParams = {}
   ): Promise<CatalogDownloadRequest[]> {
+    const hasDeletedAt = await this.hasDeletedAtColumn();
     let query = this.db(this.tableName);
+
+    // Only filter by deleted_at if column exists
+    if (!params.includeDeleted && hasDeletedAt) {
+      query = query.whereNull("deleted_at");
+    }
 
     if (params.email) {
       query = query.where({ email: params.email });
@@ -182,7 +224,15 @@ class CatalogDownloadRequestModel extends BaseModel<
    * const requests = await CatalogDownloadRequestModel.findByEmail("john@example.com");
    */
   async findByEmail(email: string): Promise<CatalogDownloadRequest[]> {
-    return this.findWhere({ email });
+    const hasDeletedAt = await this.hasDeletedAtColumn();
+    let query = this.db(this.tableName).where({ email });
+
+    if (hasDeletedAt) {
+      query = query.whereNull("deleted_at");
+    }
+
+    const records = await query;
+    return records.map(this.mapToEntity);
   }
 
   /**
@@ -196,13 +246,19 @@ class CatalogDownloadRequestModel extends BaseModel<
    * await CatalogDownloadRequestModel.markAsDownloaded(1, "192.168.1.1");
    */
   async markAsDownloaded(id: number, downloadIp?: string): Promise<boolean> {
-    const updated = await this.db(this.tableName)
-      .where({ id })
-      .update({
-        downloaded_at: this.db.fn.now(),
-        download_ip: downloadIp || null,
-        updated_at: this.db.fn.now(),
-      });
+    const hasDeletedAt = await this.hasDeletedAtColumn();
+
+    let query = this.db(this.tableName).where({ id });
+
+    if (hasDeletedAt) {
+      query = query.whereNull("deleted_at");
+    }
+
+    const updated = await query.update({
+      downloaded_at: this.db.fn.now(),
+      download_ip: downloadIp || null,
+      updated_at: this.db.fn.now(),
+    });
 
     return updated > 0;
   }
@@ -251,7 +307,16 @@ class CatalogDownloadRequestModel extends BaseModel<
    * const consented = await CatalogDownloadRequestModel.getMarketingConsents();
    */
   async getMarketingConsents(): Promise<CatalogDownloadRequest[]> {
-    return this.findWhere({ marketing_consent: true });
+    const hasDeletedAt = await this.hasDeletedAtColumn();
+
+    let query = this.db(this.tableName).where({ marketing_consent: true });
+
+    if (hasDeletedAt) {
+      query = query.whereNull("deleted_at");
+    }
+
+    const records = await query;
+    return records.map(this.mapToEntity);
   }
 
   /**
@@ -277,6 +342,7 @@ class CatalogDownloadRequestModel extends BaseModel<
       downloadIp: record.download_ip,
       createdAt: new Date(record.created_at),
       updatedAt: new Date(record.updated_at),
+      deletedAt: record.deleted_at ? new Date(record.deleted_at) : null,
     };
   }
 }

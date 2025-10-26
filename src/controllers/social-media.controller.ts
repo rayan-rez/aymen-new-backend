@@ -1,8 +1,8 @@
 // src/controllers/social-media.controller.ts
 /**
- * Social Media Controller (Fixed)
+ * Social Media Controller
  * Handles social media integrations with proper TypeScript types
- * 
+ *
  * @module controllers/social-media.controller
  */
 

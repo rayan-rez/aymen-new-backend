@@ -1,5 +1,5 @@
 /**
- * Test Setup - IMPROVED VERSION
+ * Test Setup
  * Global test configuration and utilities
  * Runs before each test file
  */
@@ -8,6 +8,9 @@ import db from "@/config/database";
 
 // Increase timeout for all tests
 jest.setTimeout(30000);
+
+// Track if database has been initialized
+let dbInitialized = false;
 
 // Global test utilities
 declare global {
@@ -40,8 +43,16 @@ async function cleanupDatabase(): Promise<void> {
     "contact_form_submissions",
     "features",
     "locations",
-    "test_table", // For base model tests
+    "test_table",
   ];
+
+  // Check if connection is still available
+  try {
+    await db.raw("SELECT 1");
+  } catch (error) {
+    // Connection is already closed, skip cleanup
+    return;
+  }
 
   for (const table of tables) {
     try {
@@ -50,13 +61,18 @@ async function cleanupDatabase(): Promise<void> {
         await db(table).del();
       }
     } catch (error) {
-      // Table might not exist, continue
-      console.warn(`Could not clean table ${table}:`, error);
+      // Only log if it's not a connection error
+      if (
+        error instanceof Error &&
+        !error.message.includes("acquire a connection")
+      ) {
+        console.warn(`Could not clean table ${table}:`, error.message);
+      }
     }
   }
 
   // Small delay to ensure cleanup completes
-  await waitFor(200);
+  await waitFor(100);
 }
 
 /**
@@ -90,30 +106,57 @@ global.testUtils = {
 
 // Global beforeAll hook
 beforeAll(async () => {
-  console.log("🔧 Setting up test environment...");
-  
-  // Ensure test table exists for base model tests
-  const testTableExists = await db.schema.hasTable("test_table");
-  if (!testTableExists) {
-    await db.schema.createTable("test_table", (table) => {
-      table.increments("id").primary();
-      table.string("name").notNullable();
-      table.string("value").nullable();
-      table.timestamps(true, true);
-      table.timestamp("deleted_at").nullable();
-    });
+  if (!dbInitialized) {
+    console.log("🔧 Setting up test environment...");
+
+    try {
+      // Ensure test table exists for base model tests
+      const testTableExists = await db.schema.hasTable("test_table");
+      if (!testTableExists) {
+        await db.schema.createTable("test_table", (table) => {
+          table.increments("id").primary();
+          table.string("name").notNullable();
+          table.string("value").nullable();
+          table.timestamps(true, true);
+          table.timestamp("deleted_at").nullable();
+        });
+      }
+      dbInitialized = true;
+    } catch (error) {
+      console.error("Error during setup:", error);
+    }
   }
 });
 
-// Global afterAll hook
+// Global afterAll hook - FIXED to prevent memory leaks
 afterAll(async () => {
   console.log("🧹 Cleaning up test environment...");
-  
+
   try {
+    // CRITICAL: Clean database BEFORE destroying connection
     await cleanupDatabase();
+
+    // Give a moment for cleanup to complete
+    await waitFor(500);
+
+    // Now safely destroy the connection
     await db.destroy();
+    
+    // Clear any timers or intervals
+    jest.clearAllTimers();
+    
+    // Force garbage collection if available
+    if (global.gc) {
+      global.gc();
+    }
   } catch (error) {
-    console.error("Error during cleanup:", error);
+    // Silently handle cleanup errors since tests are done
+    if (
+      error instanceof Error &&
+      !error.message.includes("acquire a connection")
+    ) {
+      console.error("Error during cleanup:", error.message);
+    }
   }
 });
 

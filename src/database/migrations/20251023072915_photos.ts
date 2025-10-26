@@ -28,6 +28,8 @@ export async function up(knex: Knex): Promise<void> {
     table.index(["photoable_type", "photoable_id"]);
     table.index(["photoable_type", "photoable_id", "display_order"]);
     table.index(["photoable_type", "photoable_id", "is_cover"]);
+
+    table.timestamp("deleted_at").nullable();
   });
 
   // Add CHECK constraint for valid photoable_type values

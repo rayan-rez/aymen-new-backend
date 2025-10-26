@@ -1,5 +1,5 @@
 /**
- * Blog Post Model - FIXED VERSION
+ * Blog Post Model
  * Represents blog posts and content articles
  * Manages blog content, SEO, and publishing workflow
  *

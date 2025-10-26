@@ -29,6 +29,7 @@
       "@controllers/*": ["src/controllers/*"],
       "@constants/*": ["src/constants/*"],
       "@/types/*": ["src/types/*"],
+      "@tests/*": ["src/__tests__/*"]
     }
   },
   "include": ["src/**/*"],
