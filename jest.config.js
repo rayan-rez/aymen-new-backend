@@ -1,4 +1,4 @@
-// jest.config.js
+// jest.config.js - IMPROVED VERSION
 module.exports = {
   preset: "ts-jest",
   testEnvironment: "node",
@@ -47,14 +47,34 @@ module.exports = {
   },
   setupFilesAfterEnv: ["<rootDir>/src/__tests__/setup.ts"],
   testPathIgnorePatterns: ["/node_modules/", "/dist/"],
+
+  // IMPROVED: Better test isolation and reliability
   verbose: true,
   clearMocks: true,
   resetMocks: true,
   restoreMocks: true,
-  
-  // CRITICAL FIX: Run tests serially to prevent race conditions
+
+  // CRITICAL: Run tests serially to prevent race conditions
   maxWorkers: 1,
-  
+
   // Increase timeout for database operations
   testTimeout: 30000,
+
+  // IMPROVED: Better error reporting
+  bail: false, // Continue running tests even if some fail
+  errorOnDeprecated: true,
+
+  // IMPROVED: Global setup and teardown
+  globalSetup: "<rootDir>/src/__tests__/global-setup.ts",
+  globalTeardown: "<rootDir>/src/__tests__/global-teardown.ts",
+
+  // IMPROVED: Detect async operations that weren't stopped
+  detectOpenHandles: false, // Set to true for debugging
+  forceExit: true, // Force exit after tests complete
+
+  // IMPROVED: Better module resolution
+  moduleDirectories: ["node_modules", "src"],
+
+  // IMPROVED: Test sequencer for deterministic order
+  testSequencer: "<rootDir>/src/__tests__/test-sequencer.js",
 };

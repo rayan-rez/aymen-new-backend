@@ -10,14 +10,14 @@ import db from "@/config/database";
 describe("CatalogDownloadRequestModel", () => {
   beforeEach(async () => {
     // Clean up the table
-    await db("catalog_downloads").del(); // Assuming table name based on migration patterns
+    await db("catalog_download_requests").del(); // Assuming table name based on migration patterns
 
     // Small delay to ensure cleanup completes
     await new Promise((resolve) => setTimeout(resolve, 100));
   });
 
   afterAll(async () => {
-    await db("catalog_downloads").del();
+    await db("catalog_download_requests").del();
     await db.destroy();
   });
 
@@ -258,7 +258,7 @@ describe("CatalogDownloadRequestModel", () => {
     });
 
     it("should handle no requests", async () => {
-      await db("catalog_downloads").del();
+      await db("catalog_download_requests").del();
       const stats = await CatalogDownloadRequestModel.getDownloadStatistics();
       expect(stats.totalRequests).toBe(0);
       expect(stats.downloaded).toBe(0);
@@ -296,7 +296,7 @@ describe("CatalogDownloadRequestModel", () => {
     });
 
     it("should return empty array for no consents", async () => {
-      await db("catalog_downloads").del();
+      await db("catalog_download_requests").del();
       const consented =
         await CatalogDownloadRequestModel.getMarketingConsents();
       expect(consented).toHaveLength(0);

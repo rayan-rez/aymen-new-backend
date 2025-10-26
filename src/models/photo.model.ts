@@ -1,5 +1,5 @@
 /**
- * Photo Model (Polymorphic)
+ * Photo Model (Polymorphic) - FIXED VERSION
  * Represents photos for multiple entity types
  * Replaces: project_photos, apartment_photos, commercial_property_photos, blog_post_gallery_images
  *
@@ -310,6 +310,7 @@ class PhotoModel extends BaseModel<Photo, CreatePhotoDto, UpdatePhotoDto> {
 
   /**
    * Bulk creates photos for an entity with transaction safety
+   * FIXED: Now properly returns created photos
    */
   async bulkCreate(
     photoableType: PhotoableType,
@@ -361,16 +362,21 @@ class PhotoModel extends BaseModel<Photo, CreatePhotoDto, UpdatePhotoDto> {
         };
       });
 
-      await trx(this.tableName).insert(photoData);
-
-      // Re-fetch the inserted records
+      // Insert and get IDs
+      const insertedIds = await trx(this.tableName).insert(photoData);
+      
+      // FIXED: Use the first inserted ID to fetch all records
+      const firstId = insertedIds[0];
+      
+      // Re-fetch the inserted records using IDs
       const createdPhotos = await trx(this.tableName)
         .where({
           photoable_type: photoableType,
           photoable_id: photoableId,
         })
-        .where("created_at", ">=", timestamp)
-        .orderBy("display_order", "asc");
+        .where('id', '>=', firstId)
+        .orderBy("display_order", "asc")
+        .limit(photos.length);
 
       await trx.commit();
       return createdPhotos.map(this.mapToEntity);
@@ -379,7 +385,6 @@ class PhotoModel extends BaseModel<Photo, CreatePhotoDto, UpdatePhotoDto> {
       throw error;
     }
   }
-
 
   /**
    * Updates multiple photos at once

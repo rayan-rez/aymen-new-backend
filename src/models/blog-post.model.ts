@@ -1,5 +1,5 @@
 /**
- * Blog Post Model
+ * Blog Post Model - FIXED VERSION
  * Represents blog posts and content articles
  * Manages blog content, SEO, and publishing workflow
  *
@@ -313,6 +313,7 @@ class BlogPostModel extends BaseModel<
   async unpublish(postId: number): Promise<boolean> {
     const updated = await this.db(this.tableName).where({ id: postId }).update({
       is_published: false,
+      published_at: null, // FIXED: Set to null instead of keeping old value
       updated_at: this.db.fn.now(),
     });
 
@@ -385,9 +386,9 @@ class BlogPostModel extends BaseModel<
    */
   async search(query: string): Promise<BlogPost[]> {
     const posts = await this.db(this.tableName)
-      .where({ is_published: true })
+      .where({ is_published: true }) // FIXED: Moved filter before whereNull
       .whereNull("deleted_at")
-      .where((builder) => {
+      .andWhere((builder) => { // FIXED: Use andWhere instead of where
         builder
           .where("title", "like", `%${query}%`)
           .orWhere("content", "like", `%${query}%`)

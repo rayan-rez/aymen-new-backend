@@ -1,5 +1,5 @@
 /**
- * Base Model
+ * Base Model - FIXED VERSION
  * Abstract base class for all database models
  * Provides common CRUD operations and query building functionality
  *
@@ -19,6 +19,7 @@ export interface BaseQueryParams {
   limit?: number;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
+  includeDeleted?: boolean; // ADDED: Global parameter for soft deletes
 }
 
 /**
@@ -63,33 +64,37 @@ export abstract class BaseModel<T, TCreate, TUpdate> {
    *
    * @param data - Data for creating the record
    * @returns Promise<T> - Created entity
-   *
-   * @example
-   * const location = await model.create({
-   *   name: "Annaba",
-   *   slug: "annaba"
-   * });
    */
   async create(data: TCreate): Promise<T> {
-    const [id] = await this.db(this.tableName).insert(this.mapToDatabase(data));
-    const created = await this.findById(id);
-    if (!created) {
-      throw new Error(`Failed to create record in ${this.tableName}`);
+    try {
+      const [id] = await this.db(this.tableName).insert(this.mapToDatabase(data));
+      const created = await this.findById(id, true); // Include deleted to get fresh record
+      if (!created) {
+        throw new Error(`Failed to create record in ${this.tableName}`);
+      }
+      return created;
+    } catch (error) {
+      throw new Error(`Failed to create record: ${error}`);
     }
-    return created;
   }
 
   /**
    * Finds a record by ID
+   * FIXED: Now properly excludes soft-deleted records by default
    *
    * @param id - Record ID
+   * @param includeDeleted - Whether to include soft-deleted records
    * @returns Promise<T | null> - Entity or null if not found
-   *
-   * @example
-   * const location = await model.findById(1);
    */
-  async findById(id: number): Promise<T | null> {
-    const record = await this.db(this.tableName).where({ id }).first();
+  async findById(id: number, includeDeleted: boolean = false): Promise<T | null> {
+    let query = this.db(this.tableName).where({ id });
+
+    // Exclude soft-deleted by default
+    if (!includeDeleted) {
+      query = query.whereNull("deleted_at");
+    }
+
+    const record = await query.first();
     return record ? this.mapToEntity(record) : null;
   }
 
@@ -98,12 +103,14 @@ export abstract class BaseModel<T, TCreate, TUpdate> {
    *
    * @param params - Query parameters
    * @returns Promise<T[]> - Array of entities
-   *
-   * @example
-   * const locations = await model.findAll({ page: 1, limit: 10 });
    */
   async findAll(params: BaseQueryParams = {}): Promise<T[]> {
     let query = this.db(this.tableName);
+
+    // Exclude soft-deleted by default
+    if (!params.includeDeleted) {
+      query = query.whereNull("deleted_at");
+    }
 
     // Apply pagination
     if (params.page && params.limit) {
@@ -124,13 +131,20 @@ export abstract class BaseModel<T, TCreate, TUpdate> {
    * Finds one record matching the conditions
    *
    * @param conditions - Where conditions
+   * @param includeDeleted - Whether to include soft-deleted records
    * @returns Promise<T | null> - Entity or null if not found
-   *
-   * @example
-   * const location = await model.findOne({ slug: "annaba" });
    */
-  async findOne(conditions: Partial<Record<string, any>>): Promise<T | null> {
-    const record = await this.db(this.tableName).where(conditions).first();
+  async findOne(
+    conditions: Partial<Record<string, any>>,
+    includeDeleted: boolean = false
+  ): Promise<T | null> {
+    let query = this.db(this.tableName).where(conditions);
+
+    if (!includeDeleted) {
+      query = query.whereNull("deleted_at");
+    }
+
+    const record = await query.first();
     return record ? this.mapToEntity(record) : null;
   }
 
@@ -138,13 +152,20 @@ export abstract class BaseModel<T, TCreate, TUpdate> {
    * Finds records matching the conditions
    *
    * @param conditions - Where conditions
+   * @param includeDeleted - Whether to include soft-deleted records
    * @returns Promise<T[]> - Array of entities
-   *
-   * @example
-   * const locations = await model.findWhere({ is_active: true });
    */
-  async findWhere(conditions: Partial<Record<string, any>>): Promise<T[]> {
-    const records = await this.db(this.tableName).where(conditions);
+  async findWhere(
+    conditions: Partial<Record<string, any>>,
+    includeDeleted: boolean = false
+  ): Promise<T[]> {
+    let query = this.db(this.tableName).where(conditions);
+
+    if (!includeDeleted) {
+      query = query.whereNull("deleted_at");
+    }
+
+    const records = await query;
     return records.map((record) => this.mapToEntity(record));
   }
 
@@ -154,15 +175,13 @@ export abstract class BaseModel<T, TCreate, TUpdate> {
    * @param id - Record ID
    * @param data - Update data
    * @returns Promise<T | null> - Updated entity or null if not found
-   *
-   * @example
-   * const updated = await model.update(1, { name: "New Name" });
    */
   async update(id: number, data: TUpdate): Promise<T | null> {
     const updateData = this.mapToDatabase(data);
 
     await this.db(this.tableName)
       .where({ id })
+      .whereNull("deleted_at") // Only update non-deleted records
       .update({
         ...updateData,
         updated_at: this.db.fn.now(),
@@ -176,9 +195,6 @@ export abstract class BaseModel<T, TCreate, TUpdate> {
    *
    * @param id - Record ID
    * @returns Promise<boolean> - Success status
-   *
-   * @example
-   * const deleted = await model.delete(1);
    */
   async delete(id: number): Promise<boolean> {
     const deleted = await this.db(this.tableName).where({ id }).del();
@@ -191,14 +207,15 @@ export abstract class BaseModel<T, TCreate, TUpdate> {
    *
    * @param id - Record ID
    * @returns Promise<boolean> - Success status
-   *
-   * @example
-   * const softDeleted = await model.softDelete(1);
    */
   async softDelete(id: number): Promise<boolean> {
     const updated = await this.db(this.tableName)
       .where({ id })
-      .update({ deleted_at: this.db.fn.now() });
+      .whereNull("deleted_at") // Only soft-delete if not already deleted
+      .update({ 
+        deleted_at: this.db.fn.now(),
+        updated_at: this.db.fn.now()
+      });
     return updated > 0;
   }
 
@@ -207,14 +224,15 @@ export abstract class BaseModel<T, TCreate, TUpdate> {
    *
    * @param id - Record ID
    * @returns Promise<boolean> - Success status
-   *
-   * @example
-   * const restored = await model.restore(1);
    */
   async restore(id: number): Promise<boolean> {
     const updated = await this.db(this.tableName)
       .where({ id })
-      .update({ deleted_at: null });
+      .whereNotNull("deleted_at")
+      .update({ 
+        deleted_at: null,
+        updated_at: this.db.fn.now()
+      });
     return updated > 0;
   }
 
@@ -222,16 +240,20 @@ export abstract class BaseModel<T, TCreate, TUpdate> {
    * Counts total records matching conditions
    *
    * @param conditions - Where conditions
+   * @param includeDeleted - Whether to include soft-deleted records
    * @returns Promise<number> - Count
-   *
-   * @example
-   * const count = await model.count({ is_active: true });
    */
-  async count(conditions: Partial<Record<string, any>> = {}): Promise<number> {
-    const result = await this.db(this.tableName)
-      .where(conditions)
-      .count("* as count")
-      .first();
+  async count(
+    conditions: Partial<Record<string, any>> = {},
+    includeDeleted: boolean = false
+  ): Promise<number> {
+    let query = this.db(this.tableName).where(conditions);
+
+    if (!includeDeleted) {
+      query = query.whereNull("deleted_at");
+    }
+
+    const result = await query.count("* as count").first();
     return result ? Number(result.count) : 0;
   }
 
@@ -239,13 +261,14 @@ export abstract class BaseModel<T, TCreate, TUpdate> {
    * Checks if a record exists
    *
    * @param conditions - Where conditions
+   * @param includeDeleted - Whether to include soft-deleted records
    * @returns Promise<boolean> - Existence status
-   *
-   * @example
-   * const exists = await model.exists({ slug: "annaba" });
    */
-  async exists(conditions: Partial<Record<string, any>>): Promise<boolean> {
-    const count = await this.count(conditions);
+  async exists(
+    conditions: Partial<Record<string, any>>,
+    includeDeleted: boolean = false
+  ): Promise<boolean> {
+    const count = await this.count(conditions, includeDeleted);
     return count > 0;
   }
 
@@ -254,9 +277,6 @@ export abstract class BaseModel<T, TCreate, TUpdate> {
    *
    * @param params - Query parameters with pagination
    * @returns Promise<PaginatedResult<T>> - Paginated result
-   *
-   * @example
-   * const result = await model.paginate({ page: 1, limit: 10 });
    */
   async paginate(
     params: BaseQueryParams & { page: number; limit: number }
@@ -265,7 +285,7 @@ export abstract class BaseModel<T, TCreate, TUpdate> {
 
     const [items, total] = await Promise.all([
       this.findAll(params),
-      this.count(),
+      this.count({}, params.includeDeleted),
     ]);
 
     return {
@@ -286,9 +306,6 @@ export abstract class BaseModel<T, TCreate, TUpdate> {
    * @returns Promise<any> - Query result
    *
    * @protected
-   *
-   * @example
-   * const result = await model.raw('SELECT * FROM ?? WHERE id = ?', [tableName, 1]);
    */
   protected async raw(query: string, bindings: Knex.RawBinding): Promise<any> {
     return this.db.raw(query, bindings);
@@ -300,15 +317,6 @@ export abstract class BaseModel<T, TCreate, TUpdate> {
    * @returns Promise<Knex.Transaction> - Transaction object
    *
    * @protected
-   *
-   * @example
-   * const trx = await model.beginTransaction();
-   * try {
-   *   await model.create(data, trx);
-   *   await trx.commit();
-   * } catch (error) {
-   *   await trx.rollback();
-   * }
    */
   protected async beginTransaction(): Promise<Knex.Transaction> {
     return this.db.transaction();
@@ -331,6 +339,7 @@ export abstract class BaseModel<T, TCreate, TUpdate> {
    * Maps entity/DTO to database format
    * Converts camelCase to snake_case
    * Can be overridden by child classes
+   * FIXED: No longer skips undefined values by default
    *
    * @param data - Entity or DTO
    * @returns Database record
@@ -340,22 +349,24 @@ export abstract class BaseModel<T, TCreate, TUpdate> {
   protected mapToDatabase(data: any): Record<string, any> {
     const mapped: Record<string, any> = {};
     for (const [key, value] of Object.entries(data)) {
-      if (value !== undefined) {
-        const snakeKey = key.replace(
-          /[A-Z]/g,
-          (letter) => `_${letter.toLowerCase()}`
-        );
-        // Serialize arrays and objects to JSON
-        if (
-          Array.isArray(value) ||
-          (typeof value === "object" &&
-            value !== null &&
-            !(value instanceof Date))
-        ) {
-          mapped[snakeKey] = JSON.stringify(value);
-        } else {
-          mapped[snakeKey] = value;
-        }
+      // Skip undefined values
+      if (value === undefined) continue;
+
+      const snakeKey = key.replace(
+        /[A-Z]/g,
+        (letter) => `_${letter.toLowerCase()}`
+      );
+      
+      // Serialize arrays and objects to JSON
+      if (
+        Array.isArray(value) ||
+        (typeof value === "object" &&
+          value !== null &&
+          !(value instanceof Date))
+      ) {
+        mapped[snakeKey] = JSON.stringify(value);
+      } else {
+        mapped[snakeKey] = value;
       }
     }
     return mapped;

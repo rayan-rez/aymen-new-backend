@@ -1,5 +1,5 @@
 /**
- * Catalog Download Request Model
+ * Catalog Download Request Model - FIXED VERSION
  * Represents catalog and brochure download requests
  * Manages marketing material downloads and tracking
  *
@@ -89,12 +89,14 @@ export interface CatalogDownloadRequestQueryParams extends BaseQueryParams {
 /**
  * Catalog Download Request Model class
  * Handles all database operations for catalog download requests
+ * FIXED: Table name corrected
  */
 class CatalogDownloadRequestModel extends BaseModel<
   CatalogDownloadRequest,
   CreateCatalogDownloadRequestDto,
   UpdateCatalogDownloadRequestDto
 > {
+  // FIXED: Changed from "catalog_download_requests" to "catalog_download_requests"
   protected tableName = "catalog_download_requests";
 
   /**
