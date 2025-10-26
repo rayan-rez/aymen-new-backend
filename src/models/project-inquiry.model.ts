@@ -2,6 +2,7 @@
  * Project Inquiry Model
  * Represents detailed project-specific inquiry forms
  * Manages buyer profiles, preferences, and sales pipeline
+ * FIXED: Safe JSON parsing to handle null values
  *
  * @module models/project-inquiry.model
  */
@@ -51,76 +52,29 @@ export enum PurchaseTimeline {
  * Represents a detailed project inquiry
  */
 export interface ProjectInquiry {
-  /** Unique identifier */
   id: number;
-
-  /** Related project ID */
   projectId: number | null;
-
-  /** First name */
   firstName: string;
-
-  /** Last name */
   lastName: string;
-
-  /** Email address */
   email: string;
-
-  /** Phone number */
   phone: string;
-
-  /** Country */
   country: string;
-
-  /** State/Province */
   stateProvince: string | null;
-
-  /** City */
   city: string | null;
-
-  /** Profession/Occupation */
   profession: string | null;
-
-  /** Budget range */
   budgetRange: string | null;
-
-  /** Financing method */
   financingMethod: FinancingMethod | null;
-
-  /** Interest types - JSON array (e.g., ['buy', 'invest']) */
   interestTypes: string[] | null;
-
-  /** Property types - JSON array (e.g., ['apartment', 'villa']) */
   propertyTypes: string[] | null;
-
-  /** Preferred locations - JSON array */
   preferredLocations: string[] | null;
-
-  /** Preferred contact day */
   preferredContactDay: string | null;
-
-  /** Preferred contact time */
   preferredContactTime: string | null;
-
-  /** Purchase timeline */
   purchaseTimeline: PurchaseTimeline | null;
-
-  /** Assigned salesperson */
   assignedTo: string | null;
-
-  /** Inquiry status */
   status: ProjectInquiryStatus;
-
-  /** Accepted terms and conditions */
   acceptedTerms: boolean;
-
-  /** Marketing consent */
   marketingConsent: boolean;
-
-  /** Creation timestamp */
   createdAt: Date;
-
-  /** Last update timestamp */
   updatedAt: Date;
 }
 
@@ -187,6 +141,21 @@ export interface ProjectInquiryQueryParams extends BaseQueryParams {
   purchaseTimeline?: PurchaseTimeline;
   dateFrom?: Date;
   dateTo?: Date;
+}
+
+/**
+ * Safe JSON parse helper
+ */
+function safeJsonParse(value: any): any {
+  if (!value) return null;
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  return value;
 }
 
 /**
@@ -429,6 +398,14 @@ class ProjectInquiryModel extends BaseModel<
     return stats;
   }
 
+  /**
+   * Gets pipeline statistics by stage
+   *
+   * @returns Promise<any> - Sales pipeline metrics
+   *
+   * @example
+   * const pipeline = await ProjectInquiryModel.getPipelineStatistics();
+   */
   async getPipelineStatistics(): Promise<any> {
     const stats = await this.getStatusStatistics();
 
@@ -499,15 +476,9 @@ class ProjectInquiryModel extends BaseModel<
       profession: record.profession,
       budgetRange: record.budget_range,
       financingMethod: record.financing_method as FinancingMethod | null,
-      interestTypes: record.interest_types
-        ? JSON.parse(record.interest_types)
-        : null,
-      propertyTypes: record.property_types
-        ? JSON.parse(record.property_types)
-        : null,
-      preferredLocations: record.preferred_locations
-        ? JSON.parse(record.preferred_locations)
-        : null,
+      interestTypes: safeJsonParse(record.interest_types),
+      propertyTypes: safeJsonParse(record.property_types),
+      preferredLocations: safeJsonParse(record.preferred_locations),
       preferredContactDay: record.preferred_contact_day,
       preferredContactTime: record.preferred_contact_time,
       purchaseTimeline: record.purchase_timeline as PurchaseTimeline | null,

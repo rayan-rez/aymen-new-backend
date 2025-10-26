@@ -3,6 +3,7 @@
  * Represents floor plans for multiple entity types
  * Similar to PhotoModel pattern
  * FIXED: Changed externalUrl to pdfUrl to match database schema
+ * FIXED: Added empty array handling in bulkCreate
  *
  * @module models/floor-plan.model
  */
@@ -28,7 +29,7 @@ export interface FloorPlan {
   plannableId: number;
   name: string;
   imageUrl: string;
-  pdfUrl: string | null; // FIXED: Changed from externalUrl to pdfUrl
+  pdfUrl: string | null;
   displayOrder: number;
   createdAt: Date;
   updatedAt: Date;
@@ -42,7 +43,7 @@ export interface CreateFloorPlanDto {
   plannableId: number;
   name: string;
   imageUrl: string;
-  pdfUrl?: string | null; // FIXED: Changed from externalUrl to pdfUrl
+  pdfUrl?: string | null;
   displayOrder?: number;
 }
 
@@ -52,7 +53,7 @@ export interface CreateFloorPlanDto {
 export interface UpdateFloorPlanDto {
   name?: string;
   imageUrl?: string;
-  pdfUrl?: string | null; // FIXED: Changed from externalUrl to pdfUrl
+  pdfUrl?: string | null;
   displayOrder?: number;
 }
 
@@ -132,7 +133,7 @@ class FloorPlanModel extends BaseModel<
 
   /**
    * Bulk creates floor plans for an entity
-   * FIXED: Changed externalUrl to pdfUrl
+   * FIXED: Added empty array handling
    */
   async bulkCreate(
     plannableType: PlannableType,
@@ -144,13 +145,18 @@ class FloorPlanModel extends BaseModel<
       throw new Error(`Entity ${plannableType}:${plannableId} does not exist`);
     }
 
+    // Handle empty array case
+    if (plans.length === 0) {
+      return [];
+    }
+
     const timestamp = new Date();
     const planData = plans.map((plan, index) => ({
       plannable_type: plannableType,
       plannable_id: plannableId,
       name: plan.name,
       image_url: plan.imageUrl,
-      pdf_url: plan.pdfUrl || null, // FIXED: Changed from external_url to pdf_url
+      pdf_url: plan.pdfUrl || null,
       display_order:
         plan.displayOrder !== undefined ? plan.displayOrder : index,
       created_at: timestamp,
@@ -220,7 +226,6 @@ class FloorPlanModel extends BaseModel<
 
   /**
    * Maps database record to FloorPlan entity
-   * FIXED: Changed external_url to pdf_url
    */
   protected mapToEntity(record: any): FloorPlan {
     return {
@@ -229,7 +234,7 @@ class FloorPlanModel extends BaseModel<
       plannableId: record.plannable_id,
       name: record.name,
       imageUrl: record.image_url,
-      pdfUrl: record.pdf_url, // FIXED: Changed from external_url to pdf_url
+      pdfUrl: record.pdf_url,
       displayOrder: record.display_order,
       createdAt: new Date(record.created_at),
       updatedAt: new Date(record.updated_at),

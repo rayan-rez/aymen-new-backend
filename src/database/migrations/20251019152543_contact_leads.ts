@@ -39,9 +39,13 @@ export async function up(knex: Knex): Promise<void> {
     table.string("referrer", 500).nullable();
 
     table.timestamps(true, true);
+    
+    // Soft delete support
+    table.timestamp("deleted_at").nullable();
 
     table.index(["status", "created_at"]);
     table.index("email");
+    table.index("deleted_at");
   });
 
   // Appointments/viewing requests
@@ -72,9 +76,13 @@ export async function up(knex: Knex): Promise<void> {
     table.text("notes").nullable();
 
     table.timestamps(true, true);
+    
+    // Soft delete support
+    table.timestamp("deleted_at").nullable();
 
     table.index(["status", "preferred_date"]);
     table.index("email");
+    table.index("deleted_at");
   });
 }
 

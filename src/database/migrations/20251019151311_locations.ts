@@ -22,10 +22,14 @@ export async function up(knex: Knex): Promise<void> {
     table.integer("display_order").defaultTo(0);
     table.boolean("is_active").defaultTo(true);
     table.timestamps(true, true);
+    
+    // Soft delete support
+    table.timestamp("deleted_at").nullable();
 
     table.index("parent_id");
     table.index(["type", "is_active"]);
     table.index("slug");
+    table.index("deleted_at");
   });
 }
 

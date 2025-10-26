@@ -79,11 +79,15 @@ export async function up(knex: Knex): Promise<void> {
     table.boolean("marketing_consent").defaultTo(false);
 
     table.timestamps(true, true);
+    
+    // Soft delete support
+    table.timestamp("deleted_at").nullable();
 
     table.index("project_id");
     table.index(["email", "created_at"]);
     table.index("assigned_to");
     table.index("status");
+    table.index("deleted_at");
   });
 }
 

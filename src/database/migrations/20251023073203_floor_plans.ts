@@ -20,10 +20,14 @@ export async function up(knex: Knex): Promise<void> {
     table.integer("display_order").defaultTo(0);
     
     table.timestamps(true, true);
+    
+    // Soft delete support
+    table.timestamp("deleted_at").nullable();
 
     // Indexes for efficient polymorphic queries
     table.index(["plannable_type", "plannable_id"]);
     table.index(["plannable_type", "plannable_id", "display_order"]);
+    table.index("deleted_at");
     
     // Prevent duplicate floor plan names per entity
     table.unique(["plannable_type", "plannable_id", "name"]);

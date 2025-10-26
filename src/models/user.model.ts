@@ -2,6 +2,7 @@
  * User Model
  * Represents system users (admins, sales team, content managers)
  * Manages authentication and user roles
+ * FIXED: Safe JSON parsing for preferences
  *
  * @module models/user.model
  */
@@ -27,49 +28,20 @@ export enum UserRole {
  * Represents a system user with all fields including sensitive data
  */
 export interface User {
-  /** Unique identifier */
   id: number;
-
-  /** Email address (used for login) */
   email: string;
-
-  /** Password hash (never expose in responses) */
   passwordHash: string;
-
-  /** First name */
   firstName: string;
-
-  /** Last name */
   lastName: string;
-
-  /** Phone number */
   phone: string | null;
-
-  /** User role */
   role: UserRole;
-
-  /** Whether the user account is active */
   isActive: boolean;
-
-  /** Last login timestamp */
   lastLoginAt: Date | null;
-
-  /** Password reset token */
   resetToken: string | null;
-
-  /** Reset token expiration */
   resetTokenExpiresAt: Date | null;
-
-  /** Avatar/profile picture URL */
   avatarUrl: string | null;
-
-  /** User preferences (JSON) */
   preferences: any;
-
-  /** Creation timestamp */
   createdAt: Date;
-
-  /** Last update timestamp */
   updatedAt: Date;
 }
 
@@ -109,12 +81,26 @@ export interface UpdateUserDto {
 
 /**
  * User query parameters
- * Extends base parameters with user-specific filters
  */
 export interface UserQueryParams extends BaseQueryParams {
   role?: UserRole;
   isActive?: boolean;
   email?: string;
+}
+
+/**
+ * Safe JSON parse helper
+ */
+function safeJsonParse(value: any): any {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  return value;
 }
 
 /**
@@ -481,7 +467,7 @@ class UserModel extends BaseModel<User, CreateUserDto, UpdateUserDto> {
         ? new Date(record.reset_token_expires_at)
         : null,
       avatarUrl: record.avatar_url,
-      preferences: record.preferences ? JSON.parse(record.preferences) : null,
+      preferences: safeJsonParse(record.preferences),
       createdAt: new Date(record.created_at),
       updatedAt: new Date(record.updated_at),
     };

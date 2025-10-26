@@ -42,8 +42,12 @@ export async function up(knex: Knex): Promise<void> {
 
     table.timestamps(true, true);
 
+    // Soft delete support
+    table.timestamp("deleted_at").nullable();
+
     table.index("email");
     table.index(["role", "is_active"]);
+    table.index("deleted_at");
   });
 
   // User activity log
@@ -77,9 +81,13 @@ export async function up(knex: Knex): Promise<void> {
 
     table.timestamp("created_at").defaultTo(knex.fn.now());
 
+    // Soft delete support
+    table.timestamp("deleted_at").nullable();
+
     table.index("user_id");
     table.index(["entity_type", "entity_id"]);
     table.index("created_at");
+    table.index("deleted_at");
   });
 }
 
