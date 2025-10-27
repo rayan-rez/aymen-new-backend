@@ -52,6 +52,33 @@ export async function up(knex: Knex): Promise<void> {
     table.index("is_featured");
   });
 
+  await knex.schema.createTable("commercial_property_locations", (table) => {
+    table.increments("id").primary();
+
+    table
+      .integer("property_id")
+      .unsigned()
+      .notNullable()
+      .references("id")
+      .inTable("commercial_properties")
+      .onDelete("CASCADE");
+
+    table
+      .integer("location_id")
+      .unsigned()
+      .notNullable()
+      .references("id")
+      .inTable("locations")
+      .onDelete("CASCADE");
+
+    table.timestamps(true, true);
+
+    // Ensure unique property-location combinations
+    table.unique(["property_id", "location_id"]);
+    table.index("property_id");
+    table.index("location_id");
+  });
+
   // Add CHECK constraint for area_sqm (positive)
   await knex.raw(`
     ALTER TABLE commercial_properties 
@@ -83,4 +110,5 @@ export async function up(knex: Knex): Promise<void> {
 
 export async function down(knex: Knex): Promise<void> {
   await knex.schema.dropTableIfExists("commercial_properties");
+  await knex.schema.dropTableIfExists("commercial_property_locations");
 }

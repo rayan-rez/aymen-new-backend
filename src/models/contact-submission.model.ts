@@ -1,7 +1,12 @@
 /**
- * Contact Submission Model
+ * Contact Submission Model - FIXED VERSION
  * Represents general contact form submissions and lead management
  * Handles customer inquiries and lead tracking
+ *
+ * FIXES:
+ * - Added soft delete support (deleted_at handling)
+ * - Added includeDeleted parameter to findAll()
+ * - Improved type safety
  *
  * @module models/contact-submission.model
  */
@@ -73,6 +78,9 @@ export interface ContactSubmission {
 
   /** Last update timestamp */
   updatedAt: Date;
+
+  /** Soft delete timestamp */
+  deletedAt: Date | null;
 }
 
 /**
@@ -116,6 +124,7 @@ export interface ContactSubmissionQueryParams extends BaseQueryParams {
   utmCampaign?: string;
   dateFrom?: Date;
   dateTo?: Date;
+  includeDeleted?: boolean;
 }
 
 /**
@@ -131,11 +140,17 @@ class ContactSubmissionModel extends BaseModel<
 
   /**
    * Finds all contact submissions matching query parameters
+   * FIXED: Now includes soft delete support
    */
   async findAll(
     params: ContactSubmissionQueryParams = {}
   ): Promise<ContactSubmission[]> {
     let query = this.db(this.tableName);
+
+    // FIXED: Add soft delete filtering
+    if (!params.includeDeleted) {
+      query = query.whereNull("deleted_at");
+    }
 
     if (params.status) {
       query = query.where({ status: params.status });
@@ -178,10 +193,12 @@ class ContactSubmissionModel extends BaseModel<
 
   /**
    * Gets new (unprocessed) submissions
+   * FIXED: Now excludes soft-deleted submissions
    */
   async getNew(limit?: number): Promise<ContactSubmission[]> {
     let query = this.db(this.tableName)
       .where({ status: ContactSubmissionStatus.NEW })
+      .whereNull("deleted_at") // FIXED: Exclude soft-deleted
       .orderBy("created_at", "desc");
 
     if (limit) {
@@ -211,6 +228,7 @@ class ContactSubmissionModel extends BaseModel<
 
     const updated = await this.db(this.tableName)
       .where({ id })
+      .whereNull("deleted_at") // Only update non-deleted
       .update(updateData);
 
     return updated > 0;
@@ -227,36 +245,70 @@ class ContactSubmissionModel extends BaseModel<
     const timestamp = new Date().toISOString();
     const newNotes = `${existingNotes}\n\n[${timestamp}]\n${notes}`.trim();
 
-    const updated = await this.db(this.tableName).where({ id }).update({
-      internal_notes: newNotes,
-      updated_at: this.db.fn.now(),
-    });
+    const updated = await this.db(this.tableName)
+      .where({ id })
+      .whereNull("deleted_at") // Only update non-deleted
+      .update({
+        internal_notes: newNotes,
+        updated_at: this.db.fn.now(),
+      });
 
     return updated > 0;
   }
 
   /**
    * Finds submissions by email
+   * FIXED: Now excludes soft-deleted by default
    */
-  async findByEmail(email: string): Promise<ContactSubmission[]> {
-    return this.findWhere({ email });
+  async findByEmail(
+    email: string,
+    includeDeleted: boolean = false
+  ): Promise<ContactSubmission[]> {
+    let query = this.db(this.tableName).where({ email });
+
+    if (!includeDeleted) {
+      query = query.whereNull("deleted_at");
+    }
+
+    const submissions = await query;
+    return submissions.map(this.mapToEntity);
   }
 
   /**
    * Gets submissions by UTM campaign
+   * FIXED: Now excludes soft-deleted by default
    */
-  async findByCampaign(campaign: string): Promise<ContactSubmission[]> {
-    return this.findWhere({ utm_campaign: campaign });
+  async findByCampaign(
+    campaign: string,
+    includeDeleted: boolean = false
+  ): Promise<ContactSubmission[]> {
+    let query = this.db(this.tableName).where({ utm_campaign: campaign });
+
+    if (!includeDeleted) {
+      query = query.whereNull("deleted_at");
+    }
+
+    const submissions = await query;
+    return submissions.map(this.mapToEntity);
   }
 
   /**
    * Gets submission statistics by status
+   * FIXED: Now excludes soft-deleted submissions
    */
-  async getStatusStatistics(): Promise<Record<string, number>> {
-    const results = await this.db(this.tableName)
+  async getStatusStatistics(
+    includeDeleted: boolean = false
+  ): Promise<Record<string, number>> {
+    let query = this.db(this.tableName)
       .select("status")
       .count("* as count")
       .groupBy("status");
+
+    if (!includeDeleted) {
+      query = query.whereNull("deleted_at");
+    }
+
+    const results = await query;
 
     const stats: Record<string, number> = {};
     results.forEach((row: any) => {
@@ -287,6 +339,7 @@ class ContactSubmissionModel extends BaseModel<
       referrer: record.referrer,
       createdAt: new Date(record.created_at),
       updatedAt: new Date(record.updated_at),
+      deletedAt: record.deleted_at ? new Date(record.deleted_at) : null,
     };
   }
 }
