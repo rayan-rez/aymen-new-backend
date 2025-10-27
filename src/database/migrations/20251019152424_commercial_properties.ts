@@ -16,9 +16,15 @@ export async function up(knex: Knex): Promise<void> {
 
     // Location
     table.string("address", 255).notNullable();
-    table.text("map_embed_code").nullable();
     table.decimal("latitude", 10, 8).nullable();
     table.decimal("longitude", 11, 8).nullable();
+    table
+      .integer("location_id")
+      .unsigned()
+      .nullable()
+      .references("id")
+      .inTable("locations")
+      .onDelete("SET NULL");
 
     // Property details
     table
@@ -27,7 +33,6 @@ export async function up(knex: Knex): Promise<void> {
         "shop",
         "warehouse",
         "showroom",
-        "restaurant",
         "mixed_use",
       ])
       .notNullable();
@@ -50,32 +55,6 @@ export async function up(knex: Knex): Promise<void> {
     table.index("property_type");
     table.index("status");
     table.index("is_featured");
-  });
-
-  await knex.schema.createTable("commercial_property_locations", (table) => {
-    table.increments("id").primary();
-
-    table
-      .integer("property_id")
-      .unsigned()
-      .notNullable()
-      .references("id")
-      .inTable("commercial_properties")
-      .onDelete("CASCADE");
-
-    table
-      .integer("location_id")
-      .unsigned()
-      .notNullable()
-      .references("id")
-      .inTable("locations")
-      .onDelete("CASCADE");
-
-    table.timestamps(true, true);
-
-    // Ensure unique property-location combinations
-    table.unique(["property_id", "location_id"]);
-    table.index("property_id");
     table.index("location_id");
   });
 
@@ -110,5 +89,4 @@ export async function up(knex: Knex): Promise<void> {
 
 export async function down(knex: Knex): Promise<void> {
   await knex.schema.dropTableIfExists("commercial_properties");
-  await knex.schema.dropTableIfExists("commercial_property_locations");
 }
