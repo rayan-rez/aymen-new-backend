@@ -1,5 +1,6 @@
 // src/database/migrations/20251027134500_property_interactions.ts
 import type { Knex } from "knex";
+import { configureTableDefaults } from "../knex-extensions";
 
 /**
  * PROPERTY INTERACTIONS - Property-specific engagement tracking
@@ -100,6 +101,8 @@ export async function up(knex: Knex): Promise<void> {
     table.index(["visitor_id", "property_id"], "idx_visitor_property");
     table.index(["lead_id", "property_id"], "idx_lead_property");
     table.index(["action_category", "interaction_ts"], "idx_category_time");
+
+    configureTableDefaults(table);
   });
 }
 

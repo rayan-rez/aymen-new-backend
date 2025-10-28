@@ -1,5 +1,6 @@
 // src/database/migrations/20251027134600_supporting_analytics.ts
 import type { Knex } from "knex";
+import { configureTableDefaults } from "../knex-extensions";
 
 /**
  * SUPPORTING ANALYTICS TABLES
@@ -41,6 +42,8 @@ export async function up(knex: Knex): Promise<void> {
     table.withTimestamps();
 
     table.index(["goal_type", "is_active"]);
+
+    configureTableDefaults(table);
   });
 
   // A/B Tests
@@ -91,6 +94,9 @@ export async function up(knex: Knex): Promise<void> {
     table.withTimestamps();
 
     table.index(["status", "start_date"]);
+
+    configureTableDefaults(table);
+
   });
 
   // Email Campaigns
@@ -146,6 +152,9 @@ export async function up(knex: Knex): Promise<void> {
 
     table.index(["status", "scheduled_at"]);
     table.index("campaign_type");
+
+    configureTableDefaults(table);
+
   });
 
   // Email Sends (individual email tracking)
@@ -200,6 +209,9 @@ export async function up(knex: Knex): Promise<void> {
 
     table.index(["campaign_id", "status"]);
     table.index(["email", "sent_at"]);
+
+    configureTableDefaults(table);
+
   });
 }
 

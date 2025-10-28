@@ -1,6 +1,6 @@
 // src/database/migrations/20251027134330_user_sessions.ts
 import type { Knex } from "knex";
-import { addCheckConstraint } from "../knex-extensions";
+import { addCheckConstraint, configureTableDefaults } from "../knex-extensions";
 
 /**
  * USER SESSIONS - Core analytics table
@@ -78,6 +78,9 @@ export async function up(knex: Knex): Promise<void> {
     table.index(["source", "medium", "campaign"], "idx_attribution");
     table.index(["device", "start_time"], "idx_device_time");
     table.index(["location_city", "start_time"], "idx_location_time");
+
+
+    configureTableDefaults(table);
   });
 
   // CHECK constraints

@@ -1,6 +1,6 @@
 // src/database/migrations/20251027134430_form_submissions.ts
 import type { Knex } from "knex";
-import { addCheckConstraint } from "../knex-extensions";
+import { addCheckConstraint, configureTableDefaults } from "../knex-extensions";
 
 /**
  * FORM SUBMISSIONS - Unified form tracking
@@ -96,6 +96,8 @@ export async function up(knex: Knex): Promise<void> {
       ["project_id", "form_type", "submitted_at"],
       "idx_project_form_time"
     );
+
+    configureTableDefaults(table);
   });
 
   // CHECK constraints
