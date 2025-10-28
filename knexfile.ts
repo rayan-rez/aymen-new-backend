@@ -1,19 +1,14 @@
-// knexfile.js
-const dotenv = require("dotenv");
-const path = require("path");
-const { registerKnexExtensions } = require("./src/database/knex-extensions");
+// knexfile.ts
+import dotenv from "dotenv";
+import path from "path";
 
 dotenv.config();
-
-// Register custom Knex extensions globally
-// This must be done before any migrations or database operations
-registerKnexExtensions();
 
 /**
  * Helper function to convert MySQL datetime/timestamp fields to Date objects
  * Automatically processes created_at, updated_at, deleted_at, and other timestamp fields
  */
-function convertTimestamps(row) {
+function convertTimestamps(row: any): any {
   const timestampFields = [
     "created_at",
     "updated_at",
@@ -72,8 +67,8 @@ module.exports = {
       min: 2,
       max: 10,
       // Test connection on checkout from pool
-      afterCreate: (conn, done) => {
-        conn.query('SET sql_mode="TRADITIONAL"', (err) => {
+      afterCreate: (conn: any, done: any) => {
+        conn.query('SET sql_mode="TRADITIONAL"', (err: any) => {
           done(err, conn);
         });
       },
@@ -88,6 +83,18 @@ module.exports = {
       directory: path.join(__dirname, "src", "database", "seeds"),
       extension: "ts",
       loadExtensions: [".ts"],
+    },
+    debug: true, // Enable query logging in development
+    // Convert MySQL datetime/timestamp to JavaScript Date objects
+    wrapIdentifier: (value: string, origImpl: any) => origImpl(value),
+    postProcessResponse: (result: any) => {
+      // Handle timestamp conversion for datetime fields
+      if (Array.isArray(result)) {
+        return result.map(convertTimestamps);
+      } else if (result && typeof result === "object") {
+        return convertTimestamps(result);
+      }
+      return result;
     },
   },
 

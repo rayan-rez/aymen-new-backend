@@ -1,126 +1,182 @@
-// refactored projects
 import type { Knex } from "knex";
-import { addAuditFields, addForeignKey, addCheckConstraint } from "../migration-helpers";
+import { addCheckConstraint, configureTableDefaults } from "../knex-extensions";
 
 /**
- * REFACTORED: Projects table
+ * Migration: Projects (Real Estate Developments)
  * 
- * CHANGES:
- * 1. Removed map_embed_code (store in separate media table)
- * 2. Added project_type for better categorization
- * 3. Added price_range fields for quick filtering
- * 4. Improved geospatial indexing
- * 5. Added completion_date (actual vs. percentage)
+ * Core table for residential/commercial/mixed-use projects.
  * 
- * BENEFITS:
- * - Cleaner separation of concerns (media in separate table)
- * - Better search/filter performance
- * - More accurate project timeline tracking
+ * Key Features:
+ * - Project categorization by type (residential, commercial, luxury, etc.)
+ * - Denormalized price range for efficient filtering
+ * - Construction progress tracking with completion percentage
+ * - Publishing workflow with featured/published flags
+ * - SEO optimization fields (meta_title, meta_description)
+ * - Geographic coordinates with location hierarchy
+ * 
+ * Relationships:
+ * - One project → many apartments (projects.id ← apartments.project_id)
+ * - One project → one location (projects.location_id → locations.id)
+ * 
+ * Indexes:
+ * - Primary filtering: status + is_published + is_featured
+ * - Geographic queries: location_id + status, latitude + longitude
+ * - Type filtering: project_type + status
  */
 export async function up(knex: Knex): Promise<void> {
   await knex.schema.createTable("projects", (table) => {
+    // =================================================================
+    // PRIMARY KEY & IDENTIFIERS
+    // =================================================================
     table.increments("id").primary();
     table.string("name", 255).notNullable();
     table.string("slug", 255).notNullable().unique();
+
+    // =================================================================
+    // CONTENT & DESCRIPTION
+    // =================================================================
     table.text("description").nullable();
     table.text("description_secondary").nullable();
     table.string("address", 255).notNullable();
 
-    // Location data
-    table.decimal("latitude", 10, 8).nullable();
-    table.decimal("longitude", 11, 8).nullable();
-    addForeignKey(table, "location_id", "locations", "id", "SET NULL");
+    // =================================================================
+    // LOCATION & GEOGRAPHY
+    // =================================================================
+    table.withCoordinates({ required: false });
+    table.withForeignKey("location_id", "locations", "id", "SET NULL");
 
-    // NEW: Project type for categorization
-    table.enum("project_type", [
-      "residential",
-      "commercial",
-      "mixed_use",
-      "luxury",
-      "affordable"
-    ]).defaultTo("residential").index();
-
-    // Project details
+    // =================================================================
+    // PROJECT CLASSIFICATION
+    // =================================================================
     table
-      .enum("status", [
-        "planning",
-        "under_construction",
-        "completed",
-        "sold_out",
-      ])
-      .defaultTo("planning")
-      .index();
-    
+      .withStatusEnum(
+        ["residential", "commercial", "mixed_use", "luxury", "affordable"],
+        { columnName: "project_type", defaultStatus: "residential" }
+      );
+
+    // =================================================================
+    // PROJECT STATUS & PROGRESS
+    // =================================================================
+    table.withStatusEnum(
+      ["planning", "under_construction", "completed", "sold_out"],
+      { defaultStatus: "planning" }
+    );
+
     table.integer("completion_percentage").unsigned().defaultTo(0);
-    
-    // NEW: Actual completion date (more useful than percentage alone)
     table.date("estimated_completion_date").nullable();
     table.date("actual_completion_date").nullable();
-    
-    table.integer("total_blocks").unsigned().nullable();
-    table.integer("total_units").unsigned().nullable(); // NEW: Total apartments/units
 
-    // NEW: Price range for filtering (denormalized from apartments)
+    // =================================================================
+    // PROJECT METRICS
+    // =================================================================
+    table.integer("total_blocks").unsigned().nullable();
+    table.integer("total_units").unsigned().nullable();
+
+    // Denormalized from apartments for quick filtering without joins
     table.decimal("price_min", 15, 2).nullable();
     table.decimal("price_max", 15, 2).nullable();
 
-    // Media and marketing
+    // =================================================================
+    // MEDIA & ASSETS
+    // =================================================================
     table.string("main_photo_url", 500).nullable();
-    
-    // REMOVED: contact_form_script (use separate forms table)
-    // REMOVED: map_embed_code (use separate media table)
-    
-    table.boolean("is_featured").defaultTo(false).index();
-    table.boolean("is_published").defaultTo(false).index();
 
-    // SEO
+    // =================================================================
+    // PUBLISHING WORKFLOW
+    // =================================================================
+    table.boolean("is_featured").defaultTo(false).index("idx_is_featured");
+    table.boolean("is_published").defaultTo(false).index("idx_is_published");
+
+    // =================================================================
+    // SEO OPTIMIZATION
+    // =================================================================
     table.string("meta_title", 255).nullable();
     table.text("meta_description").nullable();
 
-    addAuditFields(table);
+    // =================================================================
+    // AUDIT TRAIL (created_at, updated_at, deleted_at)
+    // =================================================================
+    table.withAuditTrail();
 
-    // Composite indexes for common queries
-    table.index(["status", "is_published", "is_featured"], "idx_status_pub_feat");
-    table.index(["location_id", "status"], "idx_location_status");
-    table.index(["project_type", "status"], "idx_type_status");
+    // =================================================================
+    // COMPOSITE INDEXES FOR QUERY OPTIMIZATION
+    // =================================================================
     
-    // Geospatial index (if using spatial features in future)
-    table.index(["latitude", "longitude"], "idx_coordinates");
+    // Primary listing query: published projects by status and featured flag
+    table.index(
+      ["status", "is_published", "is_featured"],
+      "idx_status_pub_feat"
+    );
+
+    // Location-based filtering
+    table.index(["location_id", "status"], "idx_location_status");
+
+    // Type-based filtering
+    table.index(["project_type", "status"], "idx_type_status");
+
+    // =================================================================
+    // TABLE CONFIGURATION
+    // =================================================================
+    configureTableDefaults(table);
   });
 
-  // CHECK constraints
+  // =================================================================
+  // CHECK CONSTRAINTS (DATA VALIDATION)
+  // =================================================================
+
+  // Ensure completion percentage is between 0 and 100
   await addCheckConstraint(
     knex,
     "projects",
-    "projects_completion_percentage_check",
+    "chk_projects_completion_percentage",
     "completion_percentage >= 0 AND completion_percentage <= 100"
   );
 
+  // Validate latitude range (-90 to +90)
   await addCheckConstraint(
     knex,
     "projects",
-    "projects_latitude_check",
+    "chk_projects_latitude",
     "latitude IS NULL OR (latitude >= -90 AND latitude <= 90)"
   );
 
+  // Validate longitude range (-180 to +180)
   await addCheckConstraint(
     knex,
     "projects",
-    "projects_longitude_check",
+    "chk_projects_longitude",
     "longitude IS NULL OR (longitude >= -180 AND longitude <= 180)"
   );
-  
+
+  // Ensure price_min <= price_max when both are set
   await addCheckConstraint(
     knex,
     "projects",
-    "projects_price_range_check",
+    "chk_projects_price_range",
     "price_min IS NULL OR price_max IS NULL OR price_min <= price_max"
   );
 
-  // Trigger to update price_range when apartments change (optional, can be done in app)
-  // This is a placeholder - implement in application logic or as MySQL trigger
+  // Ensure total_blocks is positive
+  await addCheckConstraint(
+    knex,
+    "projects",
+    "chk_projects_total_blocks",
+    "total_blocks IS NULL OR total_blocks > 0"
+  );
+
+  // Ensure total_units is positive
+  await addCheckConstraint(
+    knex,
+    "projects",
+    "chk_projects_total_units",
+    "total_units IS NULL OR total_units > 0"
+  );
 }
 
+/**
+ * Rollback Migration
+ * Drops the projects table and all associated constraints
+ */
 export async function down(knex: Knex): Promise<void> {
   await knex.schema.dropTableIfExists("projects");
 }
