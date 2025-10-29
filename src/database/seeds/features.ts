@@ -1,5 +1,5 @@
-import _knex, { Knex } from "knex";
-
+import { Knex } from "knex";
+import legacy_db from "@/config/legacy-database";
 /**
  * Seed: Features
  * Migrates from old `caracteristiques_projets` table to new `features` table
@@ -15,20 +15,9 @@ export async function seed(knex: Knex): Promise<void> {
     await trx("features").del();
     console.log("  ✓ Cleared existing features");
 
-    // Connect to old database
-    const oldDb = _knex({
-      client: "mysql2",
-      connection: {
-        host: process.env.OLD_DB_HOST || "127.0.0.1",
-        port: Number(process.env.OLD_DB_PORT) || 3306,
-        user: process.env.OLD_DB_USER || "root",
-        password: process.env.OLD_DB_PASSWORD || "",
-        database: process.env.OLD_DB_NAME || "aymen-database",
-      },
-    });
 
     // Fetch old features
-    const oldFeatures = await oldDb("caracteristiques_projets").select("*");
+    const oldFeatures = await legacy_db("caracteristiques_projets").select("*");
     console.log(`  📊 Found ${oldFeatures.length} old features`);
 
     // Category mapping helper
@@ -113,7 +102,6 @@ export async function seed(knex: Knex): Promise<void> {
       );
     }
 
-    await oldDb.destroy();
     await trx.commit();
 
     console.log("✅ Features migration completed successfully");

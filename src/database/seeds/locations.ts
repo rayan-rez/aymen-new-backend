@@ -1,4 +1,5 @@
-import _knex, { Knex } from "knex";
+import { Knex } from "knex";
+import legacy_db from "@/config/legacy-database";
 
 /**
  * Seed: Locations
@@ -16,20 +17,8 @@ export async function seed(knex: Knex): Promise<void> {
     await trx("locations").del();
     console.log("  ✓ Cleared existing locations");
 
-    // Connect to old database
-    const oldDb = _knex({
-      client: "mysql2",
-      connection: {
-        host: process.env.OLD_DB_HOST || "127.0.0.1",
-        port: Number(process.env.OLD_DB_PORT) || 3306,
-        user: process.env.OLD_DB_USER || "root",
-        password: process.env.OLD_DB_PASSWORD || "",
-        database: process.env.OLD_DB_NAME || "aymen-database",
-      },
-    });
-
     // Fetch old locations
-    const oldLocalites = await oldDb("localites").select("*");
+    const oldLocalites = await legacy_db("localites").select("*");
     console.log(`  📊 Found ${oldLocalites.length} old locations`);
 
     // Create Algeria as root location
@@ -111,7 +100,6 @@ export async function seed(knex: Knex): Promise<void> {
       );
     }
 
-    await oldDb.destroy();
     await trx.commit();
 
     console.log("✅ Locations migration completed successfully");
