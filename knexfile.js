@@ -42,10 +42,12 @@ module.exports = {
       directory: path.join(__dirname, "dist", "database", "migrations"),
       extension: "js",
       tableName: "knex_migrations",
+      loadExtensions: [".js"],
     },
     seeds: {
       directory: path.join(__dirname, "dist", "database", "seeds"),
       extension: "js",
+      loadExtensions: [".js"],
     },
   },
 };

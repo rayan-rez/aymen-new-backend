@@ -1,0 +1,72 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: aymen-backend
+    restart: unless-stopped
+    env_file: .env.docker  # <-- Changed from .env
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - aymen-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:3000/health', (r)=>{process.exit(r.statusCode===200?0:1)})",
+        ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 40s
+
+  mysql:
+    image: mysql:8.0
+    container_name: aymen-mysql
+    restart: unless-stopped
+    env_file: .env.docker  # <-- Changed from .env
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+      - MYSQL_DATABASE=${DB_NAME}
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - aymen-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-p${DB_PASSWORD}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    command: --default-authentication-plugin=mysql_native_password
+
+volumes:
+  mysql_data:
+    driver: local
+  uploads:
+    driver: local
+
+networks:
+  aymen-network:
+    driver: bridge

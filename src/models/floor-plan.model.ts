@@ -196,6 +196,19 @@ class FloorPlanModel extends BaseModel<
   }
 
   /**
+   * Gets plan count for an entity
+   */
+  async countForEntity(
+    plannableType: PlannableType,
+    plannableId: number
+  ): Promise<number> {
+    return this.count({
+      plannable_type: plannableType,
+      plannable_id: plannableId,
+    });
+  }
+
+  /**
    * Reorders floor plans for an entity
    */
   async reorder(

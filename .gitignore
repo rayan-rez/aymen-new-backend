@@ -12,6 +12,7 @@ build/
 .env
 .env.local
 .env.*.local
+.env.docker
 
 # Uploads
 uploads/
@@ -43,3 +44,4 @@ models.txt
 middlewares.txt
 services.txt
 utils.txt
+migrations.txt
