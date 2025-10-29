@@ -1,5 +1,5 @@
 import type { Knex } from "knex";
-import { addCheckConstraint, configureTableDefaults } from "../knex-extensions";
+import { addCheckConstraint, configureTableEngine } from "../knex-extensions";
 
 /**
  * Migration: Projects (Real Estate Developments)
@@ -117,7 +117,7 @@ export async function up(knex: Knex): Promise<void> {
     // =================================================================
     // TABLE CONFIGURATION
     // =================================================================
-    configureTableDefaults(table);
+    configureTableEngine(table);
   });
 
   // =================================================================

@@ -1,8 +1,11 @@
 // knexfile.ts
 import dotenv from "dotenv";
 import path from "path";
+import { registerKnexExtensions } from "./src/database/knex-extensions";
 
 dotenv.config();
+
+registerKnexExtensions();
 
 /**
  * Helper function to convert MySQL datetime/timestamp fields to Date objects
@@ -61,6 +64,7 @@ module.exports = {
       password: process.env.DB_PASSWORD || "",
       database: process.env.DB_NAME || "aymen_db",
       charset: "utf8mb4",
+      collate: "utf8mb4_unicode_ci",
       timezone: "UTC+1",
     },
     pool: {
@@ -110,6 +114,7 @@ module.exports = {
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
       charset: "utf8mb4",
+      collate: "utf8mb4_unicode_ci",
       timezone: "UTC+1",
       ssl: {
         rejectUnauthorized: false,
@@ -143,6 +148,7 @@ module.exports = {
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
       charset: "utf8mb4",
+      collate: "utf8mb4_unicode_ci",
       timezone: "UTC+1",
       ssl: {
         rejectUnauthorized: true,
@@ -184,6 +190,7 @@ module.exports = {
       password: process.env.DB_PASSWORD || "",
       database: process.env.DB_NAME || "real_estate_test",
       charset: "utf8mb4",
+      collate: "utf8mb4_unicode_ci",
       timezone: "UTC+1",
     },
     pool: {

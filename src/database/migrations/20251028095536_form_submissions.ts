@@ -1,125 +1,183 @@
-// src/database/migrations/20251027134430_form_submissions.ts
 import type { Knex } from "knex";
-import { addCheckConstraint, configureTableDefaults } from "../knex-extensions";
+import { addCheckConstraint, configureTableEngine } from "../knex-extensions";
 
 /**
- * FORM SUBMISSIONS - Unified form tracking
- *
- * Captures all form submissions across the website in a single table.
- * Links to specific form tables (contact_submissions, project_inquiries, etc.)
- * Enables cross-form analytics and funnel analysis.
- *
- * This complements specific form tables by providing:
- * - Unified analytics across all forms
- * - Session and event tracking context
- * - Form abandonment tracking (partial submissions)
- * - A/B testing support
+ * Migration: Form Submissions (Refactored)
+ * 
+ * Central table for ALL form submissions on the website.
+ * This is the primary source of truth for user-submitted data.
+ * 
+ * CHANGES FROM ORIGINAL:
+ * - No direct lead_id reference (replaced by lead_mirrors)
+ * - Enhanced tracking metadata
+ * - Added Odoo sync queue fields
+ * - Optimized for event-driven architecture
+ * 
+ * WORKFLOW:
+ * 1. User submits form → Record created here
+ * 2. Event published to Kafka/Queue → "form.submitted"
+ * 3. Worker picks up event → Calls Odoo API
+ * 4. Odoo creates lead → Returns lead_id
+ * 5. Worker creates lead_mirrors record with odoo_lead_id
  */
 export async function up(knex: Knex): Promise<void> {
   await knex.schema.createTable("form_submissions", (table) => {
+    // =================================================================
+    // PRIMARY KEY
+    // =================================================================
     table.increments("id").primary();
 
-    // Lead relationship
-    table
-      .integer("lead_id")
-      .unsigned()
-      .nullable()
-      .references("id")
-      .inTable("leads")
-      .onDelete("SET NULL");
-    table.index("lead_id");
+    // =================================================================
+    // SESSION & TRACKING CONTEXT
+    // =================================================================
+    // Visitor/Session references (for analytics correlation)
+    table.string("visitor_id", 36).nullable().index();
+    table.string("session_id", 36).nullable().index();
 
-    // Session context
-    table
-      .integer("session_id")
-      .unsigned()
-      .nullable()
-      .references("id")
-      .inTable("user_sessions")
-      .onDelete("SET NULL");
-    table.index("session_id");
-
-    // Form identification
+    // =================================================================
+    // FORM IDENTIFICATION
+    // =================================================================
     table.string("form_type", 100).notNullable().index();
     // Values: contact_form, project_inquiry, appointment_request,
-    //         catalog_download, land_submission, job_application, newsletter
+    //         catalog_download, land_submission, job_application, 
+    //         event_registration
 
-    table.string("form_id", 100).nullable(); // HTML form ID for A/B testing
-    table.string("form_variant", 50).nullable(); // A/B test variant
+    table.string("form_id", 100).nullable(); // HTML form ID
 
-    // Project context (if applicable)
-    table
-      .integer("project_id")
-      .unsigned()
-      .nullable()
-      .references("id")
-      .inTable("projects")
-      .onDelete("SET NULL");
-    table.index("project_id");
+    // =================================================================
+    // PROJECT CONTEXT (IF APPLICABLE)
+    // =================================================================
+    table.withForeignKey("project_id", "projects", "id", "SET NULL");
 
-    // Form data as JSON (sanitized copy of submitted data)
-    // Example: {"name":"Ahmed Benali","email":"ahmed@example.com","phone":"+213555123456","message":"Interested in Villa Azure","budget_range":"20M-30M"}
-    table.json("form_data").nullable();
+    // =================================================================
+    // FORM DATA (FULL SUBMISSION PAYLOAD)
+    // =================================================================
+    // Complete form data as JSON
+    // Example: {
+    //   "firstName": "Ahmed",
+    //   "lastName": "Benali",
+    //   "email": "ahmed@example.com",
+    //   "phone": "+213555123456",
+    //   "message": "Interested in Villa Azure",
+    //   "budgetRange": "20M-30M"
+    // }
+    table.json("form_data").notNullable();
 
-    // Submission metadata
-    table.timestamp("submitted_at").notNullable().index();
+    // =================================================================
+    // EXTRACTED KEY FIELDS (FOR QUICK ACCESS)
+    // =================================================================
+    // Denormalized from form_data for indexing and queries
+    table.string("email", 255).nullable();
+    table.string("phone", 30).nullable();
+    table.string("first_name", 100).nullable();
+    table.string("last_name", 100).nullable();
+    
+    table.index("email", "idx_email");
+    table.index("phone", "idx_phone");
+
+    // =================================================================
+    // SUBMISSION METADATA
+    // =================================================================
+    table.timestamp("submitted_at").notNullable().defaultTo(knex.fn.now());
     table.string("page_url", 500).nullable();
     table.string("referrer_url", 500).nullable();
+    table.string("ip_address", 45).nullable();
+    table.string("user_agent", 500).nullable();
 
-    // Processing status
+    // =================================================================
+    // MARKETING ATTRIBUTION
+    // =================================================================
+    table.withUtmTracking();
+    table.withReferrerTracking();
+
+    // =================================================================
+    // PROCESSING STATUS
+    // =================================================================
     table.withStatusEnum(
       ["pending", "processing", "completed", "failed", "spam"],
-      {
-        defaultStatus: "pending"
-      }
+      { defaultStatus: "pending" }
     );
 
     // Time to complete form (in seconds)
     table.integer("completion_time_seconds").unsigned().nullable();
 
-    // Reference to specific form table record
-    table.string("source_table", 100).nullable();
-    table.integer("source_id").unsigned().nullable();
-    table.index(["source_table", "source_id"], "idx_source_ref");
+    // =================================================================
+    // ODOO SYNC QUEUE
+    // =================================================================
+    // Whether this submission should be synced to Odoo
+    table.boolean("requires_odoo_sync").defaultTo(true);
+    
+    // Timestamp when sync was attempted
+    table.timestamp("odoo_sync_attempted_at").nullable();
+    
+    // Number of sync retry attempts
+    table.integer("odoo_sync_retries").unsigned().defaultTo(0);
+    
+    // Last sync error message
+    table.text("odoo_sync_error").nullable();
 
-    // Validation and quality metrics
+    // =================================================================
+    // VALIDATION & QUALITY
+    // =================================================================
     table.integer("validation_errors").unsigned().defaultTo(0);
     table.boolean("is_spam").defaultTo(false).index();
     table.decimal("spam_score", 3, 2).nullable(); // 0.00 to 1.00
 
+    // =================================================================
+    // AUDIT TRAIL
+    // =================================================================
     table.withTimestamps();
 
-    // Composite indexes
+    // =================================================================
+    // COMPOSITE INDEXES
+    // =================================================================
     table.index(["form_type", "submitted_at"], "idx_type_time");
     table.index(["form_type", "status"], "idx_type_status");
     table.index(
       ["project_id", "form_type", "submitted_at"],
       "idx_project_form_time"
     );
+    table.index(
+      ["requires_odoo_sync", "status"],
+      "idx_sync_status"
+    );
+    table.index(
+      ["is_spam", "submitted_at"],
+      "idx_spam_time"
+    );
 
-    configureTableDefaults(table);
+    configureTableEngine(table);
   });
 
-  // CHECK constraints
+  // =================================================================
+  // CHECK CONSTRAINTS
+  // =================================================================
   await addCheckConstraint(
     knex,
     "form_submissions",
-    "form_submissions_completion_time_check",
+    "chk_completion_time",
     "completion_time_seconds IS NULL OR completion_time_seconds >= 0"
   );
 
   await addCheckConstraint(
     knex,
     "form_submissions",
-    "form_submissions_spam_score_check",
+    "chk_spam_score",
     "spam_score IS NULL OR (spam_score >= 0.00 AND spam_score <= 1.00)"
   );
 
   await addCheckConstraint(
     knex,
     "form_submissions",
-    "form_submissions_errors_check",
+    "chk_validation_errors",
     "validation_errors >= 0"
+  );
+
+  await addCheckConstraint(
+    knex,
+    "form_submissions",
+    "chk_sync_retries",
+    "odoo_sync_retries >= 0 AND odoo_sync_retries <= 10"
   );
 }
 

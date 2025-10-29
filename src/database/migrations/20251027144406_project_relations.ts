@@ -1,5 +1,5 @@
 import type { Knex } from "knex";
-import { configureTableDefaults } from "../knex-extensions";
+import { configureTableEngine } from "../knex-extensions";
 
 /**
  * Migration: Project Relations (Junction Tables)
@@ -47,7 +47,7 @@ export async function up(knex: Knex): Promise<void> {
       "idx_project_order"
     );
 
-    configureTableDefaults(table);
+    configureTableEngine(table);
   });
 
   // =================================================================
@@ -96,7 +96,7 @@ export async function up(knex: Knex): Promise<void> {
       "idx_project_featured"
     );
 
-    configureTableDefaults(table);
+    configureTableEngine(table);
   });
 
   // =================================================================
@@ -145,7 +145,7 @@ export async function up(knex: Knex): Promise<void> {
       "idx_project_role_order"
     );
 
-    configureTableDefaults(table);
+    configureTableEngine(table);
   });
 }
 

@@ -1,6 +1,6 @@
 // src/database/migrations/20251027134400_user_events.ts
 import type { Knex } from "knex";
-import { configureTableDefaults } from "../knex-extensions";
+import { configureTableEngine } from "../knex-extensions";
 
 /**
  * USER EVENTS - Granular user behavior tracking
@@ -88,7 +88,7 @@ export async function up(knex: Knex): Promise<void> {
     table.index(["event_category", "event_ts"], "idx_category_time");
 
 
-    configureTableDefaults(table);
+    configureTableEngine(table);
   });
 }
 

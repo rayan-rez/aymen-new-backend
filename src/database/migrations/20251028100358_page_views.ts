@@ -1,6 +1,6 @@
 // src/database/migrations/20251027134530_page_views.ts
 import type { Knex } from "knex";
-import { configureTableDefaults } from "../knex-extensions";
+import { configureTableEngine } from "../knex-extensions";
 
 /**
  * PAGE VIEWS - Detailed page-level analytics
@@ -75,7 +75,7 @@ export async function up(knex: Knex): Promise<void> {
     table.index(["visitor_id", "viewed_at"], "idx_visitor_time");
     table.index(["referrer_domain", "viewed_at"], "idx_referrer_time");
 
-    configureTableDefaults(table);
+    configureTableEngine(table);
   });
 }
 

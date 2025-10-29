@@ -1,5 +1,5 @@
 import type { Knex } from "knex";
-import { addCheckConstraint, configureTableDefaults } from "../knex-extensions";
+import { addCheckConstraint, configureTableEngine } from "../knex-extensions";
 
 /**
  * Migration: Features (Property Amenities and Features)
@@ -84,7 +84,7 @@ export async function up(knex: Knex): Promise<void> {
     // =================================================================
     // TABLE CONFIGURATION
     // =================================================================
-    configureTableDefaults(table);
+    configureTableEngine(table);
   });
 
   // =================================================================

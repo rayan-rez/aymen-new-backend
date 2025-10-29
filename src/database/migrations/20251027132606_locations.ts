@@ -1,5 +1,5 @@
 import type { Knex } from "knex";
-import { addCheckConstraint, configureTableDefaults } from "../knex-extensions";
+import { addCheckConstraint, configureTableEngine } from "../knex-extensions";
 
 /**
  * Migration: Locations (hierarchical reference data)
@@ -53,7 +53,7 @@ export async function up(knex: Knex): Promise<void> {
       table.index(["parent_id", "display_order"], "idx_parent_order");
       table.index(["depth", "display_order"], "idx_depth_order");
 
-      configureTableDefaults(table);
+      configureTableEngine(table);
     })
 
   await addCheckConstraint(

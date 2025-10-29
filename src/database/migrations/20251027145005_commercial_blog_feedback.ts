@@ -1,5 +1,5 @@
 import type { Knex } from "knex";
-import { addCheckConstraint, configureTableDefaults } from "../knex-extensions";
+import { addCheckConstraint, configureTableEngine } from "../knex-extensions";
 
 /**
  * Migration: Commercial Properties, Blog Posts, and Feedback
@@ -69,7 +69,7 @@ export async function up(knex: Knex): Promise<void> {
     );
     table.index(["location_id", "property_type"], "idx_location_type");
 
-    configureTableDefaults(table);
+    configureTableEngine(table);
   });
 
   await addCheckConstraint(
@@ -152,7 +152,7 @@ export async function up(knex: Knex): Promise<void> {
     );
     table.index(["category", "is_published"], "idx_cat_pub");
 
-    configureTableDefaults(table);
+    configureTableEngine(table);
   });
 
   await addCheckConstraint(
@@ -186,7 +186,7 @@ export async function up(knex: Knex): Promise<void> {
 
     table.index(["blog_post_id", "display_order"], "idx_post_order");
 
-    configureTableDefaults(table);
+    configureTableEngine(table);
   });
 
   await addCheckConstraint(
@@ -254,7 +254,7 @@ export async function up(knex: Knex): Promise<void> {
     table.index(["project_id", "feedback_type"], "idx_proj_type");
     table.index(["sentiment", "created_at"], "idx_sentiment_date");
 
-    configureTableDefaults(table);
+    configureTableEngine(table);
   });
 
   await addCheckConstraint(
@@ -312,7 +312,7 @@ export async function up(knex: Knex): Promise<void> {
 
     table.index(["trade_show_name", "trade_show_date"], "idx_show_date");
 
-    configureTableDefaults(table);
+    configureTableEngine(table);
   });
 
   await addCheckConstraint(
