@@ -1,51 +1,66 @@
 import { Knex } from "knex";
 import legacy_db from "@/config/legacy-database";
-
+import { SeederHelper, MigrationStats } from "../seed-helpers";
 
 /**
  * Seed: Projects
  * Migrates from old `projets` table to new `projects` table
  */
 export async function seed(knex: Knex): Promise<void> {
-  console.log("🏗️  Starting projects migration...");
+  console.log("\n🏗️  Starting projects migration...");
+  console.log("===================================");
+
+  // Validate legacy DB config
+  try {
+    SeederHelper.validateLegacyDbConfig();
+  } catch (error) {
+    console.error("❌", (error as Error).message);
+    console.log("\nℹ️  Skipping seeder - legacy database not configured");
+    return;
+  }
 
   const trx = await knex.transaction();
+  const stats: MigrationStats = { total: 0, inserted: 0, skipped: 0, failed: 0 };
 
   try {
-    // Clear existing data
-    await trx("project_locations").del();
-    await trx("project_features").del();
-    await trx("projects").del();
+    // Check if already seeded (idempotency)
+    const existingCount = await trx("projects").count("* as count").first();
+    if (existingCount && Number(existingCount.count) > 0) {
+      console.log(`  ℹ️  Found ${existingCount.count} existing projects`);
+      console.log("  ⚠️  Table already seeded. Skipping...");
+      await trx.commit();
+      return;
+    }
+
+    // Clear existing data (FK order matters!)
+    await SeederHelper.clearTable(trx, "project_locations");
+    await SeederHelper.clearTable(trx, "project_features");
+    await SeederHelper.clearTable(trx, "projects");
     console.log("  ✓ Cleared existing projects");
 
+    // Get location mapping from previous seeder
+    const locationMapping = await SeederHelper.getMapping(trx, "temp_location_mapping");
 
     // Fetch old projects
     const oldProjects = await legacy_db("projets").select("*");
-    console.log(`  📊 Found ${oldProjects.length} old projects`);
+    stats.total = oldProjects.length;
+    console.log(`  📊 Found ${stats.total} old projects to migrate`);
 
-    // Get location mapping
-    const locationMapping = new Map<number, number>();
-    const locationMappingRows = await trx.raw(
-      "SELECT old_id, new_id FROM temp_location_mapping"
-    );
-    locationMappingRows[0].forEach((row: any) => {
-      locationMapping.set(row.old_id, row.new_id);
-    });
+    if (stats.total === 0) {
+      console.log("  ℹ️  No projects to migrate");
+      await trx.commit();
+      return;
+    }
 
     // Map old projects to new
     const projectMap = new Map<number, number>();
-    let insertedCount = 0;
-    let skippedCount = 0;
 
     for (const project of oldProjects) {
       try {
-        // Generate slug from name
-        const slug = project.nom
-          .toLowerCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-+|-+$/g, "");
+        const slug = SeederHelper.generateSlug(
+          project.nom,
+          `project-${project.projet_id}`
+        );
 
         // Map status
         let status = "planning";
@@ -60,7 +75,7 @@ export async function seed(knex: Knex): Promise<void> {
 
         const [newProjectId] = await trx("projects").insert({
           name: project.nom,
-          slug: slug || `project-${project.projet_id}`,
+          slug,
           description: project.description || null,
           description_secondary: project.description_secondaire || null,
           address: project.adresse || "N/A",
@@ -79,39 +94,20 @@ export async function seed(knex: Knex): Promise<void> {
         });
 
         projectMap.set(project.projet_id, newProjectId);
-        insertedCount++;
+        stats.inserted++;
       } catch (error) {
-        console.warn(
-          `  ⚠️  Failed to insert project: ${project.nom}`,
-          error
-        );
-        skippedCount++;
+        console.warn(`  ⚠️  Failed: ${project.nom}`, (error as Error).message);
+        stats.failed++;
       }
     }
 
-    console.log(`  ✓ Inserted ${insertedCount} projects`);
-    if (skippedCount > 0) {
-      console.log(`  ⚠️  Skipped ${skippedCount} projects`);
-    }
-
-    // Store mapping for use in other seeders
-    await trx.raw(`
-      CREATE TEMPORARY TABLE IF NOT EXISTS temp_project_mapping (
-        old_id INT PRIMARY KEY,
-        new_id INT
-      )
-    `);
-
-    for (const [oldId, newId] of projectMap.entries()) {
-      await trx.raw(
-        "INSERT INTO temp_project_mapping (old_id, new_id) VALUES (?, ?)",
-        [oldId, newId]
-      );
-    }
+    // Store mapping
+    await SeederHelper.storeMapping(trx, "temp_project_mapping", projectMap);
 
     await trx.commit();
 
-    console.log("✅ Projects migration completed successfully");
+    SeederHelper.logProgress("Projects", stats, "🏗️");
+    console.log("✅ Projects migration completed successfully\n");
   } catch (error) {
     await trx.rollback();
     console.error("❌ Projects migration failed:", error);

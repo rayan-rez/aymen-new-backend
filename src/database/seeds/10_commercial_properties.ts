@@ -1,64 +1,77 @@
 import { Knex } from "knex";
 import legacy_db from "@/config/legacy-database";
+import { SeederHelper, MigrationStats } from "../seed-helpers";
 
 /**
  * Seed: Commercial Properties
  * Migrates from old `proprietes_commerciales` table to new `commercial_properties` table
  */
 export async function seed(knex: Knex): Promise<void> {
-  console.log("🏢 Starting commercial properties migration...");
+  console.log("\n🏢 Starting commercial properties migration...");
+  console.log("===============================================");
+
+  // Validate legacy DB config
+  try {
+    SeederHelper.validateLegacyDbConfig();
+  } catch (error) {
+    console.error("❌", (error as Error).message);
+    console.log("\nℹ️  Skipping seeder - legacy database not configured");
+    return;
+  }
 
   const trx = await knex.transaction();
+  const stats: MigrationStats = { total: 0, inserted: 0, skipped: 0, failed: 0 };
+  let photoCount = 0;
 
   try {
+    // Check if already seeded (idempotency)
+    const existingCount = await trx("commercial_properties").count("* as count").first();
+    if (existingCount && Number(existingCount.count) > 0) {
+      console.log(`  ℹ️  Found ${existingCount.count} existing commercial properties`);
+      console.log("  ⚠️  Table already seeded. Skipping...");
+      await trx.commit();
+      return;
+    }
+
     // Clear existing data
-    await trx("commercial_properties").del();
+    await SeederHelper.clearTable(trx, "commercial_properties");
     console.log("  ✓ Cleared existing commercial properties");
 
-
-    // Get location mapping
-    const locationMapping = new Map<number, number>();
-    const locationMappingRows = await trx.raw(
-      "SELECT old_id, new_id FROM temp_location_mapping"
-    );
-    locationMappingRows[0].forEach((row: any) => {
-      locationMapping.set(row.old_id, row.new_id);
-    });
+    // Get location mapping from previous seeder
+    const locationMapping = await SeederHelper.getMapping(trx, "temp_location_mapping");
+    console.log(`  📊 Loaded ${locationMapping.size} location mappings`);
 
     // Fetch old commercial properties
     try {
-      const oldCommercialProperties = await legacy_db(
-        "proprietes_commerciales"
-      ).select("*");
-      console.log(
-        `  📊 Found ${oldCommercialProperties.length} old commercial properties`
-      );
+      const oldCommercialProperties = await legacy_db("proprietes_commerciales").select("*");
+      stats.total = oldCommercialProperties.length;
+      console.log(`  📊 Found ${stats.total} old commercial properties to migrate`);
+
+      if (stats.total === 0) {
+        console.log("  ℹ️  No commercial properties to migrate");
+        await trx.commit();
+        return;
+      }
 
       const commercialPropertyMap = new Map<number, number>();
-      let insertedCount = 0;
-      let skippedCount = 0;
 
       for (const property of oldCommercialProperties) {
         try {
-          // Generate slug
-          const slug = property.titre
-            .toLowerCase()
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/^-+|-+$/g, "");
+          const slug = SeederHelper.generateSlug(
+            property.titre,
+            `property-${property.propriete_id}`
+          );
 
           // Map property type
           let propertyType = "office";
-          if (property.type_propriete === "boutique") propertyType = "shop";
-          else if (property.type_propriete === "entrepot")
-            propertyType = "warehouse";
-          else if (property.type_propriete === "showroom")
-            propertyType = "showroom";
-          else if (property.type_propriete === "restaurant")
-            propertyType = "restaurant";
-          else if (property.type_propriete === "mixte")
-            propertyType = "mixed_use";
+          const typeMap: Record<string, string> = {
+            boutique: "shop",
+            entrepot: "warehouse",
+            showroom: "showroom",
+            restaurant: "shop", // Map restaurant to shop
+            mixte: "mixed_use",
+          };
+          propertyType = typeMap[property.type_propriete] || "office";
 
           // Map status
           let status = "available";
@@ -72,7 +85,7 @@ export async function seed(knex: Knex): Promise<void> {
 
           const [newPropertyId] = await trx("commercial_properties").insert({
             title: property.titre,
-            slug: slug || `property-${property.propriete_id}`,
+            slug,
             subtitle: property.sous_titre || null,
             description: property.description,
             card_description: property.description_carte || null,
@@ -92,33 +105,23 @@ export async function seed(knex: Knex): Promise<void> {
           });
 
           commercialPropertyMap.set(property.propriete_id, newPropertyId);
-          insertedCount++;
+          stats.inserted++;
         } catch (error) {
-          console.warn(
-            `  ⚠️  Failed to insert commercial property: ${property.titre}`,
-            error
-          );
-          skippedCount++;
+          console.warn(`  ⚠️  Failed: ${property.titre}`, (error as Error).message);
+          stats.failed++;
         }
       }
 
-      console.log(`  ✓ Inserted ${insertedCount} commercial properties`);
-      if (skippedCount > 0) {
-        console.log(`  ⚠️  Skipped ${skippedCount} commercial properties`);
-      }
+      console.log(`  ✓ Inserted ${stats.inserted} commercial properties`);
 
       // ============================================
       // MIGRATE COMMERCIAL PROPERTY PHOTOS
       // ============================================
+      console.log("\n  📷 Migrating commercial property photos...");
       try {
-        const oldCommercialPhotos = await legacy_db(
-          "proprietes_commerciales_photos"
-        ).select("*");
-        console.log(
-          `  📷 Found ${oldCommercialPhotos.length} commercial property photos`
-        );
+        const oldCommercialPhotos = await legacy_db("proprietes_commerciales_photos").select("*");
+        console.log(`  📊 Found ${oldCommercialPhotos.length} commercial property photos`);
 
-        let photoCount = 0;
         for (const photo of oldCommercialPhotos) {
           const newPropertyId = commercialPropertyMap.get(photo.propriete_id);
 
@@ -137,10 +140,7 @@ export async function seed(knex: Knex): Promise<void> {
               });
               photoCount++;
             } catch (error) {
-              console.warn(
-                `  ⚠️  Failed to insert commercial property photo`,
-                error
-              );
+              console.warn(`  ⚠️  Failed to insert commercial property photo`, error);
             }
           }
         }
@@ -150,31 +150,30 @@ export async function seed(knex: Knex): Promise<void> {
       }
 
       // Store mapping
-      await trx.raw(`
-        CREATE TEMPORARY TABLE IF NOT EXISTS temp_commercial_property_mapping (
-          old_id INT PRIMARY KEY,
-          new_id INT
-        )
-      `);
-
-      for (const [oldId, newId] of commercialPropertyMap.entries()) {
-        await trx.raw(
-          "INSERT INTO temp_commercial_property_mapping (old_id, new_id) VALUES (?, ?)",
-          [oldId, newId]
-        );
-      }
-    } catch (error) {
-      console.log(
-        "  ℹ️  No commercial properties table found in old database"
+      await SeederHelper.storeMapping(
+        trx,
+        "temp_commercial_property_mapping",
+        commercialPropertyMap
       );
+    } catch (error) {
+      console.log("  ℹ️  No commercial properties table found in old database");
     }
 
     await trx.commit();
 
-    console.log("✅ Commercial properties migration completed successfully");
+    console.log(`\n🏢 Commercial Properties Migration Summary:`);
+    console.log(`  • Properties: ${stats.inserted}`);
+    console.log(`  • Photos: ${photoCount}`);
+    if (stats.failed > 0) {
+      console.log(`  ⚠️  Failed: ${stats.failed}`);
+    }
+    console.log("✅ Commercial properties migration completed successfully\n");
   } catch (error) {
     await trx.rollback();
     console.error("❌ Commercial properties migration failed:", error);
     throw error;
+  } finally {
+    // Cleanup: Destroy legacy DB connection
+    await legacy_db.destroy();
   }
 }

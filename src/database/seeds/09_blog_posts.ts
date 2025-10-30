@@ -1,5 +1,6 @@
 import { Knex } from "knex";
 import legacy_db from "@/config/legacy-database";
+import { SeederHelper, MigrationStats } from "../seed-helpers";
 
 /**
  * Seed: Blog Posts
@@ -7,14 +8,36 @@ import legacy_db from "@/config/legacy-database";
  * to new `blog_posts` and `blog_post_sections` tables
  */
 export async function seed(knex: Knex): Promise<void> {
-  console.log("📝 Starting blog posts migration...");
+  console.log("\n📝 Starting blog posts migration...");
+  console.log("====================================");
+
+  // Validate legacy DB config
+  try {
+    SeederHelper.validateLegacyDbConfig();
+  } catch (error) {
+    console.error("❌", (error as Error).message);
+    console.log("\nℹ️  Skipping seeder - legacy database not configured");
+    return;
+  }
 
   const trx = await knex.transaction();
+  const postStats: MigrationStats = { total: 0, inserted: 0, skipped: 0, failed: 0 };
+  let sectionCount = 0;
+  let galleryCount = 0;
 
   try {
+    // Check if already seeded (idempotency)
+    const existingCount = await trx("blog_posts").count("* as count").first();
+    if (existingCount && Number(existingCount.count) > 0) {
+      console.log(`  ℹ️  Found ${existingCount.count} existing blog posts`);
+      console.log("  ⚠️  Table already seeded. Skipping...");
+      await trx.commit();
+      return;
+    }
+
     // Clear existing data
-    await trx("blog_post_sections").del();
-    await trx("blog_posts").del();
+    await SeederHelper.clearTable(trx, "blog_post_sections");
+    await SeederHelper.clearTable(trx, "blog_posts");
     console.log("  ✓ Cleared existing blog posts");
 
     // ============================================
@@ -22,34 +45,33 @@ export async function seed(knex: Knex): Promise<void> {
     // ============================================
     try {
       const oldBlogPosts = await legacy_db("articles_blog").select("*");
-      console.log(`  📊 Found ${oldBlogPosts.length} old blog posts`);
+      postStats.total = oldBlogPosts.length;
+      console.log(`  📊 Found ${postStats.total} old blog posts to migrate`);
+
+      if (postStats.total === 0) {
+        console.log("  ℹ️  No blog posts to migrate");
+        await trx.commit();
+        return;
+      }
 
       const blogPostMap = new Map<number, number>();
-      let insertedCount = 0;
 
       for (const post of oldBlogPosts) {
         try {
-          // Generate slug
-          const slug = post.titre
-            .toLowerCase()
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/^-+|-+$/g, "");
+          const slug = SeederHelper.generateSlug(
+            post.titre,
+            `post-${post.article_id}`
+          );
 
           // Parse tags if stored as JSON
           let tags = null;
           if (post.tags) {
-            try {
-              tags = JSON.parse(post.tags);
-            } catch {
-              tags = [post.tags];
-            }
+            tags = SeederHelper.safeJsonParse(post.tags, [post.tags]);
           }
 
           const [newPostId] = await trx("blog_posts").insert({
             title: post.titre,
-            slug: slug || `post-${post.article_id}`,
+            slug,
             author_name: post.nom_auteur || "Admin",
             category: post.categorie || null,
             excerpt: post.extrait || null,
@@ -66,27 +88,23 @@ export async function seed(knex: Knex): Promise<void> {
           });
 
           blogPostMap.set(post.article_id, newPostId);
-          insertedCount++;
+          postStats.inserted++;
         } catch (error) {
-          console.warn(
-            `  ⚠️  Failed to insert blog post: ${post.titre}`,
-            error
-          );
+          console.warn(`  ⚠️  Failed: ${post.titre}`, (error as Error).message);
+          postStats.failed++;
         }
       }
 
-      console.log(`  ✓ Inserted ${insertedCount} blog posts`);
+      console.log(`  ✓ Inserted ${postStats.inserted} blog posts`);
 
       // ============================================
       // MIGRATE BLOG POST SECTIONS
       // ============================================
+      console.log("\n  📄 Migrating blog post sections...");
       try {
-        const oldBlogSections = await legacy_db("articles_blog_sections").select(
-          "*"
-        );
-        console.log(`  📄 Found ${oldBlogSections.length} blog sections`);
+        const oldBlogSections = await legacy_db("articles_blog_sections").select("*");
+        console.log(`  📊 Found ${oldBlogSections.length} blog sections`);
 
-        let sectionCount = 0;
         for (const section of oldBlogSections) {
           const newBlogPostId = blogPostMap.get(section.article_id);
 
@@ -115,13 +133,11 @@ export async function seed(knex: Knex): Promise<void> {
       // ============================================
       // MIGRATE BLOG POST GALLERY IMAGES TO PHOTOS
       // ============================================
+      console.log("\n  🖼️  Migrating blog post gallery images...");
       try {
-        const oldBlogGallery = await legacy_db("articles_blog_galerie").select(
-          "*"
-        );
-        console.log(`  🖼️  Found ${oldBlogGallery.length} blog gallery images`);
+        const oldBlogGallery = await legacy_db("articles_blog_galerie").select("*");
+        console.log(`  📊 Found ${oldBlogGallery.length} blog gallery images`);
 
-        let galleryCount = 0;
         for (const image of oldBlogGallery) {
           const newBlogPostId = blogPostMap.get(image.article_id);
 
@@ -148,27 +164,22 @@ export async function seed(knex: Knex): Promise<void> {
         console.log("  ℹ️  No blog gallery table found");
       }
 
-      // Store mapping for potential future use
-      await trx.raw(`
-        CREATE TEMPORARY TABLE IF NOT EXISTS temp_blog_post_mapping (
-          old_id INT PRIMARY KEY,
-          new_id INT
-        )
-      `);
-
-      for (const [oldId, newId] of blogPostMap.entries()) {
-        await trx.raw(
-          "INSERT INTO temp_blog_post_mapping (old_id, new_id) VALUES (?, ?)",
-          [oldId, newId]
-        );
-      }
+      // Store mapping
+      await SeederHelper.storeMapping(trx, "temp_blog_post_mapping", blogPostMap);
     } catch (error) {
       console.log("  ℹ️  No blog posts table found in old database");
     }
 
     await trx.commit();
 
-    console.log("✅ Blog posts migration completed successfully");
+    console.log(`\n📝 Blog Posts Migration Summary:`);
+    console.log(`  • Blog Posts: ${postStats.inserted}`);
+    console.log(`  • Sections: ${sectionCount}`);
+    console.log(`  • Gallery Images: ${galleryCount}`);
+    if (postStats.failed > 0) {
+      console.log(`  ⚠️  Failed: ${postStats.failed}`);
+    }
+    console.log("✅ Blog posts migration completed successfully\n");
   } catch (error) {
     await trx.rollback();
     console.error("❌ Blog posts migration failed:", error);

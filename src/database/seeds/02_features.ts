@@ -1,24 +1,57 @@
 import { Knex } from "knex";
 import legacy_db from "@/config/legacy-database";
+import { SeederHelper, MigrationStats } from "../seed-helpers";
+
 /**
  * Seed: Features
  * Migrates from old `caracteristiques_projets` table to new `features` table
  */
 export async function seed(knex: Knex): Promise<void> {
-  console.log("🎯 Starting features migration...");
+  console.log("\n🎯 Starting features migration...");
+  console.log("====================================");
+
+  // Validate legacy DB config
+  try {
+    SeederHelper.validateLegacyDbConfig();
+  } catch (error) {
+    console.error("❌", (error as Error).message);
+    console.log("\nℹ️  Skipping seeder - legacy database not configured");
+    return;
+  }
 
   const trx = await knex.transaction();
+  const stats: MigrationStats = {
+    total: 0,
+    inserted: 0,
+    skipped: 0,
+    failed: 0,
+  };
 
   try {
-    // Clear existing data
-    await trx("project_features").del();
-    await trx("features").del();
-    console.log("  ✓ Cleared existing features");
+    // Check if already seeded (idempotency)
+    const existingCount = await trx("features").count("* as count").first();
+    if (existingCount && Number(existingCount.count) > 0) {
+      console.log(`  ℹ️  Found ${existingCount.count} existing features`);
+      console.log("  ⚠️  Table already seeded. Skipping...");
+      await trx.commit();
+      return;
+    }
 
+    // Clear existing data
+    await SeederHelper.clearTable(trx, "project_features");
+    await SeederHelper.clearTable(trx, "features");
+    console.log("  ✓ Cleared existing features");
 
     // Fetch old features
     const oldFeatures = await legacy_db("caracteristiques_projets").select("*");
-    console.log(`  📊 Found ${oldFeatures.length} old features`);
+    stats.total = oldFeatures.length;
+    console.log(`  📊 Found ${stats.total} old features to migrate`);
+
+    if (stats.total === 0) {
+      console.log("  ℹ️  No features to migrate");
+      await trx.commit();
+      return;
+    }
 
     // Category mapping helper
     const categorizeFeature = (name: string): string => {
@@ -50,61 +83,45 @@ export async function seed(knex: Knex): Promise<void> {
 
     // Map old features to new
     const featureMap = new Map<number, number>();
-    let insertedCount = 0;
 
     for (const feature of oldFeatures) {
       try {
-        // Generate slug
-        const slug = feature.nom_caracteristique
-          .toLowerCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-+|-+$/g, "");
+        const slug = SeederHelper.generateSlug(
+          feature.nom_caracteristique,
+          `feature-${feature.id}`
+        );
 
         const category = categorizeFeature(feature.nom_caracteristique);
 
         const [newFeatureId] = await trx("features").insert({
           name: feature.nom_caracteristique,
-          slug: slug || `feature-${feature.id}`,
+          slug,
           icon: feature.url || null,
           category,
-          display_order: insertedCount,
+          display_order: stats.inserted,
           is_active: true,
           created_at: trx.fn.now(),
           updated_at: trx.fn.now(),
         });
 
         featureMap.set(feature.id, newFeatureId);
-        insertedCount++;
+        stats.inserted++;
       } catch (error) {
         console.warn(
-          `  ⚠️  Failed to insert feature: ${feature.nom_caracteristique}`,
-          error
+          `  ⚠️  Failed: ${feature.nom_caracteristique}`,
+          (error as Error).message
         );
+        stats.failed++;
       }
     }
 
-    console.log(`  ✓ Inserted ${insertedCount} features`);
-
     // Store mapping
-    await trx.raw(`
-      CREATE TEMPORARY TABLE IF NOT EXISTS temp_feature_mapping (
-        old_id INT PRIMARY KEY,
-        new_id INT
-      )
-    `);
-
-    for (const [oldId, newId] of featureMap.entries()) {
-      await trx.raw(
-        "INSERT INTO temp_feature_mapping (old_id, new_id) VALUES (?, ?)",
-        [oldId, newId]
-      );
-    }
+    await SeederHelper.storeMapping(trx, "temp_feature_mapping", featureMap);
 
     await trx.commit();
 
-    console.log("✅ Features migration completed successfully");
+    SeederHelper.logProgress("Features", stats, "🎯");
+    console.log("✅ Features migration completed successfully\n");
   } catch (error) {
     await trx.rollback();
     console.error("❌ Features migration failed:", error);

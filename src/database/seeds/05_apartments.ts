@@ -1,47 +1,66 @@
 import { Knex } from "knex";
 import legacy_db from "@/config/legacy-database";
+import { SeederHelper, MigrationStats } from "../seed-helpers";
 
 /**
  * Seed: Apartments
  * Migrates from old `appartements` table to new `apartments` table
  */
 export async function seed(knex: Knex): Promise<void> {
-  console.log("🏠 Starting apartments migration...");
+  console.log("\n🏠 Starting apartments migration...");
+  console.log("====================================");
+
+  // Validate legacy DB config
+  try {
+    SeederHelper.validateLegacyDbConfig();
+  } catch (error) {
+    console.error("❌", (error as Error).message);
+    console.log("\nℹ️  Skipping seeder - legacy database not configured");
+    return;
+  }
 
   const trx = await knex.transaction();
+  const stats: MigrationStats = { total: 0, inserted: 0, skipped: 0, failed: 0 };
 
   try {
+    // Check if already seeded (idempotency)
+    const existingCount = await trx("apartments").count("* as count").first();
+    if (existingCount && Number(existingCount.count) > 0) {
+      console.log(`  ℹ️  Found ${existingCount.count} existing apartments`);
+      console.log("  ⚠️  Table already seeded. Skipping...");
+      await trx.commit();
+      return;
+    }
+
     // Clear existing data
-    await trx("apartments").del();
+    await SeederHelper.clearTable(trx, "apartments");
     console.log("  ✓ Cleared existing apartments");
+
+    // Get project mapping from previous seeder
+    const projectMapping = await SeederHelper.getMapping(trx, "temp_project_mapping");
+    console.log(`  📊 Loaded ${projectMapping.size} project mappings`);
 
     // Fetch old apartments
     const oldApartments = await legacy_db("appartements").select("*");
-    console.log(`  📊 Found ${oldApartments.length} old apartments`);
+    stats.total = oldApartments.length;
+    console.log(`  📊 Found ${stats.total} old apartments to migrate`);
 
-    // Get project mapping
-    const projectMapping = new Map<number, number>();
-    const projectMappingRows = await trx.raw(
-      "SELECT old_id, new_id FROM temp_project_mapping"
-    );
-    projectMappingRows[0].forEach((row: any) => {
-      projectMapping.set(row.old_id, row.new_id);
-    });
+    if (stats.total === 0) {
+      console.log("  ℹ️  No apartments to migrate");
+      await trx.commit();
+      return;
+    }
 
     // Map old apartments to new
     const apartmentMap = new Map<number, number>();
-    let insertedCount = 0;
-    let skippedCount = 0;
 
     for (const apartment of oldApartments) {
       try {
         const newProjectId = projectMapping.get(apartment.projet_id);
 
         if (!newProjectId) {
-          console.warn(
-            `  ⚠️  Skipping apartment ${apartment.nom} - project not found`
-          );
-          skippedCount++;
+          console.warn(`  ⚠️  Skipping ${apartment.nom} - project not found`);
+          stats.skipped++;
           continue;
         }
 
@@ -68,39 +87,20 @@ export async function seed(knex: Knex): Promise<void> {
         });
 
         apartmentMap.set(apartment.appartement_id, newApartmentId);
-        insertedCount++;
+        stats.inserted++;
       } catch (error) {
-        console.warn(
-          `  ⚠️  Failed to insert apartment: ${apartment.nom}`,
-          error
-        );
-        skippedCount++;
+        console.warn(`  ⚠️  Failed: ${apartment.nom}`, (error as Error).message);
+        stats.failed++;
       }
     }
 
-    console.log(`  ✓ Inserted ${insertedCount} apartments`);
-    if (skippedCount > 0) {
-      console.log(`  ⚠️  Skipped ${skippedCount} apartments`);
-    }
-
-    // Store mapping for use in other seeders
-    await trx.raw(`
-      CREATE TEMPORARY TABLE IF NOT EXISTS temp_apartment_mapping (
-        old_id INT PRIMARY KEY,
-        new_id INT
-      )
-    `);
-
-    for (const [oldId, newId] of apartmentMap.entries()) {
-      await trx.raw(
-        "INSERT INTO temp_apartment_mapping (old_id, new_id) VALUES (?, ?)",
-        [oldId, newId]
-      );
-    }
+    // Store mapping
+    await SeederHelper.storeMapping(trx, "temp_apartment_mapping", apartmentMap);
 
     await trx.commit();
 
-    console.log("✅ Apartments migration completed successfully");
+    SeederHelper.logProgress("Apartments", stats, "🏠");
+    console.log("✅ Apartments migration completed successfully\n");
   } catch (error) {
     await trx.rollback();
     console.error("❌ Apartments migration failed:", error);
