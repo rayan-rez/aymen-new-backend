@@ -12,7 +12,6 @@ build
 # Environment files
 .env
 .env.local
-.env.*.local
 
 # Uploads (will be mounted as volume)
 uploads/

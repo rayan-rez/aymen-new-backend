@@ -65,7 +65,9 @@ COPY --from=build --chown=nodejs:nodejs /app/dist ./dist
 # Copy necessary config files
 COPY --chown=nodejs:nodejs package*.json ./
 COPY --chown=nodejs:nodejs knexfile.js ./
-COPY --chown=nodejs:nodejs knex-loader.js ./
+
+# Copy .env.docker as .env inside container
+COPY --chown=nodejs:nodejs .env.docker ./.env
 
 # Create uploads directory
 RUN mkdir -p /app/uploads && \

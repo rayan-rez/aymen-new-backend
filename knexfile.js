@@ -2,18 +2,22 @@
 const dotenv = require("dotenv");
 const path = require("path");
 
+// Load environment variables
 dotenv.config();
+
+// Helper to get database config
+const getDatabaseConfig = () => ({
+  host: process.env.DB_HOST || "127.0.0.1",
+  port: Number(process.env.DB_PORT) || 3306,
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASSWORD || "",
+  database: process.env.DB_NAME || "aymen_db",
+});
 
 module.exports = {
   development: {
     client: "mysql2",
-    connection: {
-      host: process.env.DB_HOST || "127.0.0.1",
-      port: Number(process.env.DB_PORT) || 3306,
-      user: process.env.DB_USER || "root",
-      password: process.env.DB_PASSWORD || "",
-      database: process.env.DB_NAME || "aymen_db",
-    },
+    connection: getDatabaseConfig(),
     migrations: {
       directory: path.join(__dirname, "src", "database", "migrations"),
       extension: "ts",
@@ -22,7 +26,6 @@ module.exports = {
     seeds: {
       directory: path.join(__dirname, "src", "database", "seeds"),
       extension: "ts",
-      // CRITICAL: Explicit seed order to respect FK dependencies
       specific: [
         "01_locations.ts",
         "02_features.ts",
@@ -40,7 +43,6 @@ module.exports = {
       min: 2,
       max: 10,
       afterCreate: (conn, done) => {
-        // Ensure proper charset
         conn.query('SET NAMES utf8mb4', (err) => {
           done(err, conn);
         });
@@ -50,14 +52,7 @@ module.exports = {
 
   production: {
     client: "mysql2",
-    connection: {
-      host: process.env.DB_HOST,
-      port: Number(process.env.DB_PORT) || 3306,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
-      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
-    },
+    connection: getDatabaseConfig(),
     pool: {
       min: 2,
       max: 10,
