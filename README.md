@@ -1,741 +1,570 @@
 # Aymen Real Estate Backend API
 
-A scalable and secure backend API built with Express.js, TypeScript, and Knex for managing comprehensive real estate operations including property development projects, apartment units, commercial properties, lead management, and content management.
+[![Node.js](https://img.shields.io/badge/Node.js-20.x-green.svg)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
+[![Express](https://img.shields.io/badge/Express-5.1-lightgrey.svg)](https://expressjs.com/)
+[![MySQL](https://img.shields.io/badge/MySQL-8.0-blue.svg)](https://www.mysql.com/)
+[![License](https://img.shields.io/badge/License-ISC-yellow.svg)](LICENSE)
 
-## 🚀 Features
+A comprehensive, production-ready backend API built with Express.js and TypeScript for managing real estate operations, property listings, customer relationships, and marketing campaigns.
 
-- **TypeScript**: Full type safety and modern JavaScript features
-- **Knex.js**: SQL query builder with migrations and seeds
-- **Email Service**: Nodemailer integration for contact forms and notifications
-- **Image Processing**: Sharp for compression and WebP conversion
-- **RESTful API**: Clean API structure with proper error handling
-- **MySQL Database**: Robust relational database with comprehensive schema
-- **BaseModel Pattern**: Reusable CRUD operations for all models
-- **Soft Deletes**: Support for soft deletion with restore functionality
-- **Lead Tracking**: UTM parameters and campaign tracking
-- **Multi-level Hierarchy**: Locations and project relationships
-- **GDPR Compliance**: Marketing consent management
-- **Complete Model Suite**: 17 fully-featured database models
+## 📋 Table of Contents
 
-## 📋 Prerequisites
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [Configuration](#configuration)
+- [Database](#database)
+- [API Documentation](#api-documentation)
+- [Development](#development)
+- [Deployment](#deployment)
+- [Testing](#testing)
+- [Contributing](#contributing)
 
-- Node.js (v16 or higher)
-- MySQL (v5.7 or higher)
-- npm or yarn
+## ✨ Features
 
-## 🛠️ Installation
+### Property Management
+- **Projects**: Large-scale residential developments with multiple units
+- **Apartments**: Individual residential units with specifications and media
+- **Commercial Properties**: Offices, shops, warehouses, and mixed-use spaces
+- **Locations**: Hierarchical location system (Country → Region → City → Neighborhood)
+- **Features**: Amenities, security features, transport, and leisure facilities
 
-1. **Clone the repository**
+### Customer Relationship Management (CRM)
+- **Contact Forms**: General inquiries with UTM tracking
+- **Project Inquiries**: Detailed buyer profiles with financing and timeline tracking
+- **Appointment Requests**: Property viewing scheduling with 72-hour cooldown
+- **Catalog Downloads**: Marketing material distribution with consent tracking
+- **Lead Source Tracking**: Campaign attribution and analytics
 
-```bash
-git clone https://github.com/rayan-rez/aymen-new-backend.git
-cd aymen-new-backend
-```
+### Event Management
+- **Event Registrations**: Open houses, trade shows, inaugurations, networking events
+- **Check-in/Check-out System**: Real-time attendance tracking with QR codes
+- **Time Slot Booking**: Capacity management for scheduled events
+- **Influencer Campaigns**: Dedicated registration flows for marketing partners
+- **Event Feedback**: NPS-style satisfaction surveys
 
-2. **Install dependencies**
+### Content Management
+- **Blog Posts**: Multi-section articles with SEO optimization
+- **Polymorphic Media**: Photos, floor plans, and virtual tours for any entity
+- **YouTube Integration**: Automated Shorts fetching with caching
 
-```bash
-npm install
-```
+### HR & Operations
+- **Job Applications**: Recruitment workflow with interview scheduling
+- **Land Submissions**: Property acquisition pipeline with document tracking
+- **Customer Feedback**: Multi-channel feedback collection and NPS tracking
 
-3. **Install additional required packages**
+### Marketing & Analytics
+- **UTM Campaign Tracking**: Complete source attribution
+- **Marketing Consent Management**: GDPR-compliant consent tracking
+- **Search Analytics**: Popular searches and suggestions
+- **Real-time Search**: Fast autocomplete with relevance scoring
 
-```bash
-npm install nodemailer sharp cors
-npm install --save-dev @types/nodemailer @types/sharp @types/cors
-```
+## 🛠 Tech Stack
 
-4. **Create environment file**
+### Core
+- **Runtime**: Node.js 20.x
+- **Language**: TypeScript 5.9
+- **Framework**: Express.js 5.1
+- **Database**: MySQL 8.0
+- **Query Builder**: Knex.js 3.1
 
-```bash
-cp .env.example .env
-```
+### Build & Tools
+- **Transpiler**: Babel 7
+- **Linter**: ESLint 9
+- **Process Manager**: Nodemon (dev), PM2 (production)
+- **Containerization**: Docker + Docker Compose
 
-5. **Configure your .env file**
-
-```env
-# Server
-NODE_ENV=development
-PORT=3000
-
-# Database
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=your_password
-DB_NAME=aymen_db
-
-# Email Configuration (for Gmail)
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
-EMAIL_FROM=noreply@aymen.com
-EMAIL_FROM_NAME=Aymen Real Estate
-CONTACT_EMAIL=contact@aymen.com
-
-# CORS
-ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
-
-# File Upload
-MAX_FILE_SIZE=5242880
-UPLOAD_DIR=uploads
-```
-
-6. **Create MySQL database**
-
-```bash
-mysql -u root -p
-CREATE DATABASE aymen_db;
-exit;
-```
-
-7. **Run migrations**
-
-```bash
-npm run migrate:latest
-```
-
-8. **Start development server**
-
-```bash
-npm run dev
-```
+### Libraries
+- **Validation**: Custom validators with regex patterns
+- **Email**: Nodemailer 6.10
+- **Image Processing**: Sharp 0.33
+- **CORS**: Custom middleware with environment-based origins
+- **Encryption**: Bcrypt 6.0
 
 ## 📁 Project Structure
 
 ```
 aymen-new-backend/
 ├── src/
-│   ├── config/
-│   │   └── database.ts              # Database configuration
-│   ├── constants/
-│   │   └── regex.ts                 # Validation regex patterns
+│   ├── config/              # Database and environment configuration
+│   │   ├── database.ts      # Primary database connection
+│   │   └── legacy-database.ts # Migration helper
+│   ├── constants/           # Application constants and enums
+│   │   ├── app.constants.ts
+│   │   └── regex.ts
+│   ├── controllers/         # Request handlers
+│   │   ├── event.controller.ts
+│   │   ├── feedback.controller.ts
+│   │   ├── form.controller.ts
+│   │   ├── land.controller.ts
+│   │   ├── lead.controller.ts
+│   │   ├── location.controller.ts
+│   │   ├── media.controller.ts
+│   │   ├── project.controller.ts
+│   │   ├── property.controller.ts
+│   │   ├── recruitment.controller.ts
+│   │   ├── search.controller.ts
+│   │   └── social-media.controller.ts
 │   ├── database/
-│   │   ├── migrations/              # Database migrations (27 files)
-│   │   └── seeds/                   # Database seeds
-│   ├── middleware/
-│   │   ├── cors.middleware.ts       # CORS configuration
-│   │   ├── error-handler.middleware.ts  # Global error handling
-│   │   └── validation.middleware.ts # Request validation
-│   ├── models/
-│   │   ├── base.model.ts            # Abstract base model with CRUD
-│   │   ├── location.model.ts        # Location hierarchy model
-│   │   ├── feature.model.ts         # Property features model
-│   │   ├── project.model.ts         # Development projects model
-│   │   ├── apartment.model.ts       # Apartment units model
-│   │   ├── commercial-property.model.ts  # Commercial properties model
-│   │   ├── contact-submission.model.ts   # Contact forms model
-│   │   ├── project-inquiry.model.ts      # Project inquiries model
-│   │   ├── appointment-request.model.ts  # Appointment requests model
-│   │   ├── event-registration.model.ts   # Event registrations model
-│   │   ├── catalog-download-request.model.ts  # Catalog downloads model
-│   │   ├── blog-post.model.ts           # Blog posts model
-│   │   ├── customer-feedback.model.ts   # Customer feedback model
-│   │   ├── job-application.model.ts     # Job applications model
-│   │   ├── land-submission.model.ts     # Land submissions model
-│   │   ├── lead-source.model.ts         # Lead tracking model
-│   │   ├── marketing-consent.model.ts   # GDPR consent model
-│   │   ├── user.model.ts            # User management model
-│   │   └── index.ts                 # Models export
-│   ├── routes/
-│   │   └── index.ts                 # Route aggregator
-│   ├── services/
-│   │   ├── email.service.ts         # Email service (Nodemailer)
-│   │   ├── image.service.ts         # Image processing (Sharp)
-│   │   └── contact.service.ts       # Contact business logic
-│   ├── types/
-│   │   ├── common.types.ts          # Common type definitions
-│   │   └── contact.types.ts         # Contact-specific types
-│   ├── utils/
-│   │   ├── response.util.ts         # API response helpers
-│   │   └── validators.util.ts       # Validation utilities
-│   ├── app.ts                       # Express app configuration
-│   └── index.ts                     # Application entry point
-├── uploads/                          # Uploaded images directory
-├── dist/                             # Compiled JavaScript
-├── .env                              # Environment variables
-├── .env.example                      # Environment template
-├── knexfile.js                       # Knex configuration
-├── tsconfig.json                     # TypeScript configuration
-├── nodemon.json                      # Nodemon configuration
-└── package.json                      # Dependencies and scripts
+│   │   ├── migrations/      # Database schema versions
+│   │   └── seeds/           # Data seeding scripts
+│   ├── middlewares/         # Express middlewares
+│   │   ├── cors.middleware.ts
+│   │   ├── error-handler.middleware.ts
+│   │   └── validation.middleware.ts
+│   ├── models/              # Data access layer (BaseModel pattern)
+│   │   ├── base.model.ts    # Abstract base with CRUD + soft deletes
+│   │   ├── apartment.model.ts
+│   │   ├── blog-post.model.ts
+│   │   ├── commercial-property.model.ts
+│   │   ├── event-registration.model.ts
+│   │   ├── feature.model.ts
+│   │   ├── floor-plan.model.ts (polymorphic)
+│   │   ├── location.model.ts
+│   │   ├── photo.model.ts (polymorphic)
+│   │   ├── project.model.ts
+│   │   └── ... (15+ models)
+│   ├── routes/              # API route definitions
+│   │   └── index.ts         # Route registry
+│   ├── services/            # Business logic layer
+│   │   ├── contact.service.ts
+│   │   ├── email.service.ts
+│   │   ├── image.service.ts
+│   │   └── media.service.ts
+│   ├── types/               # TypeScript type definitions
+│   ├── utils/               # Utility functions
+│   │   ├── response.util.ts
+│   │   └── validators.util.ts
+│   ├── app.ts               # Express app setup
+│   └── index.ts             # Server entry point
+├── .env.example             # Environment template
+├── .env.docker              # Docker environment
+├── docker-compose.yml       # Multi-container setup
+├── Dockerfile               # Production image (multi-stage)
+├── knexfile.js             # Database migration config
+├── package.json
+├── tsconfig.json           # TypeScript configuration
+└── babel.config.json       # Babel transpilation
 ```
 
-## 🔧 Available Scripts
+## 🚀 Getting Started
+
+### Prerequisites
+
+- **Node.js** 20.x or higher
+- **MySQL** 8.0 or higher
+- **npm** or **yarn**
+- **Docker** (optional, for containerized deployment)
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/rayan-rez/aymen-new-backend.git
+   cd aymen-new-backend
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   ```
+   
+   Edit `.env` with your configuration:
+   ```env
+   # Server
+   NODE_ENV=development
+   PORT=3000
+   
+   # Database
+   DB_HOST=127.0.0.1
+   DB_PORT=3306
+   DB_USER=root
+   DB_PASSWORD=your_password
+   DB_NAME=aymen_db
+   
+   # Email (Gmail example)
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USER=your-email@gmail.com
+   SMTP_PASS=your-app-password
+   EMAIL_FROM=noreply@aymen.com
+   CONTACT_EMAIL=contact@aymen.com
+   
+   # CORS
+   ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+   
+   # YouTube API (optional)
+   YOUTUBE_API_KEY=your-api-key
+   YOUTUBE_CHANNEL_ID=your-channel-id
+   ```
+
+4. **Set up the database**
+   ```bash
+   # Run migrations
+   npm run migrate:latest
+   
+   # Seed initial data (optional)
+   npm run seed:run
+   ```
+
+5. **Start development server**
+   ```bash
+   npm run dev
+   ```
+
+The API will be available at `http://localhost:3000`
+
+## ⚙️ Configuration
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NODE_ENV` | Environment (development/production) | `development` |
+| `PORT` | Server port | `3000` |
+| `DB_HOST` | MySQL host | `127.0.0.1` |
+| `DB_PORT` | MySQL port | `3306` |
+| `DB_USER` | Database user | `root` |
+| `DB_PASSWORD` | Database password | - |
+| `DB_NAME` | Database name | `aymen_db` |
+| `SMTP_HOST` | SMTP server | `smtp.gmail.com` |
+| `SMTP_PORT` | SMTP port | `587` |
+| `SMTP_USER` | SMTP username | - |
+| `SMTP_PASS` | SMTP password | - |
+| `ALLOWED_ORIGINS` | CORS allowed origins | `*` |
+| `MAX_FILE_SIZE` | Max upload size (bytes) | `5242880` (5MB) |
+
+## 🗄️ Database
+
+### Migrations
+
+```bash
+# Create a new migration
+npm run migrate:make migration_name
+
+# Run pending migrations
+npm run migrate:latest
+
+# Rollback last batch
+npm run migrate:rollback
+
+# Check migration status
+npm run migrate:status
+```
+
+### Seeds
+
+```bash
+# Create a new seed
+npm run seed:make seed_name
+
+# Run all seeds
+npm run seed:run
+
+# Run specific seed
+npm run seed:specific -- 01_locations
+```
+
+### Database Schema Highlights
+
+- **Soft Deletes**: Most tables include `deleted_at` for safe deletion
+- **Timestamps**: Automatic `created_at` and `updated_at` tracking
+- **Polymorphic Relations**: Photos and floor plans work with multiple entity types
+- **Foreign Keys**: Proper referential integrity with cascading deletes
+- **Indexes**: Optimized for common query patterns
+
+## 📚 API Documentation
+
+### Base URL
+```
+http://localhost:3000/api
+```
+
+### Response Format
+
+All responses follow this structure:
+
+```json
+{
+  "success": true,
+  "message": "Success message",
+  "data": { },
+  "timestamp": "2025-10-30T12:00:00.000Z"
+}
+```
+
+### Main Endpoints
+
+#### Properties
+- `GET /api/properties/projects` - List all projects
+- `GET /api/properties/projects/featured` - Featured projects
+- `GET /api/properties/projects/:identifier` - Get project (by ID or slug)
+- `GET /api/properties/apartments` - List apartments
+- `GET /api/properties/commercial` - List commercial properties
+
+#### Events
+- `POST /api/events/registrations` - Register for event
+- `POST /api/events/checkin` - Check-in/check-out
+- `POST /api/events/slots` - Book time slot
+- `GET /api/events/slots/available/:date` - Available slots
+
+#### Leads
+- `POST /api/leads/appointments/request` - Request appointment
+- `POST /api/leads/catalogs/request` - Request catalog
+- `POST /api/leads/inquiries/submit` - Submit project inquiry
+
+#### Forms
+- `POST /api/forms/contact` - Submit contact form
+- `POST /api/forms/contact/popup` - Popup contact form
+
+#### Media
+- `GET /api/media/blog` - List blog posts
+- `GET /api/media/blog/:slug` - Get blog post
+- `GET /api/media/projects/:id` - Get project media
+- `GET /api/media/apartments/:id` - Get apartment media
+
+#### Search
+- `GET /api/search/realtime?q=query` - Real-time autocomplete
+- `GET /api/search?q=query` - Full search with filters
+
+#### Locations
+- `GET /api/locations` - List locations
+- `GET /api/locations/hierarchy` - Location tree
+- `GET /api/locations/:id/children` - Sub-locations
+
+### Advanced Filtering
+
+Projects support complex filtering:
+```
+GET /api/properties/projects?localite=Kouba,Dely Ibrahim&typologie=F3,F4&statut=completed
+```
+
+### Pagination
+
+All list endpoints support pagination:
+```
+GET /api/properties/projects?page=1&limit=20&sortBy=created_at&sortOrder=desc
+```
+
+## 👨‍💻 Development
+
+### Available Scripts
 
 ```bash
 # Development
-npm run dev              # Start development server with hot reload
+npm run dev              # Start with nodemon hot-reload
 
 # Building
-npm run build           # Compile TypeScript to JavaScript
-npm run start           # Run production build
+npm run build            # Clean + Babel transpilation
+npm run type-check       # TypeScript type checking
+npm run clean            # Remove dist folder
 
-# Database
-npm run migrate:make    # Create new migration
-npm run migrate:latest  # Run all pending migrations
-npm run migrate:rollback # Rollback last migration
-npm run seed:make       # Create new seed file
-npm run seed:run        # Run all seed files
-npm run db:setup        # Run migrations and seeds
+# Production
+npm start                # Run compiled code
+npm run start:prod       # Production mode with env
 
-# Type Checking
-npm run type-check      # Check TypeScript types without emitting files
+# Linting
+npm run lint             # Check code style
+npm run lint:fix         # Fix auto-fixable issues
+
+# Testing (when implemented)
+npm test                 # Run all tests
+npm run test:watch       # Watch mode
+npm run test:coverage    # Coverage report
 ```
 
-## 🗄️ Database Models Overview
+### Code Style
 
-### Core Models (6)
+- **TypeScript**: Strict mode enabled
+- **ESLint**: Flat config with TypeScript support
+- **Naming Conventions**:
+  - `camelCase` for variables and functions
+  - `PascalCase` for classes and interfaces
+  - `UPPER_SNAKE_CASE` for constants
+  - `kebab-case` for file names
 
-#### 1. **Location Model** (`location.model.ts`)
+### Adding a New Endpoint
 
-Hierarchical location management (country → region → city → neighborhood)
+1. **Create Model** (`src/models/`)
+   ```typescript
+   import { BaseModel } from "./base.model";
+   
+   class MyModel extends BaseModel<Entity, CreateDto, UpdateDto> {
+     protected tableName = "my_table";
+     
+     protected mapToEntity(record: any): Entity {
+       // Transform database record to entity
+     }
+   }
+   ```
 
-- Parent-child relationships
-- URL-friendly slugs
-- Active/inactive status
+2. **Create Controller** (`src/controllers/`)
+   ```typescript
+   class MyController {
+     async getAll = async (req: Request, res: Response): Promise<void> => {
+       const data = await MyModel.findAll();
+       ApiResponse.success(res, data);
+     };
+   }
+   ```
 
-**Key Methods:**
+3. **Create Routes** (`src/routes/`)
+   ```typescript
+   const router = Router();
+   router.get("/", myController.getAll);
+   export default router;
+   ```
 
-```typescript
-LocationModel.findBySlug("annaba");
-LocationModel.getHierarchy();
-LocationModel.getChildren(parentId, recursive);
-LocationModel.getParents(locationId); // Breadcrumb
+4. **Register Routes** (`src/routes/index.ts`)
+   ```typescript
+   import myRoutes from "./my.routes";
+   router.use("/my-resource", myRoutes);
+   ```
+
+## 🐳 Deployment
+
+### Docker
+
+#### Development
+```bash
+# Build and start containers
+docker compose up -d
+
+# View logs
+docker compose logs -f app
+
+# Stop containers
+docker compose down
 ```
 
-#### 2. **Feature Model** (`feature.model.ts`)
+#### Production Build
+```bash
+# Build optimized image
+docker compose build --no-cache
 
-Property features and amenities categorization
+# Run migrations
+docker exec aymen-backend npm run migrate:latest
 
-- Categories: amenity, security, transport, leisure, other
-- Icon support
-- Display ordering
-
-**Key Methods:**
-
-```typescript
-FeatureModel.findByCategory(FeatureCategory.SECURITY);
-FeatureModel.getGroupedByCategory();
+# Seed data
+docker exec aymen-backend npm run seed:run
 ```
 
-#### 3. **Project Model** (`project.model.ts`)
+### Traditional Deployment
 
-Real estate development projects
+1. **Build the application**
+   ```bash
+   npm run build
+   ```
 
-- Status: planning, under_construction, completed, sold_out
-- Completion percentage tracking
-- Location coordinates and maps
-- Featured projects
+2. **Set environment variables**
+   ```bash
+   export NODE_ENV=production
+   export PORT=3000
+   # ... other variables
+   ```
 
-**Key Methods:**
+3. **Run migrations**
+   ```bash
+   npm run migrate:latest
+   ```
 
-```typescript
-ProjectModel.getFeatured(5);
-ProjectModel.getComplete(projectId); // With all relations
-ProjectModel.addFeature(projectId, featureId);
-ProjectModel.updateCompletionPercentage(projectId, 75);
+4. **Start with PM2**
+   ```bash
+   pm2 start dist/index.js --name aymen-api
+   pm2 save
+   pm2 startup
+   ```
+
+### Health Check
+
+The API includes a health check endpoint:
+```
+GET /health
 ```
 
-#### 4. **Apartment Model** (`apartment.model.ts`)
-
-Individual apartment units within projects
-
-- Specifications (bedrooms, bathrooms, area)
-- Status: available, reserved, sold
-- Pricing and virtual tours
-
-**Key Methods:**
-
-```typescript
-ApartmentModel.getAvailable(projectId);
-ApartmentModel.getModelUnits(projectId);
-ApartmentModel.getComplete(apartmentId);
-ApartmentModel.updateStatus(id, ApartmentStatus.SOLD);
-```
-
-#### 5. **Commercial Property Model** (`commercial-property.model.ts`)
-
-Commercial real estate (offices, shops, warehouses)
-
-- Property types: office, shop, warehouse, showroom, restaurant, mixed_use
-- Area and pricing
-- Featured properties
-
-**Key Methods:**
-
-```typescript
-CommercialPropertyModel.getAvailableByType(CommercialPropertyType.OFFICE);
-CommercialPropertyModel.getFeatured(5);
-CommercialPropertyModel.getComplete(propertyId);
-```
-
-#### 6. **User Model** (`user.model.ts`)
-
-System users and authentication
-
-- Roles: super_admin, admin, sales_manager, sales_agent, marketing, content_manager, viewer
-- Password management with secure hashing
-- Activity tracking and session management
-- Safe user responses (excludes sensitive data)
-
-**Key Methods:**
-
-```typescript
-UserModel.findByEmail(email);
-UserModel.findAllSafe(params); // Returns users without sensitive data
-UserModel.updatePassword(userId, passwordHash);
-UserModel.setResetToken(userId, token, expiresAt);
-UserModel.updateLastLogin(userId);
-UserModel.getSalesTeam(); // Get all sales staff
-```
-
-**Important Notes:**
-
-- `findAll()` returns full User entities (with sensitive data) - use internally only
-- `findAllSafe()` returns SafeUser entities (without passwordHash/resetToken) - use for API responses
-- Always use SafeUser type for API responses to prevent data leaks
-
-### Lead Management Models (5)
-
-#### 7. **Contact Submission Model** (`contact-submission.model.ts`)
-
-General contact form submissions
-
-- Status workflow: new → contacted → qualified → converted → closed
-- UTM tracking
-- Internal notes
-
-**Key Methods:**
-
-```typescript
-ContactSubmissionModel.getNew(10);
-ContactSubmissionModel.updateStatus(id, status, notes);
-ContactSubmissionModel.getStatusStatistics();
-```
-
-#### 8. **Project Inquiry Model** (`project-inquiry.model.ts`)
-
-Detailed project-specific inquiries with buyer profiling
-
-- Complete buyer profile information
-- Budget and financing details (cash, mortgage, installment, mixed)
-- Property preferences stored as JSON
-- Purchase timeline tracking (immediate, 3 months, 6 months, year, exploring)
-- Sales assignment and pipeline management
-
-**Key Methods:**
-
-```typescript
-ProjectInquiryModel.getByProject(projectId);
-ProjectInquiryModel.assign(inquiryId, salesPerson);
-ProjectInquiryModel.getStatusStatistics();
-ProjectInquiryModel.getByFinancingMethod(FinancingMethod.CASH);
-ProjectInquiryModel.getByTimeline(PurchaseTimeline.IMMEDIATE);
-ProjectInquiryModel.getPipelineStatistics(); // Sales conversion metrics
-```
-
-**Sales Pipeline Stages:**
-
-- `new` - Fresh inquiry, not yet contacted
-- `contacted` - Initial contact made
-- `qualified` - Lead meets criteria
-- `viewing_scheduled` - Property viewing arranged
-- `offer_made` - Offer submitted
-- `closed_won` - Deal closed successfully
-- `closed_lost` - Deal lost
-
-#### 9. **Appointment Request Model** (`appointment-request.model.ts`)
-
-Property viewing appointments
-
-- Status: pending, confirmed, completed, cancelled, no_show
-- Preferred date/time tracking
-
-**Key Methods:**
-
-```typescript
-AppointmentRequestModel.getPending(10);
-AppointmentRequestModel.getByDate(date);
-AppointmentRequestModel.getUpcoming(5);
-```
-
-#### 10. **Event Registration Model** (`event-registration.model.ts`)
-
-Event and trade show registrations
-
-- Event types: open_house, trade_show, inauguration, networking, webinar
-- Check-in/check-out tracking
-- NPS-style feedback
-
-**Key Methods:**
-
-```typescript
-EventRegistrationModel.checkIn(registrationId);
-EventRegistrationModel.checkOut(registrationId);
-EventRegistrationModel.submitFeedback(id, feedback);
-EventRegistrationModel.getAttendanceStats(eventType, date);
-```
-
-#### 11. **Catalog Download Request Model** (`catalog-download-request.model.ts`)
-
-Marketing material downloads
-
-- Download tracking
-- Marketing consent
-- Project-specific catalogs
-
-**Key Methods:**
-
-```typescript
-CatalogDownloadRequestModel.markAsDownloaded(id, ipAddress);
-CatalogDownloadRequestModel.getDownloadStatistics();
-CatalogDownloadRequestModel.getMarketingConsents();
-```
-
-### Content & Feedback Models (2)
-
-#### 12. **Blog Post Model** (`blog-post.model.ts`)
-
-Blog and content articles
-
-- SEO metadata (title, description, tags)
-- Publishing workflow
-- View count tracking
-- Multi-section support
-
-**Key Methods:**
-
-```typescript
-BlogPostModel.getPublished(10);
-BlogPostModel.publish(postId);
-BlogPostModel.incrementViewCount(postId);
-BlogPostModel.getPopular(5);
-BlogPostModel.search("real estate");
-```
-
-#### 13. **Customer Feedback Model** (`customer-feedback.model.ts`)
-
-Customer satisfaction and surveys
-
-- Feedback types: event_feedback, property_visit, customer_service, general, kiosk
-- NPS scoring (1-10)
-- Multi-language support (fr, ar, en)
-
-**Key Methods:**
-
-```typescript
-CustomerFeedbackModel.getNPSStatistics();
-CustomerFeedbackModel.getAverageSatisfaction(feedbackType);
-CustomerFeedbackModel.getPositive(5);
-CustomerFeedbackModel.getNegative();
-```
-
-### Additional Modules (3)
-
-#### 14. **Job Application Model** (`job-application.model.ts`)
-
-Recruitment and hiring workflow
-
-- Status workflow: received → screening → interview_scheduled → interviewed → offer_extended → hired
-- Resume storage
-- Interview tracking
-
-**Key Methods:**
-
-```typescript
-JobApplicationModel.getByPosition(position);
-JobApplicationModel.scheduleInterview(id, date, interviewer);
-JobApplicationModel.getUpcomingInterviews(5);
-```
-
-#### 15. **Land Submission Model** (`land-submission.model.ts`)
-
-Land acquisition submissions
-
-- Legal documentation checklist
-- Evaluation workflow
-- Estimated valuation
-
-**Key Methods:**
-
-```typescript
-LandSubmissionModel.getWithCompleteDocuments();
-LandSubmissionModel.assign(id, evaluator);
-LandSubmissionModel.setEvaluation(id, value, date);
-LandSubmissionModel.getDocumentStatistics();
-```
-
-### Analytics & Tracking Models (2)
-
-#### 16. **Lead Source Model** (`lead-source.model.ts`)
-
-Marketing analytics and campaign tracking
-
-- UTM parameters tracking (source, medium, campaign, term, content)
-- Device and browser tracking
-- Conversion funnel analysis
-- Referrer tracking
-
-**Key Methods:**
-
-```typescript
-LeadSourceModel.getCampaignStatistics();
-LeadSourceModel.getSourceMediumStatistics();
-LeadSourceModel.getDeviceStatistics();
-LeadSourceModel.getConversionFunnel();
-LeadSourceModel.getTopReferrers(10);
-```
-
-#### 17. **Marketing Consent Model** (`marketing-consent.model.ts`)
-
-GDPR-compliant consent management
-
-- Email/SMS/phone marketing consent
-- Consent tracking and revocation
-- Consent source tracking
-
-**Key Methods:**
-
-```typescript
-MarketingConsentModel.upsertConsent(email, consents, source);
-MarketingConsentModel.grantAllConsents(email, source);
-MarketingConsentModel.revokeAllConsents(email);
-MarketingConsentModel.getEmailMarketingList();
-MarketingConsentModel.getConsentStatistics();
-```
-
-## 🏗️ Model Architecture
-
-### BaseModel
-
-All models extend from `BaseModel` which provides:
-
-- **CRUD Operations**: `create()`, `findById()`, `findAll()`, `update()`, `delete()`
-- **Query Builders**: `findOne()`, `findWhere()`, `exists()`, `count()`
-- **Soft Deletes**: `softDelete()`, `restore()`
-- **Pagination**: `paginate()` with metadata
-- **Transactions**: `beginTransaction()` support
-- **Field Mapping**: Automatic snake_case ↔ camelCase conversion
-
-### Model Usage Examples
-
-```typescript
-// Location hierarchy
-const hierarchy = await LocationModel.getHierarchy();
-const breadcrumb = await LocationModel.getParents(locationId);
-
-// Project management
-const featured = await ProjectModel.getFeatured(5);
-await ProjectModel.updateCompletionPercentage(projectId, 75);
-
-// Lead tracking
-const newLeads = await ContactSubmissionModel.getNew(10);
-const stats = await ContactSubmissionModel.getStatusStatistics();
-
-// Project inquiries with buyer profiling
-const inquiry = await ProjectInquiryModel.create({
-  projectId: 1,
-  firstName: "John",
-  lastName: "Doe",
-  email: "john@example.com",
-  phone: "+213555123456",
-  country: "Algeria",
-  financingMethod: FinancingMethod.CASH,
-  purchaseTimeline: PurchaseTimeline.IMMEDIATE,
-  interestTypes: ["buy", "invest"],
-  propertyTypes: ["apartment", "villa"],
-});
-
-// Sales pipeline management
-await ProjectInquiryModel.assign(inquiryId, "sales_agent_1");
-await ProjectInquiryModel.updateStatus(
-  inquiryId,
-  ProjectInquiryStatus.QUALIFIED
-);
-const pipeline = await ProjectInquiryModel.getPipelineStatistics();
-
-// Event management
-await EventRegistrationModel.checkIn(registrationId);
-const attendance = await EventRegistrationModel.getAttendanceStats(
-  eventType,
-  date
-);
-
-// Marketing analytics
-const campaignStats = await LeadSourceModel.getCampaignStatistics();
-const npsScore = await CustomerFeedbackModel.getNPSStatistics();
-
-// GDPR compliance
-await MarketingConsentModel.upsertConsent(
-  "user@example.com",
-  { email: true, sms: false, phone: true },
-  "newsletter-signup"
-);
-
-// User management
-const activeUsers = await UserModel.findAllSafe({ isActive: true });
-const salesTeam = await UserModel.getSalesTeam();
-await UserModel.updateLastLogin(userId);
-```
-
-## 📧 Email Configuration
-
-For Gmail:
-
-1. Enable 2-factor authentication
-2. Generate an App Password: https://myaccount.google.com/apppasswords
-3. Use the App Password in `SMTP_PASS` environment variable
-
-## 🖼️ Image Processing
-
-The image service provides:
-
-- **Compression**: Reduce file size while maintaining quality
-- **WebP Conversion**: Modern format for better performance
-- **Resizing**: Automatic resizing based on requirements
-
-## 🔒 Security Best Practices
-
-- Always use environment variables for sensitive data
-- Implement rate limiting for API endpoints
-- Add authentication middleware for admin routes
-- Validate and sanitize all user inputs
-- Use HTTPS in production
-- Keep dependencies updated
-- Password hashing with bcrypt (to be implemented)
-- JWT tokens for authentication (to be implemented)
-- **User Model Security**:
-  - Never expose `passwordHash` or `resetToken` in API responses
-  - Always use `findAllSafe()` for API responses
-  - Use `findAll()` only for internal authentication logic
-  - Reset tokens expire after a configurable time period
-
-## 📝 Creating New Models
-
-```typescript
-import { BaseModel, BaseQueryParams } from "./base.model";
-
-interface MyEntity {
-  id: number;
-  name: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-interface CreateMyEntityDto {
-  name: string;
-}
-
-interface UpdateMyEntityDto {
-  name?: string;
-}
-
-class MyModel extends BaseModel<
-  MyEntity,
-  CreateMyEntityDto,
-  UpdateMyEntityDto
-> {
-  protected tableName = "my_table";
-
-  protected mapToEntity(record: any): MyEntity {
-    return {
-      id: record.id,
-      name: record.name,
-      createdAt: new Date(record.created_at),
-      updatedAt: new Date(record.updated_at),
-    };
+Response:
+```json
+{
+  "success": true,
+  "data": {
+    "status": "healthy",
+    "database": "connected",
+    "uptime": 123.456,
+    "timestamp": "2025-10-30T12:00:00.000Z"
   }
 }
+```
 
-export default new MyModel();
+## 🧪 Testing
+
+Testing infrastructure is set up but tests need to be implemented:
+
+```bash
+# Run tests
+npm test
+
+# Watch mode
+npm run test:watch
+
+# Coverage
+npm run test:coverage
+```
+
+### Test Structure (to be implemented)
+```
+src/__tests__/
+├── unit/
+│   ├── models/
+│   ├── services/
+│   └── utils/
+└── integration/
+    ├── controllers/
+    └── routes/
 ```
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
+
+### Commit Convention
+```
+feat: Add new feature
+fix: Bug fix
+docs: Documentation changes
+style: Code style changes
+refactor: Code refactoring
+test: Test additions/changes
+chore: Build/tooling changes
+```
 
 ## 📄 License
 
 This project is licensed under the ISC License.
 
-## 👨‍💻 Author
+## 👥 Authors
 
-**Rayan Rezougui**
+- **Rayan Rezougui** - *Initial work* - [rayan-rez](https://github.com/rayan-rez)
 
-- GitHub: [@rayan-rez](https://github.com/rayan-rez)
+## 🙏 Acknowledgments
 
-## 🗺️ Roadmap
-
-### Phase 1: Core API ✅ COMPLETED
-
-- [x] Database schema design
-- [x] Base model architecture
-- [x] All 17 core models implemented
-- [ ] REST API routes implementation
-- [ ] Input validation and sanitization
-
-### Phase 2: Authentication & Authorization
-
-- [ ] JWT authentication
-- [ ] Role-based access control (RBAC)
-- [ ] Password hashing (bcrypt)
-- [ ] Password reset functionality
-- [ ] Session management
-
-### Phase 3: File Management
-
-- [ ] File upload endpoints (multer)
-- [ ] Image optimization pipeline
-- [ ] Multiple image upload support
-- [ ] File type validation
-- [ ] Storage management
-
-### Phase 4: Advanced Features
-
-- [ ] Advanced search and filtering
-- [ ] Full-text search
-- [ ] Geolocation features
-- [ ] Favorites/wishlist system
-- [ ] Comparison tool
-
-### Phase 5: Analytics & Reporting
-
-- [ ] Lead analytics dashboard
-- [ ] UTM campaign tracking
-- [ ] Conversion funnel analysis
-- [ ] Property performance metrics
-- [ ] Sales reports
-
-### Phase 6: Performance & Scalability
-
-- [ ] Redis caching layer
-- [ ] Query optimization
-- [ ] Database indexing optimization
-- [ ] Rate limiting
-- [ ] API versioning
-
-### Phase 7: Documentation & Testing
-
-- [ ] Swagger/OpenAPI documentation
-- [ ] Unit tests (Jest)
-- [ ] Integration tests
-- [ ] E2E tests
-- [ ] API documentation site
-
-### Phase 8: Deployment & DevOps
-
-- [ ] Docker containerization
-- [ ] CI/CD pipeline (GitHub Actions)
-- [ ] Production deployment guide
-- [ ] Monitoring and logging (Winston)
-- [ ] Error tracking (Sentry)
+- Built with Express.js and TypeScript
+- Database migrations powered by Knex.js
+- Image processing by Sharp
+- Email service via Nodemailer
 
 ---
 
-**Need help?** Open an issue on GitHub or contact the maintainer.
+**Project Status**: Active Development 🚀
+
+For questions or support, please contact: [r.rezougui@aymenpromotion.com](mailto:r.rezougui@aymenpromotion.com)

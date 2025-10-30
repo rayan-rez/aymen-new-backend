@@ -1,7 +1,6 @@
 // knex-loader.js
 // This file registers all necessary loaders before Knex runs
 
-const path = require('path');
 
 // Register tsconfig-paths for @ aliases
 require('tsconfig-paths').register({

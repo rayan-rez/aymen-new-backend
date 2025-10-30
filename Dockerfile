@@ -1,7 +1,7 @@
 # ============================================
 # BASE STAGE - Common dependencies
 # ============================================
-FROM node:20-alpine AS base
+FROM node:22.16.0-alpine3.22 AS base
 
 # Install build dependencies
 RUN apk add --no-cache \
@@ -43,7 +43,7 @@ RUN npm run build
 # ============================================
 # PRODUCTION STAGE - Final optimized image
 # ============================================
-FROM node:20-alpine AS production
+FROM node:22.16.0-alpine3.22 AS production
 
 # Install runtime dependencies only
 RUN apk add --no-cache \
@@ -65,6 +65,7 @@ COPY --from=build --chown=nodejs:nodejs /app/dist ./dist
 # Copy necessary config files
 COPY --chown=nodejs:nodejs package*.json ./
 COPY --chown=nodejs:nodejs knexfile.js ./
+COPY --chown=nodejs:nodejs knex-loader.js ./
 
 # Create uploads directory
 RUN mkdir -p /app/uploads && \

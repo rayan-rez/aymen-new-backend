@@ -4,6 +4,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+aymen-database.sql
+
 # Build
 dist/
 build/
