@@ -23,15 +23,6 @@ export async function seed(knex: Knex): Promise<void> {
   const stats: MigrationStats = { total: 0, inserted: 0, skipped: 0, failed: 0 };
 
   try {
-    // Check if already seeded (idempotency)
-    const existingCount = await trx("apartments").count("* as count").first();
-    if (existingCount && Number(existingCount.count) > 0) {
-      console.log(`  ℹ️  Found ${existingCount.count} existing apartments`);
-      console.log("  ⚠️  Table already seeded. Skipping...");
-      await trx.commit();
-      return;
-    }
-
     // Clear existing data
     await SeederHelper.clearTable(trx, "apartments");
     console.log("  ✓ Cleared existing apartments");
@@ -59,37 +50,49 @@ export async function seed(knex: Knex): Promise<void> {
         const newProjectId = projectMapping.get(apartment.projet_id);
 
         if (!newProjectId) {
-          console.warn(`  ⚠️  Skipping ${apartment.nom} - project not found`);
+          console.warn(`  ⚠️  Skipping ${apartment.nom_appartement || apartment.id} - project not found (projet_id: ${apartment.projet_id})`);
           stats.skipped++;
           continue;
         }
 
-        // Map status
+        // Map status (old DB might not have status field)
         let status = "available";
-        if (apartment.statut === "reserve") status = "reserved";
-        else if (apartment.statut === "vendu") status = "sold";
+        if (apartment.statut === "reserve" || apartment.statut === "reserved") {
+          status = "reserved";
+        } else if (apartment.statut === "vendu" || apartment.statut === "sold") {
+          status = "sold";
+        }
 
-        const [newApartmentId] = await trx("apartments").insert({
+        // Parse surface/area - might be string like "90 m²"
+        let areaSqm = null;
+        if (apartment.surface) {
+          const surfaceMatch = String(apartment.surface).match(/(\d+\.?\d*)/);
+          areaSqm = surfaceMatch ? parseFloat(surfaceMatch[1]) : null;
+        }
+
+        const insertData: any = {
           project_id: newProjectId,
-          name: apartment.nom,
+          name: apartment.nom_appartement || `Appartement ${apartment.id}`,
           title: apartment.titre || null,
           subtitle: apartment.sous_titre || null,
-          description: apartment.description || null,
-          area_sqm: apartment.superficie || null,
+          description: apartment.text || apartment.description || null,
+          area_sqm: areaSqm,
           bedrooms: apartment.nombre_chambres || null,
           bathrooms: apartment.nombre_salles_bain || null,
           price: apartment.prix || null,
           status,
-          is_model_unit: Boolean(apartment.est_appartement_temoin),
-          virtual_tour_url: apartment.url_visite_virtuelle || null,
-          created_at: trx.fn.now(),
-          updated_at: trx.fn.now(),
-        });
+          is_model_unit: Boolean(apartment.is_temoin),
+          virtual_tour_url: apartment.visite_virtuelle || null,
+          created_at: apartment.created_at || trx.fn.now(),
+          updated_at: apartment.updated_at || trx.fn.now(),
+        };
 
-        apartmentMap.set(apartment.appartement_id, newApartmentId);
+        const [newApartmentId] = await trx("apartments").insert(insertData);
+
+        apartmentMap.set(apartment.id, newApartmentId);
         stats.inserted++;
       } catch (error) {
-        console.warn(`  ⚠️  Failed: ${apartment.nom}`, (error as Error).message);
+        console.warn(`  ⚠️  Failed: ${apartment.nom_appartement || apartment.id}`, (error as Error).message);
         stats.failed++;
       }
     }

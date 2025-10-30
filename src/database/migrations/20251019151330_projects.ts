@@ -12,8 +12,6 @@ export async function up(knex: Knex): Promise<void> {
     table.text("description_secondary").nullable();
     table.string("address", 255).notNullable();
 
-    // Location data
-    table.text("map_embed_code").nullable();
     table.decimal("latitude", 10, 8).nullable();
     table.decimal("longitude", 11, 8).nullable();
     table

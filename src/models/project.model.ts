@@ -44,9 +44,6 @@ export interface Project {
   /** Physical address */
   address: string;
 
-  /** Google Maps embed code */
-  mapEmbedCode: string | null;
-
   /** Latitude coordinate */
   latitude: number | null;
 
@@ -94,7 +91,6 @@ export interface CreateProjectDto {
   description?: string | null;
   descriptionSecondary?: string | null;
   address: string;
-  mapEmbedCode?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   locationId?: number | null;
@@ -116,7 +112,6 @@ export interface UpdateProjectDto {
   description?: string | null;
   descriptionSecondary?: string | null;
   address?: string;
-  mapEmbedCode?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   locationId?: number | null;
@@ -488,7 +483,6 @@ class ProjectModel extends BaseModel<
       description: record.description,
       descriptionSecondary: record.description_secondary,
       address: record.address,
-      mapEmbedCode: record.map_embed_code,
       latitude: record.latitude ? parseFloat(record.latitude) : null,
       longitude: record.longitude ? parseFloat(record.longitude) : null,
       locationId: record.location_id,

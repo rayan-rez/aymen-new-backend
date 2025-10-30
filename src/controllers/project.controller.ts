@@ -288,7 +288,6 @@ class ProjectController {
       locationId,
       latitude,
       longitude,
-      mapEmbedCode,
       mainPhotoUrl,
       isFeatured,
     } = req.body;
@@ -317,7 +316,6 @@ class ProjectController {
         locationId: locationId ? Number(locationId) : null,
         latitude: latitude ? Number(latitude) : null,
         longitude: longitude ? Number(longitude) : null,
-        mapEmbedCode: mapEmbedCode || null,
         mainPhotoUrl: mainPhotoUrl || null,
         isFeatured: Boolean(isFeatured),
       });

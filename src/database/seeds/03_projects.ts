@@ -23,15 +23,6 @@ export async function seed(knex: Knex): Promise<void> {
   const stats: MigrationStats = { total: 0, inserted: 0, skipped: 0, failed: 0 };
 
   try {
-    // Check if already seeded (idempotency)
-    const existingCount = await trx("projects").count("* as count").first();
-    if (existingCount && Number(existingCount.count) > 0) {
-      console.log(`  ℹ️  Found ${existingCount.count} existing projects`);
-      console.log("  ⚠️  Table already seeded. Skipping...");
-      await trx.commit();
-      return;
-    }
-
     // Clear existing data (FK order matters!)
     await SeederHelper.clearTable(trx, "project_locations");
     await SeederHelper.clearTable(trx, "project_features");
@@ -57,46 +48,60 @@ export async function seed(knex: Knex): Promise<void> {
 
     for (const project of oldProjects) {
       try {
+        // FIX: Use correct field names from old database
+        const projectName = project.nom_projet || project.nom || `Projet ${project.id}`;
+        
         const slug = SeederHelper.generateSlug(
-          project.nom,
-          `project-${project.projet_id}`
+          projectName,
+          `project-${project.id}`
         );
 
         // Map status
         let status = "planning";
-        if (project.statut === "en_cours") status = "under_construction";
-        else if (project.statut === "termine") status = "completed";
-        else if (project.statut === "vendu") status = "sold_out";
+        if (project.statut === "en_cours" || project.statut === "under_construction") {
+          status = "under_construction";
+        } else if (project.statut === "termine" || project.statut === "completed") {
+          status = "completed";
+        } else if (project.statut === "vendu" || project.statut === "sold_out") {
+          status = "sold_out";
+        }
 
-        // Map location
-        const locationId = project.localite_id
-          ? locationMapping.get(project.localite_id)
-          : null;
+        // Map location - try multiple possible field names
+        let locationId = null;
+        if (project.localite_id) {
+          locationId = locationMapping.get(project.localite_id);
+        } else if (project.location_id) {
+          locationId = locationMapping.get(project.location_id);
+        }
 
-        const [newProjectId] = await trx("projects").insert({
-          name: project.nom,
+        // Build insert object with proper field mappings
+        const insertData: any = {
+          name: projectName,
           slug,
           description: project.description || null,
-          description_secondary: project.description_secondaire || null,
+          description_secondary: project.description2 || project.description_secondary || null,
           address: project.adresse || "N/A",
-          map_embed_code: project.code_iframe_maps || null,
           latitude: project.latitude || null,
           longitude: project.longitude || null,
           location_id: locationId,
           status,
-          completion_percentage: project.pourcentage_avancement || 0,
-          total_blocks: project.nombre_blocs || null,
-          main_photo_url: project.photo_principale_url || null,
-          contact_form_script: project.script_formulaire_contact || null,
-          is_featured: Boolean(project.est_en_vedette),
-          created_at: trx.fn.now(),
-          updated_at: trx.fn.now(),
-        });
+          completion_percentage: project.etat_avance || project.completion_percentage || 0,
+          total_blocks: project.blocs || project.total_blocks || null,
+          main_photo_url: project.photo || project.main_photo_url || null,
+          contact_form_script: project.script_form || project.contact_form_script || null,
+          is_featured: false, // Default to false as old DB doesn't have this field
+          created_at: project.created_at || trx.fn.now(),
+          updated_at: project.updated_at || trx.fn.now(),
+        };
 
-        projectMap.set(project.projet_id, newProjectId);
+        const [newProjectId] = await trx("projects").insert(insertData);
+
+        projectMap.set(project.id, newProjectId);
         stats.inserted++;
+        
+        console.log(`  ✓ Inserted: ${projectName}`);
       } catch (error) {
-        console.warn(`  ⚠️  Failed: ${project.nom}`, (error as Error).message);
+        console.warn(`  ⚠️  Failed: ${project.nom_projet || project.nom || project.id}`, (error as Error).message);
         stats.failed++;
       }
     }

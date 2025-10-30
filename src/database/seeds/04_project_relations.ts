@@ -24,19 +24,6 @@ export async function seed(knex: Knex): Promise<void> {
   const locationStats: MigrationStats = { total: 0, inserted: 0, skipped: 0, failed: 0 };
 
   try {
-    // Check if already seeded (idempotency)
-    const existingFeatures = await trx("project_features").count("* as count").first();
-    const existingLocations = await trx("project_locations").count("* as count").first();
-    
-    if (existingFeatures && Number(existingFeatures.count) > 0 && 
-        existingLocations && Number(existingLocations.count) > 0) {
-      console.log(`  ℹ️  Found ${existingFeatures.count} project-feature relations`);
-      console.log(`  ℹ️  Found ${existingLocations.count} project-location relations`);
-      console.log("  ⚠️  Tables already seeded. Skipping...");
-      await trx.commit();
-      return;
-    }
-
     // Get mappings from previous seeders
     const projectMapping = await SeederHelper.getMapping(trx, "temp_project_mapping");
     const featureMapping = await SeederHelper.getMapping(trx, "temp_feature_mapping");
@@ -54,8 +41,12 @@ export async function seed(knex: Knex): Promise<void> {
     featureStats.total = oldProjectFeatures.length;
 
     for (const pf of oldProjectFeatures) {
-      const newProjectId = projectMapping.get(pf.projet_id);
-      const newFeatureId = featureMapping.get(pf.caracteristique_id);
+      // FIX: Use correct field names from old schema
+      const oldProjectId = pf.projet_id;
+      const oldFeatureId = pf.caracteristique_id;
+      
+      const newProjectId = projectMapping.get(oldProjectId);
+      const newFeatureId = featureMapping.get(oldFeatureId);
 
       if (!newProjectId || !newFeatureId) {
         featureStats.skipped++;
@@ -89,8 +80,12 @@ export async function seed(knex: Knex): Promise<void> {
     locationStats.total = oldProjectLocations.length;
 
     for (const pl of oldProjectLocations) {
-      const newProjectId = projectMapping.get(pl.projet_id);
-      const newLocationId = locationMapping.get(pl.localite_id);
+      // FIX: Use correct field names from old schema
+      const oldProjectId = pl.project_id; // Note: old schema uses 'project_id' not 'projet_id'
+      const oldLocationId = pl.localite_id;
+      
+      const newProjectId = projectMapping.get(oldProjectId);
+      const newLocationId = locationMapping.get(oldLocationId);
 
       if (!newProjectId || !newLocationId) {
         locationStats.skipped++;

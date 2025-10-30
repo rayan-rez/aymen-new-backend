@@ -58,9 +58,6 @@ export interface CommercialProperty {
   /** Physical address */
   address: string;
 
-  /** Google Maps embed code */
-  mapEmbedCode: string | null;
-
   /** Latitude coordinate */
   latitude: number | null;
 
@@ -108,7 +105,6 @@ export interface CreateCommercialPropertyDto {
   description: string;
   cardDescription?: string | null;
   address: string;
-  mapEmbedCode?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   propertyType: CommercialPropertyType;
@@ -130,7 +126,6 @@ export interface UpdateCommercialPropertyDto {
   description?: string;
   cardDescription?: string | null;
   address?: string;
-  mapEmbedCode?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   propertyType?: CommercialPropertyType;
@@ -390,7 +385,6 @@ class CommercialPropertyModel extends BaseModel<
       description: record.description,
       cardDescription: record.card_description,
       address: record.address,
-      mapEmbedCode: record.map_embed_code,
       latitude: record.latitude ? parseFloat(record.latitude) : null,
       longitude: record.longitude ? parseFloat(record.longitude) : null,
       propertyType: record.property_type as CommercialPropertyType,
