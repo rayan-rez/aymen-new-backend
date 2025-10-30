@@ -55,12 +55,13 @@ export async function seed(knex: Knex): Promise<void> {
           projectName,
           `project-${project.id}`
         );
-
         // Map status
         let status = "planning";
-        if (project.statut === "en_cours" || project.statut === "under_construction") {
+        if (project.statut === "En cours de réalisation" || project.statut === "under_construction") {
           status = "under_construction";
-        } else if (project.statut === "termine" || project.statut === "completed") {
+        } else if (project.statut === "En Lancement" || project.statut === "in_launch") {
+          status = "in_launch";
+        } else if (project.statut === "Finis" || project.statut === "completed") {
           status = "completed";
         } else if (project.statut === "vendu" || project.statut === "sold_out") {
           status = "sold_out";

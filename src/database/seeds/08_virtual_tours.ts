@@ -4,7 +4,8 @@ import { SeederHelper, MigrationStats } from "../seed-helpers";
 
 /**
  * Seed: Virtual Tours
- * Migrates from old `projets_visites_virtuelles` table to new `virtual_tours` table
+ * Migrates from old `visit_virtuel` table (not projets_visites_virtuelles!)
+ * to new `virtual_tours` table
  */
 export async function seed(knex: Knex): Promise<void> {
   console.log("\n🎥 Starting virtual tours migration...");
@@ -23,15 +24,6 @@ export async function seed(knex: Knex): Promise<void> {
   const stats: MigrationStats = { total: 0, inserted: 0, skipped: 0, failed: 0 };
 
   try {
-    // Check if already seeded (idempotency)
-    const existingCount = await trx("virtual_tours").count("* as count").first();
-    if (existingCount && Number(existingCount.count) > 0) {
-      console.log(`  ℹ️  Found ${existingCount.count} existing virtual tours`);
-      console.log("  ⚠️  Table already seeded. Skipping...");
-      await trx.commit();
-      return;
-    }
-
     // Clear existing data
     await SeederHelper.clearTable(trx, "virtual_tours");
     console.log("  ✓ Cleared existing virtual tours");
@@ -40,9 +32,11 @@ export async function seed(knex: Knex): Promise<void> {
     const projectMapping = await SeederHelper.getMapping(trx, "temp_project_mapping");
     console.log(`  📊 Loaded ${projectMapping.size} project mappings`);
 
-    // Fetch old virtual tours
+    // ============================================
+    // MIGRATE FROM `visit_virtuel` TABLE
+    // ============================================
     try {
-      const oldVirtualTours = await legacy_db("projets_visites_virtuelles").select("*");
+      const oldVirtualTours = await legacy_db("visit_virtuel").select("*");
       stats.total = oldVirtualTours.length;
       console.log(`  📊 Found ${stats.total} old virtual tours to migrate`);
 
@@ -56,6 +50,7 @@ export async function seed(knex: Knex): Promise<void> {
         const newProjectId = projectMapping.get(tour.projet_id);
 
         if (!newProjectId) {
+          console.warn(`  ⚠️  Skipping virtual tour - project not found (projet_id: ${tour.projet_id})`);
           stats.skipped++;
           continue;
         }
@@ -64,8 +59,8 @@ export async function seed(knex: Knex): Promise<void> {
           await trx("virtual_tours").insert({
             project_id: newProjectId,
             url: tour.url,
-            description: tour.description || null,
-            thumbnail_url: tour.url_miniature || null,
+            description: tour.descriptionV || null,
+            thumbnail_url: null, // Old table doesn't have thumbnail
             created_at: trx.fn.now(),
             updated_at: trx.fn.now(),
           });

@@ -4,8 +4,8 @@ import { SeederHelper, MigrationStats } from "../seed-helpers";
 
 /**
  * Seed: Floor Plans (Polymorphic)
- * Migrates from old floor plan tables to new polymorphic `floor_plans` table
- * Old tables: projets_plans, appartements_plans
+ * Migrates from old `plan` table to new polymorphic `floor_plans` table
+ * Note: Old table is just `plan`, not `projets_plans` or `appartements_plans`
  */
 export async function seed(knex: Knex): Promise<void> {
   console.log("\n📐 Starting floor plans migration...");
@@ -25,15 +25,6 @@ export async function seed(knex: Knex): Promise<void> {
   let totalSkipped = 0;
 
   try {
-    // Check if already seeded (idempotency)
-    const existingCount = await trx("floor_plans").count("* as count").first();
-    if (existingCount && Number(existingCount.count) > 0) {
-      console.log(`  ℹ️  Found ${existingCount.count} existing floor plans`);
-      console.log("  ⚠️  Table already seeded. Skipping...");
-      await trx.commit();
-      return;
-    }
-
     // Clear existing data
     await SeederHelper.clearTable(trx, "floor_plans");
     console.log("  ✓ Cleared existing floor plans");
@@ -46,80 +37,61 @@ export async function seed(knex: Knex): Promise<void> {
     console.log(`  📊 Loaded ${apartmentMapping.size} apartment mappings`);
 
     // ============================================
-    // MIGRATE PROJECT FLOOR PLANS
+    // MIGRATE FLOOR PLANS FROM `plan` TABLE
     // ============================================
-    console.log("\n  📋 Migrating project floor plans...");
+    console.log("\n  📋 Migrating floor plans...");
     try {
-      const oldProjectPlans = await legacy_db("projets_plans").select("*");
-      console.log(`  📊 Found ${oldProjectPlans.length} old project floor plans`);
+      const oldPlans = await legacy_db("plan").select("*");
+      console.log(`  📊 Found ${oldPlans.length} old floor plans`);
 
-      for (const plan of oldProjectPlans) {
-        const newProjectId = projectMapping.get(plan.projet_id);
+      if (oldPlans.length === 0) {
+        console.log("  ℹ️  No floor plans to migrate");
+        await trx.commit();
+        return;
+      }
 
-        if (!newProjectId) {
-          totalSkipped++;
-          continue;
-        }
-
+      for (const plan of oldPlans) {
         try {
+          // The old `plan` table doesn't have project/apartment references
+          // So we'll skip plans without proper URLs
+          if (!plan.url_photo && !plan.photo_plan) {
+            totalSkipped++;
+            continue;
+          }
+
+          const imageUrl = plan.photo_plan || plan.url_photo;
+          const planName = plan.nom_plan || `Plan ${plan.id}`;
+
+          // Since old table doesn't have FK to projects/apartments,
+          // we'll create them as orphaned plans or skip them
+          // For now, let's skip them as they don't have proper references
+          console.log(`  ⚠️  Skipping plan "${planName}" - no project/apartment reference in old schema`);
+          totalSkipped++;
+
+          // If you want to create them anyway, uncomment this:
+          /*
           await trx("floor_plans").insert({
-            plannable_type: "project",
-            plannable_id: newProjectId,
-            name: plan.nom || `Plan ${plan.plan_id}`,
-            image_url: plan.url_image,
-            pdf_url: plan.url_pdf || null,
-            display_order: plan.ordre_affichage || 0,
+            plannable_type: "project", // Default to project
+            plannable_id: 1, // Default to first project
+            name: planName,
+            image_url: imageUrl,
+            pdf_url: null,
+            display_order: 0,
             created_at: trx.fn.now(),
             updated_at: trx.fn.now(),
           });
           totalInserted++;
+          */
         } catch (error) {
-          console.warn(`  ⚠️  Failed to insert project floor plan`, error);
+          console.warn(`  ⚠️  Failed to insert floor plan`, error);
           totalSkipped++;
         }
       }
-      console.log(`  ✓ Inserted ${oldProjectPlans.length - totalSkipped} project floor plans`);
+
+      console.log(`  ℹ️  Old floor plans don't have project/apartment references`);
+      console.log(`  💡 Consider manually mapping floor plans to projects/apartments`);
     } catch (error) {
-      console.log("  ℹ️  No project floor plans table found");
-    }
-
-    // ============================================
-    // MIGRATE APARTMENT FLOOR PLANS
-    // ============================================
-    console.log("\n  🏠 Migrating apartment floor plans...");
-    try {
-      const oldApartmentPlans = await legacy_db("appartements_plans").select("*");
-      console.log(`  📊 Found ${oldApartmentPlans.length} old apartment floor plans`);
-
-      const apartmentPlanStart = totalInserted;
-      for (const plan of oldApartmentPlans) {
-        const newApartmentId = apartmentMapping.get(plan.appartement_id);
-
-        if (!newApartmentId) {
-          totalSkipped++;
-          continue;
-        }
-
-        try {
-          await trx("floor_plans").insert({
-            plannable_type: "apartment",
-            plannable_id: newApartmentId,
-            name: plan.nom || `Plan ${plan.plan_id}`,
-            image_url: plan.url_image,
-            pdf_url: plan.url_pdf || null,
-            display_order: plan.ordre_affichage || 0,
-            created_at: trx.fn.now(),
-            updated_at: trx.fn.now(),
-          });
-          totalInserted++;
-        } catch (error) {
-          console.warn(`  ⚠️  Failed to insert apartment floor plan`, error);
-          totalSkipped++;
-        }
-      }
-      console.log(`  ✓ Inserted ${totalInserted - apartmentPlanStart} apartment floor plans`);
-    } catch (error) {
-      console.log("  ℹ️  No apartment floor plans table found");
+      console.log("  ℹ️  No floor plans table found");
     }
 
     await trx.commit();
@@ -127,7 +99,7 @@ export async function seed(knex: Knex): Promise<void> {
     console.log(`\n📐 Floor Plans Migration Summary:`);
     console.log(`  • Total inserted: ${totalInserted}`);
     if (totalSkipped > 0) {
-      console.log(`  ⚠️  Skipped: ${totalSkipped}`);
+      console.log(`  ⚠️  Skipped: ${totalSkipped} (no project/apartment references)`);
     }
     console.log("✅ Floor plans migration completed successfully\n");
   } catch (error) {

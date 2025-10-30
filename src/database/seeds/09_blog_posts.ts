@@ -4,7 +4,7 @@ import { SeederHelper, MigrationStats } from "../seed-helpers";
 
 /**
  * Seed: Blog Posts
- * Migrates from old `articles_blog` and `articles_blog_sections` tables
+ * Migrates from old `blog` table (not articles_blog!)
  * to new `blog_posts` and `blog_post_sections` tables
  */
 export async function seed(knex: Knex): Promise<void> {
@@ -26,25 +26,16 @@ export async function seed(knex: Knex): Promise<void> {
   let galleryCount = 0;
 
   try {
-    // Check if already seeded (idempotency)
-    const existingCount = await trx("blog_posts").count("* as count").first();
-    if (existingCount && Number(existingCount.count) > 0) {
-      console.log(`  ℹ️  Found ${existingCount.count} existing blog posts`);
-      console.log("  ⚠️  Table already seeded. Skipping...");
-      await trx.commit();
-      return;
-    }
-
     // Clear existing data
     await SeederHelper.clearTable(trx, "blog_post_sections");
     await SeederHelper.clearTable(trx, "blog_posts");
     console.log("  ✓ Cleared existing blog posts");
 
     // ============================================
-    // MIGRATE BLOG POSTS
+    // MIGRATE BLOG POSTS FROM `blog` TABLE
     // ============================================
     try {
-      const oldBlogPosts = await legacy_db("articles_blog").select("*");
+      const oldBlogPosts = await legacy_db("blog").select("*");
       postStats.total = oldBlogPosts.length;
       console.log(`  📊 Found ${postStats.total} old blog posts to migrate`);
 
@@ -58,37 +49,64 @@ export async function seed(knex: Knex): Promise<void> {
 
       for (const post of oldBlogPosts) {
         try {
-          const slug = SeederHelper.generateSlug(
+          const slug = post.slug || SeederHelper.generateSlug(
             post.titre,
-            `post-${post.article_id}`
+            `post-${post.id}`
           );
 
-          // Parse tags if stored as JSON
-          let tags = null;
-          if (post.tags) {
-            tags = SeederHelper.safeJsonParse(post.tags, [post.tags]);
-          }
+          // Main content
+          const content = post.contenu || "";
 
           const [newPostId] = await trx("blog_posts").insert({
             title: post.titre,
             slug,
-            author_name: post.nom_auteur || "Admin",
+            author_name: post.auteur || "Admin",
             category: post.categorie || null,
-            excerpt: post.extrait || null,
-            content: post.contenu,
-            featured_image_url: post.url_image_vedette || null,
-            meta_title: post.titre_meta || post.titre,
-            meta_description: post.description_meta || post.extrait,
-            tags: tags ? JSON.stringify(tags) : null,
-            is_published: Boolean(post.est_publie),
+            excerpt: content.substring(0, 200) || null,
+            content: content,
+            featured_image_url: post.photo_principale_path || null,
+            meta_title: post.titre,
+            meta_description: content.substring(0, 160) || null,
+            tags: null,
+            is_published: true, // Assume published
             published_at: post.date_publication || trx.fn.now(),
-            view_count: post.nombre_vues || 0,
-            created_at: post.date_creation || trx.fn.now(),
+            view_count: 0,
+            created_at: trx.fn.now(),
             updated_at: trx.fn.now(),
           });
 
-          blogPostMap.set(post.article_id, newPostId);
+          blogPostMap.set(post.id, newPostId);
           postStats.inserted++;
+
+          // ============================================
+          // MIGRATE BLOG POST SECTIONS (from contenu1-4, titre1-4)
+          // ============================================
+          const sections = [
+            { title: post.titre1, content: post.contenu1, image: post.photo1 },
+            { title: post.titre2, content: post.contenu2, image: post.photo2 },
+            { title: post.titre3, content: post.contenu3, image: post.photo3 },
+            { title: post.titre4, content: post.contenu4, image: post.photo4 },
+          ];
+
+          for (let i = 0; i < sections.length; i++) {
+            const section = sections[i];
+            if (section.content) {
+              try {
+                await trx("blog_post_sections").insert({
+                  blog_post_id: newPostId,
+                  section_title: section.title || null,
+                  section_content: section.content,
+                  section_image_url: section.image || null,
+                  display_order: i,
+                  created_at: trx.fn.now(),
+                  updated_at: trx.fn.now(),
+                });
+                sectionCount++;
+              } catch (error) {
+                console.warn(`  ⚠️  Failed to insert blog section`, error);
+              }
+            }
+          }
         } catch (error) {
           console.warn(`  ⚠️  Failed: ${post.titre}`, (error as Error).message);
           postStats.failed++;
@@ -96,72 +114,40 @@ export async function seed(knex: Knex): Promise<void> {
       }
 
       console.log(`  ✓ Inserted ${postStats.inserted} blog posts`);
+      console.log(`  ✓ Inserted ${sectionCount} blog sections`);
 
       // ============================================
-      // MIGRATE BLOG POST SECTIONS
+      // MIGRATE BLOG CAROUSEL IMAGES TO PHOTOS
       // ============================================
-      console.log("\n  📄 Migrating blog post sections...");
+      console.log("\n  🖼️  Migrating blog carousel images...");
       try {
-        const oldBlogSections = await legacy_db("articles_blog_sections").select("*");
-        console.log(`  📊 Found ${oldBlogSections.length} blog sections`);
+        const oldBlogCarousel = await legacy_db("blog_carousel").select("*");
+        console.log(`  📊 Found ${oldBlogCarousel.length} blog carousel images`);
 
-        for (const section of oldBlogSections) {
-          const newBlogPostId = blogPostMap.get(section.article_id);
+        for (const image of oldBlogCarousel) {
+          const newBlogPostId = blogPostMap.get(image.blog_id);
 
-          if (newBlogPostId) {
-            try {
-              await trx("blog_post_sections").insert({
-                blog_post_id: newBlogPostId,
-                section_title: section.titre_section || null,
-                section_content: section.contenu_section,
-                section_image_url: section.url_image_section || null,
-                display_order: section.ordre_affichage || 0,
-                created_at: trx.fn.now(),
-                updated_at: trx.fn.now(),
-              });
-              sectionCount++;
-            } catch (error) {
-              console.warn(`  ⚠️  Failed to insert blog section`, error);
-            }
-          }
-        }
-        console.log(`  ✓ Inserted ${sectionCount} blog sections`);
-      } catch (error) {
-        console.log("  ℹ️  No blog sections table found");
-      }
-
-      // ============================================
-      // MIGRATE BLOG POST GALLERY IMAGES TO PHOTOS
-      // ============================================
-      console.log("\n  🖼️  Migrating blog post gallery images...");
-      try {
-        const oldBlogGallery = await legacy_db("articles_blog_galerie").select("*");
-        console.log(`  📊 Found ${oldBlogGallery.length} blog gallery images`);
-
-        for (const image of oldBlogGallery) {
-          const newBlogPostId = blogPostMap.get(image.article_id);
-
-          if (newBlogPostId) {
+          if (newBlogPostId && image.image) {
             try {
               await trx("photos").insert({
                 photoable_type: "blog_post",
                 photoable_id: newBlogPostId,
-                url: image.url,
-                caption: image.legende || null,
-                display_order: image.ordre_affichage || 0,
+                url: image.image,
+                caption: null,
+                display_order: galleryCount,
                 is_cover: false,
                 created_at: trx.fn.now(),
                 updated_at: trx.fn.now(),
               });
               galleryCount++;
             } catch (error) {
-              console.warn(`  ⚠️  Failed to insert blog gallery image`, error);
+              console.warn(`  ⚠️  Failed to insert blog carousel image`, error);
             }
           }
         }
-        console.log(`  ✓ Inserted ${galleryCount} blog gallery images`);
+        console.log(`  ✓ Inserted ${galleryCount} blog carousel images`);
       } catch (error) {
-        console.log("  ℹ️  No blog gallery table found");
+        console.log("  ℹ️  No blog carousel table found");
       }
 
       // Store mapping

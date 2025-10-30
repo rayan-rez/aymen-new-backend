@@ -27,6 +27,7 @@ export async function up(knex: Knex): Promise<void> {
       .enum("status", [
         "planning",
         "under_construction",
+        "in_launch",
         "completed",
         "sold_out",
       ])

@@ -4,7 +4,8 @@ import { SeederHelper, MigrationStats } from "../seed-helpers";
 
 /**
  * Seed: Commercial Properties
- * Migrates from old `proprietes_commerciales` table to new `commercial_properties` table
+ * Migrates from old `locaux` table (not proprietes_commerciales!)
+ * to new `commercial_properties` table
  */
 export async function seed(knex: Knex): Promise<void> {
   console.log("\n🏢 Starting commercial properties migration...");
@@ -24,15 +25,6 @@ export async function seed(knex: Knex): Promise<void> {
   let photoCount = 0;
 
   try {
-    // Check if already seeded (idempotency)
-    const existingCount = await trx("commercial_properties").count("* as count").first();
-    if (existingCount && Number(existingCount.count) > 0) {
-      console.log(`  ℹ️  Found ${existingCount.count} existing commercial properties`);
-      console.log("  ⚠️  Table already seeded. Skipping...");
-      await trx.commit();
-      return;
-    }
-
     // Clear existing data
     await SeederHelper.clearTable(trx, "commercial_properties");
     console.log("  ✓ Cleared existing commercial properties");
@@ -41,11 +33,13 @@ export async function seed(knex: Knex): Promise<void> {
     const locationMapping = await SeederHelper.getMapping(trx, "temp_location_mapping");
     console.log(`  📊 Loaded ${locationMapping.size} location mappings`);
 
-    // Fetch old commercial properties
+    // ============================================
+    // MIGRATE FROM `locaux` TABLE
+    // ============================================
     try {
-      const oldCommercialProperties = await legacy_db("proprietes_commerciales").select("*");
-      stats.total = oldCommercialProperties.length;
-      console.log(`  📊 Found ${stats.total} old commercial properties to migrate`);
+      const oldLocaux = await legacy_db("locaux").select("*");
+      stats.total = oldLocaux.length;
+      console.log(`  📊 Found ${stats.total} old commercial properties (locaux) to migrate`);
 
       if (stats.total === 0) {
         console.log("  ℹ️  No commercial properties to migrate");
@@ -55,59 +49,59 @@ export async function seed(knex: Knex): Promise<void> {
 
       const commercialPropertyMap = new Map<number, number>();
 
-      for (const property of oldCommercialProperties) {
+      for (const local of oldLocaux) {
         try {
-          const slug = SeederHelper.generateSlug(
-            property.titre,
-            `property-${property.propriete_id}`
+          const slug = local.slug || SeederHelper.generateSlug(
+            local.titre,
+            `property-${local.id}`
           );
 
-          // Map property type
+          // Determine property type (default to office)
           let propertyType = "office";
-          const typeMap: Record<string, string> = {
-            boutique: "shop",
-            entrepot: "warehouse",
-            showroom: "showroom",
-            restaurant: "shop", // Map restaurant to shop
-            mixte: "mixed_use",
-          };
-          propertyType = typeMap[property.type_propriete] || "office";
+          const titre = (local.titre || "").toLowerCase();
+          if (titre.includes("boutique") || titre.includes("commerce")) {
+            propertyType = "shop";
+          } else if (titre.includes("entrepôt") || titre.includes("depot")) {
+            propertyType = "warehouse";
+          } else if (titre.includes("showroom")) {
+            propertyType = "showroom";
+          }
 
-          // Map status
-          let status = "available";
-          if (property.statut === "loue") status = "rented";
-          else if (property.statut === "vendu") status = "sold";
+          // Parse surface/area - might be string like "90 m²"
+          let areaSqm = null;
+          if (local.surface) {
+            const surfaceMatch = String(local.surface).match(/(\d+\.?\d*)/);
+            areaSqm = surfaceMatch ? parseFloat(surfaceMatch[1]) : null;
+          }
 
-          // Map location
-          const locationId = property.localite_id
-            ? locationMapping.get(property.localite_id)
-            : null;
+          // Map location - old table doesn't have location_id, so skip
+          let locationId = null;
 
           const [newPropertyId] = await trx("commercial_properties").insert({
-            title: property.titre,
+            title: local.titre || `Local ${local.id}`,
             slug,
-            subtitle: property.sous_titre || null,
-            description: property.description,
-            card_description: property.description_carte || null,
-            address: property.adresse || "N/A",
-            latitude: property.latitude || null,
-            longitude: property.longitude || null,
+            subtitle: local.sous_titre || null,
+            description: local.description || "Commercial property",
+            card_description: local.desc_card || null,
+            address: local.adresse || "N/A",
+            latitude: local.latitude || null,
+            longitude: local.longitude || null,
             location_id: locationId,
             property_type: propertyType,
-            area_sqm: property.superficie || null,
-            price: property.prix || null,
-            status,
-            main_image_url: property.url_image_principale || null,
-            contact_form_id: property.id_formulaire_contact || null,
-            is_featured: Boolean(property.est_en_vedette),
-            created_at: trx.fn.now(),
-            updated_at: trx.fn.now(),
+            area_sqm: areaSqm,
+            price: null, // Old table doesn't have price
+            status: "available",
+            main_image_url: local.image_path || null,
+            contact_form_id: local.formId || null,
+            is_featured: false,
+            created_at: local.created_at || trx.fn.now(),
+            updated_at: local.updated_at || trx.fn.now(),
           });
 
-          commercialPropertyMap.set(property.propriete_id, newPropertyId);
+          commercialPropertyMap.set(local.id, newPropertyId);
           stats.inserted++;
         } catch (error) {
-          console.warn(`  ⚠️  Failed: ${property.titre}`, (error as Error).message);
+          console.warn(`  ⚠️  Failed: ${local.titre || local.id}`, (error as Error).message);
           stats.failed++;
         }
       }
@@ -115,28 +109,28 @@ export async function seed(knex: Knex): Promise<void> {
       console.log(`  ✓ Inserted ${stats.inserted} commercial properties`);
 
       // ============================================
-      // MIGRATE COMMERCIAL PROPERTY PHOTOS
+      // MIGRATE COMMERCIAL PROPERTY PHOTOS FROM `photos_locaux`
       // ============================================
       console.log("\n  📷 Migrating commercial property photos...");
       try {
-        const oldCommercialPhotos = await legacy_db("proprietes_commerciales_photos").select("*");
-        console.log(`  📊 Found ${oldCommercialPhotos.length} commercial property photos`);
+        const oldLocalPhotos = await legacy_db("photos_locaux").select("*");
+        console.log(`  📊 Found ${oldLocalPhotos.length} commercial property photos`);
 
-        for (const photo of oldCommercialPhotos) {
-          const newPropertyId = commercialPropertyMap.get(photo.propriete_id);
+        for (const photo of oldLocalPhotos) {
+          const newPropertyId = commercialPropertyMap.get(photo.local_id);
 
-          if (newPropertyId) {
+          if (newPropertyId && photo.url) {
             try {
               await trx("photos").insert({
                 photoable_type: "commercial_property",
                 photoable_id: newPropertyId,
                 url: photo.url,
-                external_url: photo.url_externe || null,
-                caption: photo.legende || null,
-                display_order: photo.ordre_affichage || 0,
-                is_cover: Boolean(photo.est_photo_couverture),
-                created_at: trx.fn.now(),
-                updated_at: trx.fn.now(),
+                external_url: null,
+                caption: null,
+                display_order: 0,
+                is_cover: false,
+                created_at: photo.created_at || trx.fn.now(),
+                updated_at: photo.updated_at || trx.fn.now(),
               });
               photoCount++;
             } catch (error) {
@@ -156,7 +150,7 @@ export async function seed(knex: Knex): Promise<void> {
         commercialPropertyMap
       );
     } catch (error) {
-      console.log("  ℹ️  No commercial properties table found in old database");
+      console.log("  ℹ️  No locaux table found in old database");
     }
 
     await trx.commit();
