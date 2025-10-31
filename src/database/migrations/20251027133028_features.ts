@@ -3,24 +3,24 @@ import { addCheckConstraint, configureTableEngine } from "../knex-extensions";
 
 /**
  * Migration: Features (Property Amenities and Features)
- * 
+ *
  * Reference table for property features, amenities, and facilities.
  * Used in project_features junction table for many-to-many relationships.
- * 
+ *
  * KEY FEATURES:
  * - Multi-language support via JSON translations
  * - Category-based organization for UI grouping
  * - Icon support for visual representation
  * - Display ordering for consistent presentation
  * - No soft deletes (reference data typically doesn't need it)
- * 
+ *
  * TRANSLATION STRUCTURE:
  * {
  *   "en": "Swimming Pool",
  *   "fr": "Piscine",
  *   "ar": "مسبح"
  * }
- * 
+ *
  * CATEGORIES:
  * - amenity: Pools, gyms, playgrounds, gardens
  * - security: 24/7 security, CCTV, access control
@@ -74,7 +74,7 @@ export async function up(knex: Knex): Promise<void> {
     // =================================================================
     // COMPOSITE INDEXES FOR QUERY OPTIMIZATION
     // =================================================================
-    
+
     // Filter and order features by category
     table.index(
       ["category", "is_active", "display_order"],

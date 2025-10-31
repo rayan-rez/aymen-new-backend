@@ -50,20 +50,6 @@ export async function up(knex: Knex): Promise<void> {
     table.withForeignKey("project_id", "projects", "id", "SET NULL");
 
     // =================================================================
-    // FORM DATA (FULL SUBMISSION PAYLOAD)
-    // =================================================================
-    // Complete form data as JSON
-    // Example: {
-    //   "firstName": "Ahmed",
-    //   "lastName": "Benali",
-    //   "email": "ahmed@example.com",
-    //   "phone": "+213555123456",
-    //   "message": "Interested in Villa Azure",
-    //   "budgetRange": "20M-30M"
-    // }
-    table.json("form_data").notNullable();
-
-    // =================================================================
     // EXTRACTED KEY FIELDS (FOR QUICK ACCESS)
     // =================================================================
     // Denormalized from form_data for indexing and queries

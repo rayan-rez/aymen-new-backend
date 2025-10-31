@@ -4,10 +4,10 @@ import { configureTableEngine } from "../knex-extensions";
 
 /**
  * USER EVENTS - Granular user behavior tracking
- * 
+ *
  * Captures every significant user interaction on the website.
  * Used for behavior analysis, funnel tracking, and conversion optimization.
- * 
+ *
  * EVENT TYPES:
  * - page_view: User views a page
  * - button_click: User clicks a CTA or button
@@ -28,57 +28,78 @@ import { configureTableEngine } from "../knex-extensions";
 export async function up(knex: Knex): Promise<void> {
   await knex.schema.createTable("user_events", (table) => {
     table.bigIncrements("id").primary();
-    
+
     // Session relationship (nullable for events without session context)
-    table
-      .integer("session_id")
-      .unsigned()
-      .nullable()
-      .references("id")
-      .inTable("user_sessions")
-      .onDelete("SET NULL");
+    table.withForeignKey("session_id", "user_sessions", "id", "SET NULL");
     table.index("session_id");
-    
+
     // Visitor identification
     table.string("visitor_id", 36).notNullable().index();
-    
+
     // Lead relationship (nullable until visitor converts)
-    table
-      .integer("lead_id")
-      .unsigned()
-      .nullable()
-      .references("id")
-      .inTable("leads")
-      .onDelete("SET NULL");
+    table.withForeignKey("lead_id", "leads", "id", "SET NULL");
     table.index("lead_id");
-    
+
     // Event classification
-    table.string("event_type", 100).notNullable().index();
-    table.string("event_category", 50).nullable(); // navigation, engagement, conversion
-    
+    table
+      .enu(
+        "event_type",
+        [
+          "page_view",
+          "button_click",
+          "form_start",
+          "form_submit",
+          "property_view",
+          "property_favorite",
+          "search",
+          "filter",
+          "video_play",
+          "download",
+          "call_click",
+          "whatsapp_click",
+          "email_click",
+          "share",
+          "scroll_depth",
+        ],
+        {
+          useNative: true,
+          enumName: "event_type_enum",
+        }
+      )
+      .notNullable()
+      .index();
+      
+    table
+      .enu("event_category", ["navigation", "engagement", "conversion"], {
+        useNative: true,
+        enumName: "event_category_enum",
+      })
+      .nullable()
+      .index();
+
     // Page context
     table.string("page_url", 500).nullable();
     table.string("page_path", 255).nullable().index();
     table.string("page_title", 255).nullable();
-    
+
     // Element that triggered event (CSS selector or ID)
-    table.string("element", 255).nullable();
+    table.string("element_selector", 255).nullable();
     table.string("element_text", 255).nullable();
-    
+
     // Event-specific data as JSON
     // Example for property_view: {"property_id":123,"property_name":"Villa Azure","price":25000000}
     // Example for search: {"query":"appartement sidi bel abbes","filters":{"bedrooms":3,"price_max":20000000}}
     // Example for form_start: {"form_type":"contact","form_id":"contact-hero"}
     table.json("value").nullable();
-    
+
     // Timestamp
     table.timestamp("event_ts").notNullable().index();
-    
+
     // Technical context
     table.string("user_agent", 500).nullable();
     table.string("ip_address", 45).nullable();
     table.string("device", 50).nullable();
-    
+
     table.withTimestamps();
 
     // Composite indexes for common queries
@@ -86,7 +107,6 @@ export async function up(knex: Knex): Promise<void> {
     table.index(["page_path", "event_type"], "idx_page_type");
     table.index(["visitor_id", "event_ts"], "idx_visitor_time");
     table.index(["event_category", "event_ts"], "idx_category_time");
-
 
     configureTableEngine(table);
   });

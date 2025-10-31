@@ -18,26 +18,14 @@ export async function up(knex: Knex): Promise<void> {
     table.bigIncrements("id").primary();
     
     // Session context
-    table
-      .integer("session_id")
-      .unsigned()
-      .nullable()
-      .references("id")
-      .inTable("user_sessions")
-      .onDelete("SET NULL");
+    table.withForeignKey("session_id","user_sessions","id","SET NULL");
     table.index("session_id");
     
     // Visitor identification
     table.string("visitor_id", 36).notNullable().index();
     
     // Lead relationship
-    table
-      .integer("lead_id")
-      .unsigned()
-      .nullable()
-      .references("id")
-      .inTable("leads")
-      .onDelete("SET NULL");
+    table.withForeignKey("lead_id","leads","id","SET NULL");
     table.index("lead_id");
     
     // Page details

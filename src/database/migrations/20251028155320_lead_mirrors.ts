@@ -38,13 +38,7 @@ export async function up(knex: Knex): Promise<void> {
     // LOCAL REFERENCE (FORM SUBMISSION)
     // =================================================================
     // Links to the form submission that created this lead
-    table
-      .integer("form_submission_id")
-      .unsigned()
-      .notNullable()
-      .references("id")
-      .inTable("form_submissions")
-      .onDelete("CASCADE");
+    table.withForeignKey("form_submission_id","form_submissions","id","CASCADE");
     table.index("form_submission_id", "idx_form_submission_id");
 
     // =================================================================

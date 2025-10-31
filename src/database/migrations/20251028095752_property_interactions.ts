@@ -32,33 +32,15 @@ export async function up(knex: Knex): Promise<void> {
     table.string("visitor_id", 36).notNullable().index();
     
     // Lead relationship (nullable until conversion)
-    table
-      .integer("lead_id")
-      .unsigned()
-      .nullable()
-      .references("id")
-      .inTable("leads")
-      .onDelete("SET NULL");
+    table.withForeignKey("lead_id","leads","id","SET NULL");
     table.index("lead_id");
     
     // Session context
-    table
-      .integer("session_id")
-      .unsigned()
-      .nullable()
-      .references("id")
-      .inTable("user_sessions")
-      .onDelete("SET NULL");
+    table.withForeignKey("session_id","user_sessions","id","SET NULL");
     table.index("session_id");
     
     // Property reference (projects table)
-    table
-      .integer("property_id")
-      .unsigned()
-      .notNullable()
-      .references("id")
-      .inTable("projects")
-      .onDelete("CASCADE");
+    table.withForeignKey("property_id","projects","id","CASCADE");
     table.index("property_id");
     
     // Interaction details
@@ -72,13 +54,7 @@ export async function up(knex: Knex): Promise<void> {
     table.json("value").nullable();
     
     // Apartment/unit context (if interaction is with specific unit)
-    table
-      .integer("apartment_id")
-      .unsigned()
-      .nullable()
-      .references("id")
-      .inTable("apartments")
-      .onDelete("SET NULL");
+    table.withForeignKey("apartment_id","apartments","id","SET NULL");
     table.index("apartment_id");
     
     // Timestamp

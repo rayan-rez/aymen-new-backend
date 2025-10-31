@@ -3,15 +3,16 @@ import { addCheckConstraint, configureTableEngine } from "../knex-extensions";
 
 /**
  * Migration: Events Management System
- * 
+ *
  * Manages company events, exhibitions, open houses, and other promotional activities
- * 
+ *
  * KEY FEATURES:
  * - Event scheduling with start/end dates
  * - Location tracking (physical venue or online)
  * - Capacity management and registration tracking
  * - Multi-language support for event details
  * - Event categorization and status tracking
+ * - Influencer association and tracking
  * - SEO optimization for event pages
  */
 export async function up(knex: Knex): Promise<void> {
@@ -35,7 +36,7 @@ export async function up(knex: Knex): Promise<void> {
         "launch_event",
         "trade_show",
         "webinar",
-        "other"
+        "other",
       ],
       { columnName: "event_type" }
     );
@@ -45,7 +46,7 @@ export async function up(knex: Knex): Promise<void> {
     // =================================================================
     table.text("description").notNullable();
     table.text("short_description").nullable();
-    
+
     // Multi-language support
     table.withJsonMetadata("translations");
 
@@ -59,16 +60,16 @@ export async function up(knex: Knex): Promise<void> {
     // =================================================================
     // LOCATION
     // =================================================================
-    table.withStatusEnum(
-      ["physical", "online", "hybrid"],
-      { columnName: "location_type", defaultStatus: "physical" }
-    );
-    
+    table.withStatusEnum(["physical", "online", "hybrid"], {
+      columnName: "location_type",
+      defaultStatus: "physical",
+    });
+
     table.string("venue_name", 255).nullable();
     table.string("venue_address", 500).nullable();
     table.withCoordinates({ required: false });
     table.withForeignKey("location_id", "locations", "id", "SET NULL");
-    
+
     // For online/hybrid events
     table.string("online_meeting_url", 500).nullable();
     table.string("online_meeting_platform", 100).nullable();
@@ -135,7 +136,7 @@ export async function up(knex: Knex): Promise<void> {
     // =================================================================
     // COMPOSITE INDEXES FOR QUERY OPTIMIZATION
     // =================================================================
-    
+
     // Upcoming events query
     table.index(
       ["status", "start_date", "is_published"],
@@ -149,10 +150,7 @@ export async function up(knex: Knex): Promise<void> {
     );
 
     // Event type filtering
-    table.index(
-      ["event_type", "status", "start_date"],
-      "idx_type_status_date"
-    );
+    table.index(["event_type", "status", "start_date"], "idx_type_status_date");
 
     // Location-based events
     table.index(["location_id", "start_date"], "idx_location_date");
@@ -303,9 +301,173 @@ export async function up(knex: Knex): Promise<void> {
     "chk_reg_guests",
     "number_of_guests > 0"
   );
+
+  // ====================================================================
+  // EVENT INFLUENCERS (JUNCTION TABLE)
+  // ====================================================================
+  await knex.schema.createTable("event_influencers", (table) => {
+    table.increments("id").primary();
+
+    // =================================================================
+    // RELATIONSHIPS
+    // =================================================================
+    table.withForeignKey("event_id", "events", "id", "CASCADE");
+
+    // =================================================================
+    // INFLUENCER INFORMATION
+    // =================================================================
+    table.string("influencer_name", 255).notNullable();
+    table
+      .string("influencer_handle", 255)
+      .nullable()
+      .comment("Social media handle (e.g., @username)");
+    table.string("influencer_email", 255).nullable();
+    table.string("influencer_phone", 30).nullable();
+
+    // =================================================================
+    // SOCIAL MEDIA PROFILES
+    // =================================================================
+    table
+      .json("social_links")
+      .nullable();
+
+    // =================================================================
+    // INFLUENCER METRICS
+    // =================================================================
+    table
+      .integer("follower_count")
+      .unsigned()
+      .nullable()
+      .comment("Primary platform follower count");
+    table
+      .withStatusEnum(["micro", "macro", "mega", "celebrity"], {
+        columnName: "tier",
+        defaultStatus: "micro",
+      })
+      .comment(
+        "Influencer tier: micro (<100K), macro (100K-1M), mega (>1M), celebrity"
+      );
+
+    // =================================================================
+    // COLLABORATION DETAILS
+    // =================================================================
+    table.withStatusEnum(
+      ["invited", "confirmed", "declined", "attended", "cancelled"],
+      { columnName: "status", defaultStatus: "invited" }
+    );
+
+    table
+      .string("role", 100)
+      .nullable()
+      .comment("E.g., Guest Speaker, Brand Ambassador, Host");
+    table.decimal("compensation_amount", 10, 2).nullable();
+    table.string("compensation_currency", 3).defaultTo("DZD");
+    table.text("contract_terms").nullable();
+
+    // =================================================================
+    // DELIVERABLES & TRACKING
+    // =================================================================
+    table
+      .integer("required_posts")
+      .unsigned()
+      .defaultTo(0)
+      .comment("Number of posts agreed upon");
+    table.integer("completed_posts").unsigned().defaultTo(0);
+    table
+      .integer("reach_achieved")
+      .unsigned()
+      .nullable()
+      .comment("Total reach from influencer posts");
+    table
+      .integer("engagement_count")
+      .unsigned()
+      .nullable()
+      .comment("Total likes, comments, shares");
+
+    // =================================================================
+    // NOTES & METADATA
+    // =================================================================
+    table.text("notes").nullable();
+    table
+      .text("internal_notes")
+      .nullable()
+      .comment("Private notes not visible to influencer");
+    table.withJsonMetadata("custom_fields");
+
+    // =================================================================
+    // DATES
+    // =================================================================
+    table.timestamp("invited_at").nullable();
+    table.timestamp("confirmed_at").nullable();
+    table.timestamp("attended_at").nullable();
+
+    // =================================================================
+    // AUDIT TRAIL
+    // =================================================================
+    table.withTimestamps();
+
+    // =================================================================
+    // INDEXES
+    // =================================================================
+    table.index(["event_id", "status"], "idx_event_inf_status");
+    table.index("influencer_name", "idx_inf_name");
+    table.index("influencer_handle", "idx_inf_handle");
+    table.index("tier", "idx_inf_tier");
+    table.index(["event_id", "tier"], "idx_event_tier");
+
+    // Prevent duplicate influencer entries for the same event
+    table.unique(["event_id", "influencer_email"], "uk_event_inf_email");
+
+    configureTableEngine(table);
+  });
+
+  // =================================================================
+  // CHECK CONSTRAINTS FOR EVENT_INFLUENCERS
+  // =================================================================
+
+  // Ensure compensation amount is positive
+  await addCheckConstraint(
+    knex,
+    "event_influencers",
+    "chk_inf_compensation",
+    "compensation_amount IS NULL OR compensation_amount >= 0"
+  );
+
+  // Ensure completed posts don't exceed required posts
+  await addCheckConstraint(
+    knex,
+    "event_influencers",
+    "chk_inf_posts",
+    "completed_posts >= 0 AND completed_posts <= required_posts"
+  );
+
+  // Ensure follower count is positive
+  await addCheckConstraint(
+    knex,
+    "event_influencers",
+    "chk_inf_followers",
+    "follower_count IS NULL OR follower_count >= 0"
+  );
+
+  // Ensure reach is positive
+  await addCheckConstraint(
+    knex,
+    "event_influencers",
+    "chk_inf_reach",
+    "reach_achieved IS NULL OR reach_achieved >= 0"
+  );
+
+  // Ensure engagement is positive
+  await addCheckConstraint(
+    knex,
+    "event_influencers",
+    "chk_inf_engagement",
+    "engagement_count IS NULL OR engagement_count >= 0"
+  );
 }
 
 export async function down(knex: Knex): Promise<void> {
+  await knex.schema.dropTableIfExists("event_influencers");
   await knex.schema.dropTableIfExists("event_registrations");
   await knex.schema.dropTableIfExists("events");
 }
