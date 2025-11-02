@@ -32,6 +32,6 @@
       "@tests/*": ["__tests__/*"]
     }
   },
-  "include": ["src/**/*", "knexfile.js"],
+  "include": ["src/**/*", "knexfile.js", "knexfile.ts"],
   "exclude": ["node_modules", "dist", "**/*.spec.ts"]
 }
