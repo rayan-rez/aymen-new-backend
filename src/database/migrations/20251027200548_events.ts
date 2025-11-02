@@ -292,6 +292,9 @@ export async function up(knex: Knex): Promise<void> {
     table.index(["email", "event_id"], "idx_email_event");
     table.index("registered_at", "idx_registered_at");
 
+    // In event_registrations table
+    table.unique(["event_id", "email"], "uniq_event_email");
+
     configureTableEngine(table);
   });
 
@@ -327,9 +330,7 @@ export async function up(knex: Knex): Promise<void> {
     // =================================================================
     // SOCIAL MEDIA PROFILES
     // =================================================================
-    table
-      .json("social_links")
-      .nullable();
+    table.json("social_links").nullable();
 
     // =================================================================
     // INFLUENCER METRICS

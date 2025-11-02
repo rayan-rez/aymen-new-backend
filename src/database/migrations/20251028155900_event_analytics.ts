@@ -25,12 +25,7 @@ export async function up(knex: Knex): Promise<void> {
     // PRIMARY KEY
     // =================================================================
     table.bigIncrements("id").primary();
-
-    // =================================================================
-    // EVENT IDENTIFICATION
-    // =================================================================
-    // UUID for correlation with external analytics service
-    table.withForeignKey("event_id","events","id","SET NULL")
+    table.withForeignKey("event_id","events","id","SET NULL");
 
     // Event type
     table.string("event_type", 100).notNullable().index();

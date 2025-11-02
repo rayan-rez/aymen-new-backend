@@ -40,10 +40,10 @@ export async function up(knex: Knex): Promise<void> {
     table.decimal("area_sqm", 10, 2).nullable();
     table.decimal("price", 15, 2).nullable();
 
-    table.withStatusEnum(
-      ["available", "rented", "sold"],
-      { columnName: "status", defaultStatus: "available" }
-    );
+    table.withStatusEnum(["available", "rented", "sold"], {
+      columnName: "status",
+      defaultStatus: "available",
+    });
 
     // =================================================================
     // MARKETING
@@ -169,12 +169,17 @@ export async function up(knex: Knex): Promise<void> {
     "reading_time_minutes IS NULL OR reading_time_minutes > 0"
   );
 
+  await knex.raw(`
+    ALTER TABLE blog_posts 
+    ADD FULLTEXT INDEX ft_blog_search (title, excerpt, content)
+  `);
+
   // ====================================================================
   // BLOG POST SECTIONS
   // ====================================================================
   await knex.schema.createTable("blog_post_sections", (table) => {
     table.increments("id").primary();
-    
+
     table.withForeignKey("blog_post_id", "blog_posts", "id", "CASCADE");
 
     table.string("section_title", 255).nullable();
@@ -213,7 +218,13 @@ export async function up(knex: Knex): Promise<void> {
     // FEEDBACK TYPE
     // =================================================================
     table.withStatusEnum(
-      ["event_feedback", "property_visit", "customer_service", "general", "kiosk"],
+      [
+        "event_feedback",
+        "property_visit",
+        "customer_service",
+        "general",
+        "kiosk",
+      ],
       { columnName: "feedback_type" }
     );
 
@@ -231,18 +242,17 @@ export async function up(knex: Knex): Promise<void> {
     // =================================================================
     table.withForeignKey("project_id", "projects", "id", "SET NULL");
     table.string("related_event", 255).nullable();
-    table.withStatusEnum(
-      ["fr", "ar", "en"],
-      { columnName: "language", defaultStatus: "fr" }
-    );
+    table.withStatusEnum(["fr", "ar", "en"], {
+      columnName: "language",
+      defaultStatus: "fr",
+    });
 
     // =================================================================
     // SENTIMENT ANALYSIS
     // =================================================================
-    table.withStatusEnum(
-      ["positive", "neutral", "negative"],
-      { columnName: "sentiment" }
-    );
+    table.withStatusEnum(["positive", "neutral", "negative"], {
+      columnName: "sentiment",
+    });
     table.decimal("sentiment_score", 3, 2).nullable();
 
     table.withAuditTrail();
@@ -303,10 +313,10 @@ export async function up(knex: Knex): Promise<void> {
     // =================================================================
     table.string("trade_show_name", 255).notNullable().index();
     table.date("trade_show_date").notNullable().index();
-    table.withStatusEnum(
-      ["fr", "ar", "en"],
-      { columnName: "language", defaultStatus: "fr" }
-    );
+    table.withStatusEnum(["fr", "ar", "en"], {
+      columnName: "language",
+      defaultStatus: "fr",
+    });
 
     table.withAuditTrail();
 

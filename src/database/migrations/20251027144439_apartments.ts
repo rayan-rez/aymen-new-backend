@@ -3,10 +3,10 @@ import { addCheckConstraint, configureTableEngine } from "../knex-extensions";
 
 /**
  * Migration: Apartments (Individual Units within Projects)
- * 
+ *
  * Represents individual residential units/apartments within larger projects.
  * Each apartment belongs to exactly one project (one-to-many relationship).
- * 
+ *
  * KEY FEATURES:
  * - Unit identification and numbering system
  * - Floor-based organization for multi-story buildings
@@ -15,7 +15,7 @@ import { addCheckConstraint, configureTableEngine } from "../knex-extensions";
  * - Publishing workflow for controlled visibility
  * - Model unit designation for show apartments
  * - Virtual tour integration
- * 
+ *
  * TYPICAL USE CASES:
  * - Display available units for a project
  * - Filter apartments by specifications (bedrooms, price range)
@@ -34,11 +34,11 @@ export async function up(knex: Knex): Promise<void> {
     // UNIT IDENTIFICATION
     // =================================================================
     table.string("name", 255).notNullable();
-    
+
     // Unit numbering examples: "A-101", "Tower 2-305", "Villa 12"
     table.string("unit_number", 50).nullable();
     table.index("unit_number", "idx_unit_number");
-    
+
     // Floor number for vertical organization
     table.integer("floor_number").nullable();
 
@@ -52,10 +52,10 @@ export async function up(knex: Knex): Promise<void> {
     // =================================================================
     // SPECIFICATIONS
     // =================================================================
-    table.decimal("area_sqm", 10, 2).nullable();
+    table.decimal("area_sqm", 10, 2).notNullable();
     table.integer("bedrooms").unsigned().nullable();
     table.integer("bathrooms").unsigned().nullable();
-    table.decimal("price", 15, 2).nullable();
+    table.decimal("price", 15, 2).notNullable();
 
     // Optional: Additional room counts
     table.integer("living_rooms").unsigned().nullable();
@@ -65,17 +65,16 @@ export async function up(knex: Knex): Promise<void> {
     // =================================================================
     // AVAILABILITY STATUS
     // =================================================================
-    table.withStatusEnum(
-      ["available", "reserved", "sold"],
-      { defaultStatus: "available" }
-    );
+    table.withStatusEnum(["available", "reserved", "sold"], {
+      defaultStatus: "available",
+    });
 
     // =================================================================
     // SPECIAL DESIGNATIONS
     // =================================================================
     table.boolean("is_model_unit").defaultTo(false);
     table.index("is_model_unit", "idx_is_model_unit");
-    
+
     table.boolean("is_published").defaultTo(false);
     table.index("is_published", "idx_is_published");
 
@@ -92,7 +91,7 @@ export async function up(knex: Knex): Promise<void> {
     // =================================================================
     // COMPOSITE INDEXES FOR QUERY OPTIMIZATION
     // =================================================================
-    
+
     // Primary listing query: available units in project
     table.index(
       ["project_id", "status", "is_published"],
@@ -100,27 +99,21 @@ export async function up(knex: Knex): Promise<void> {
     );
 
     // Floor-based organization
-    table.index(
-      ["project_id", "floor_number"],
-      "idx_proj_floor"
-    );
+    table.index(["project_id", "floor_number"], "idx_proj_floor");
 
     // Filter by bedroom count
-    table.index(
-      ["bedrooms", "status"],
-      "idx_bed_status"
-    );
+    table.index(["bedrooms", "status"], "idx_bed_status");
 
     // Price range filtering
-    table.index(
-      ["price", "status"],
-      "idx_price_status"
-    );
+    table.index(["price", "status"], "idx_price_status");
 
     // Find model units
+    table.index(["project_id", "is_model_unit"], "idx_proj_model");
+
+    // Covering index for listing queries
     table.index(
-      ["project_id", "is_model_unit"],
-      "idx_proj_model"
+      ["project_id", "status", "is_published", "price", "bedrooms"],
+      "idx_listing_query"
     );
 
     // =================================================================
@@ -188,6 +181,7 @@ export async function up(knex: Knex): Promise<void> {
     "chk_apartments_balconies",
     "balconies IS NULL OR balconies >= 0"
   );
+
 }
 
 /**

@@ -3,9 +3,9 @@ import { addCheckConstraint, configureTableEngine } from "../knex-extensions";
 
 /**
  * Migration: Projects (Real Estate Developments)
- * 
+ *
  * Core table for residential/commercial/mixed-use projects.
- * 
+ *
  * Key Features:
  * - Project categorization by type (residential, commercial, luxury, etc.)
  * - Denormalized price range for efficient filtering
@@ -13,11 +13,11 @@ import { addCheckConstraint, configureTableEngine } from "../knex-extensions";
  * - Publishing workflow with featured/published flags
  * - SEO optimization fields (meta_title, meta_description)
  * - Geographic coordinates with location hierarchy
- * 
+ *
  * Relationships:
  * - One project → many apartments (projects.id ← apartments.project_id)
  * - One project → one location (projects.location_id → locations.id)
- * 
+ *
  * Indexes:
  * - Primary filtering: status + is_published + is_featured
  * - Geographic queries: location_id + status, latitude + longitude
@@ -48,11 +48,10 @@ export async function up(knex: Knex): Promise<void> {
     // =================================================================
     // PROJECT CLASSIFICATION
     // =================================================================
-    table
-      .withStatusEnum(
-        ["residential", "commercial", "mixed_use", "luxury", "affordable"],
-        { columnName: "project_type", defaultStatus: "residential" }
-      );
+    table.withStatusEnum(
+      ["residential", "commercial", "mixed_use", "luxury", "affordable"],
+      { columnName: "project_type", defaultStatus: "residential" }
+    );
 
     // =================================================================
     // PROJECT STATUS & PROGRESS
@@ -101,7 +100,7 @@ export async function up(knex: Knex): Promise<void> {
     // =================================================================
     // COMPOSITE INDEXES FOR QUERY OPTIMIZATION
     // =================================================================
-    
+
     // Primary listing query: published projects by status and featured flag
     table.index(
       ["status", "is_published", "is_featured"],
@@ -113,6 +112,12 @@ export async function up(knex: Knex): Promise<void> {
 
     // Type-based filtering
     table.index(["project_type", "status"], "idx_type_status");
+
+    // Covering index for map queries
+    table.index(
+      ["latitude", "longitude", "status", "is_published"],
+      "idx_map_query"
+    );
 
     // =================================================================
     // TABLE CONFIGURATION
@@ -170,6 +175,20 @@ export async function up(knex: Knex): Promise<void> {
     "projects",
     "chk_projects_total_units",
     "total_units IS NULL OR total_units > 0"
+  );
+
+  // For searching projects by name/description
+  await knex.raw(`
+    ALTER TABLE projects 
+    ADD FULLTEXT INDEX ft_projects_search (name, description, description_secondary)
+  `);
+
+  // check it has required fields
+  await addCheckConstraint(
+    knex,
+    "projects",
+    "chk_projects_published_fields",
+    "is_published = false OR (main_photo_url IS NOT NULL AND description IS NOT NULL)"
   );
 }
 
