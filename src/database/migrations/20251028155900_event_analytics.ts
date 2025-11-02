@@ -20,7 +20,7 @@ import { configureTableEngine } from "../knex-extensions";
  * NOTE: Consider partitioning this table by month for performance
  */
 export async function up(knex: Knex): Promise<void> {
-  await knex.schema.createTable("analytics_events", (table) => {
+  await knex.schema.createTable("event_analytics", (table) => {
     // =================================================================
     // PRIMARY KEY
     // =================================================================
@@ -30,8 +30,7 @@ export async function up(knex: Knex): Promise<void> {
     // EVENT IDENTIFICATION
     // =================================================================
     // UUID for correlation with external analytics service
-    table.uuid("event_uuid").notNullable().unique();
-    table.index("event_uuid", "idx_event_uuid");
+    table.withForeignKey("event_id","events","id","SET NULL")
 
     // Event type
     table.string("event_type", 100).notNullable().index();

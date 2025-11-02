@@ -32,8 +32,7 @@ export async function up(knex: Knex): Promise<void> {
     table.string("visitor_id", 36).notNullable().index();
     
     // Lead relationship (nullable until conversion)
-    table.withForeignKey("lead_id","leads","id","SET NULL");
-    table.index("lead_id");
+    table.withForeignKey("lead_mirror_id","lead_mirrors","id","SET NULL");
     
     // Session context
     table.withForeignKey("session_id","user_sessions","id","SET NULL");
@@ -75,7 +74,7 @@ export async function up(knex: Knex): Promise<void> {
     table.index(["property_id", "interaction_ts"], "idx_property_time");
     table.index(["action", "interaction_ts"], "idx_action_time");
     table.index(["visitor_id", "property_id"], "idx_visitor_property");
-    table.index(["lead_id", "property_id"], "idx_lead_property");
+    table.index(["lead_mirror_id", "property_id"], "idx_lead_property");
     table.index(["action_category", "interaction_ts"], "idx_category_time");
 
     configureTableEngine(table);

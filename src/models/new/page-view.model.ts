@@ -160,7 +160,7 @@ class PageViewModel extends BaseModel<
     }
 
     if (params.leadId !== undefined) {
-      query = query.where({ lead_id: params.leadId });
+      query = query.where({ lead_mirror_id: params.leadId });
     }
 
     if (params.pagePath) {
@@ -466,7 +466,7 @@ class PageViewModel extends BaseModel<
       id: record.id,
       sessionId: record.session_id,
       visitorId: record.visitor_id,
-      leadId: record.lead_id,
+      leadId: record.lead_mirror_id,
       pageUrl: record.page_url,
       pagePath: record.page_path,
       pageTitle: record.page_title,

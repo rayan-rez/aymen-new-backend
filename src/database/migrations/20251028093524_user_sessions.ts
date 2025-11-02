@@ -29,7 +29,7 @@ export async function up(knex: Knex): Promise<void> {
     table.string("session_id", 36).notNullable().unique();
 
     // Link to lead when identified
-    table.withForeignKey("lead_id", "leads", "id", "SET NULL");
+    table.withForeignKey("lead_mirror_id", "lead_mirrors", "id", "SET NULL");
 
     // =================================================================
     // ATTRIBUTION (UTM PARAMETERS)
@@ -72,7 +72,7 @@ export async function up(knex: Knex): Promise<void> {
     // COMPOSITE INDEXES FOR ANALYTICS QUERIES
     // =================================================================
     table.index(["visitor_id", "start_time"], "idx_visitor_time");
-    table.index(["source", "medium", "campaign"], "idx_attribution");
+    table.index(["utm_source", "utm_medium", "utm_campaign"], "idx_attribution");
     table.index(["start_time", "location_region"], "idx_time_region");
 
     configureTableEngine(table);

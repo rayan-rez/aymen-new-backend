@@ -25,8 +25,7 @@ export async function up(knex: Knex): Promise<void> {
     table.string("visitor_id", 36).notNullable().index();
     
     // Lead relationship
-    table.withForeignKey("lead_id","leads","id","SET NULL");
-    table.index("lead_id");
+    table.withForeignKey("lead_mirror_id","lead_mirrors","id","SET NULL");
     
     // Page details
     table.string("page_url", 500).notNullable();

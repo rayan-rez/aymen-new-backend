@@ -37,8 +37,7 @@ export async function up(knex: Knex): Promise<void> {
     table.string("visitor_id", 36).notNullable().index();
 
     // Lead relationship (nullable until visitor converts)
-    table.withForeignKey("lead_id", "leads", "id", "SET NULL");
-    table.index("lead_id");
+    table.withForeignKey("lead_mirror_id", "lead_mirrors", "id", "SET NULL");
 
     // Event classification
     table

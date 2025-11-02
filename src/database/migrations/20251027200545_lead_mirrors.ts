@@ -39,7 +39,6 @@ export async function up(knex: Knex): Promise<void> {
     // =================================================================
     // Links to the form submission that created this lead
     table.withForeignKey("form_submission_id","form_submissions","id","CASCADE");
-    table.index("form_submission_id", "idx_form_submission_id");
 
     // =================================================================
     // LEAD METADATA

@@ -23,13 +23,7 @@ export async function up(knex: Knex): Promise<void> {
     table.string("slug", 100).notNullable().unique();
 
     // Hierarchy fields
-    table
-      .integer("parent_id")
-      .unsigned()
-      .nullable()
-      .references("id")
-      .inTable("locations")
-      .onDelete("SET NULL");
+    table.withForeignKey("parent_id", "locations", "id", "SET NULL");
 
     // Materialized path: "/1/5/12/" for fast "get all descendants" queries
     table.string("path", 500).nullable().index();

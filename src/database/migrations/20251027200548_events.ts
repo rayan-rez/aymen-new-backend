@@ -240,7 +240,7 @@ export async function up(knex: Knex): Promise<void> {
     // RELATIONSHIPS
     // =================================================================
     table.withForeignKey("event_id", "events", "id", "CASCADE");
-    table.withForeignKey("lead_id", "leads", "id", "SET NULL");
+    table.withForeignKey("lead_mirror_id", "lead_mirrors", "id", "SET NULL");
 
     // =================================================================
     // REGISTRANT INFORMATION
@@ -288,7 +288,7 @@ export async function up(knex: Knex): Promise<void> {
     // INDEXES
     // =================================================================
     table.index(["event_id", "status"], "idx_event_status");
-    table.index(["lead_id", "event_id"], "idx_lead_event");
+    table.index(["lead_mirror_id", "event_id"], "idx_lead_event");
     table.index(["email", "event_id"], "idx_email_event");
     table.index("registered_at", "idx_registered_at");
 

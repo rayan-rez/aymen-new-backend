@@ -131,7 +131,7 @@ export interface PropertyInteractionQueryParams extends BaseQueryParams {
  * Property Interactions Model class
  * Handles all database operations for property interactions
  */
-class PropertyInteractionModel extends BaseModel
+class PropertyInteractionModel extends BaseModel <
   PropertyInteraction,
   CreatePropertyInteractionDto,
   UpdatePropertyInteractionDto
@@ -160,7 +160,7 @@ class PropertyInteractionModel extends BaseModel
     }
 
     if (params.leadId !== undefined) {
-      query = query.where({ lead_id: params.leadId });
+      query = query.where({ lead_mirror_id: params.leadId });
     }
 
     if (params.sessionId !== undefined) {
