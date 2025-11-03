@@ -1,17 +1,18 @@
 /**
  * Project Model
- * 
+ *
  * Manages real estate development projects with full support for:
  * - Related entities (apartments, features, media)
  * - Advanced filtering and search
  * - Publishing workflow
  * - Analytics integration
  * - Transaction safety
- * 
+ *
  * @module models/project.model
  */
 
-import { BaseModel, AdvancedQueryOptions, PaginatedResult } from "../base";
+import { BaseModel, AdvancedQueryOptions, PaginatedResult, DatabaseRecord } from "../base";
+import { generateSlug } from "../base/helpers";
 import { Knex } from "knex";
 
 // ============================================================================
@@ -156,7 +157,12 @@ export class ProjectModel extends BaseModel<
     timestamps: true,
     defaultSortColumn: "created_at",
     defaultSortOrder: "desc" as const,
-    searchableColumns: ["name", "description", "description_secondary", "address"],
+    searchableColumns: [
+      "name",
+      "description",
+      "description_secondary",
+      "address",
+    ],
     hiddenFields: [],
     fillable: [
       "name",
@@ -208,10 +214,12 @@ export class ProjectModel extends BaseModel<
   /**
    * Before create hook - validate and transform data
    */
-  protected async beforeCreate(data: CreateProjectDto): Promise<CreateProjectDto> {
+  protected async beforeCreate(
+    data: CreateProjectDto
+  ): Promise<CreateProjectDto> {
     // Generate slug if not provided
     if (!data.slug && data.name) {
-      data.slug = this.generateSlug(data.name);
+      data.slug = generateSlug(data.name);
     }
 
     // Validate coordinates
@@ -314,11 +322,15 @@ export class ProjectModel extends BaseModel<
     query = this.applyProjectFilters(query, options);
 
     const records = await query;
-    let entities = records.map((r:any) => this.mapToEntity(r));
+    let entities = records.map((r: DatabaseRecord) => this.mapToEntity(r));
 
     // Load relations if requested
     if (options.relations && options.relations.length > 0) {
-      entities = await this.loadRelationsForMany(entities, options.relations, trx);
+      entities = await this.loadRelationsForMany(
+        entities,
+        options.relations,
+        trx
+      );
     }
 
     return entities;
@@ -444,7 +456,7 @@ export class ProjectModel extends BaseModel<
     );
 
     const records = await query;
-    return records.map((r:any) => this.mapToEntity(r));
+    return records.map((r: DatabaseRecord) => this.mapToEntity(r));
   }
 
   /**
@@ -568,7 +580,7 @@ export class ProjectModel extends BaseModel<
       soldApartments: sold,
       soldPercentage,
       mediaCount: Number(mediaCount?.count || 0),
-      featuresCount: Number(featuresCount?.count || 0)
+      featuresCount: Number(featuresCount?.count || 0),
     };
   }
 
@@ -603,20 +615,13 @@ export class ProjectModel extends BaseModel<
     trx?: Knex.Transaction
   ): Promise<any[]> {
     const ApartmentModel = require("./apartment.model").default;
-    return ApartmentModel.findWhere(
-      { project_id: projectId, ...filters },
-      false,
-      trx
-    );
+    return ApartmentModel.findApartments({ projectId, ...filters }, trx);
   }
 
   /**
    * Gets features for a project
    */
-  async getFeatures(
-    projectId: number,
-    trx?: Knex.Transaction
-  ): Promise<any[]> {
+  async getFeatures(projectId: number, trx?: Knex.Transaction): Promise<any[]> {
     const connection = trx || this.db;
 
     return connection("project_features as pf")
@@ -848,7 +853,7 @@ export class ProjectModel extends BaseModel<
   /**
    * Maps database record to Project entity
    */
-  protected mapToEntity(record: any): Project {
+  protected mapToEntity(record: DatabaseRecord): Project {
     return {
       id: record.id,
       name: record.name,
@@ -910,18 +915,6 @@ export class ProjectModel extends BaseModel<
     if (percentage < 0 || percentage > 100) {
       throw new Error("Completion percentage must be between 0 and 100");
     }
-  }
-
-  /**
-   * Generates URL-friendly slug from text
-   */
-  private generateSlug(text: string): string {
-    return text
-      .toLowerCase()
-      .trim()
-      .replace(/[^\w\s-]/g, "")
-      .replace(/[\s_-]+/g, "-")
-      .replace(/^-+|-+$/g, "");
   }
 }
 

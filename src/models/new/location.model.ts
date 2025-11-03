@@ -8,7 +8,8 @@
  * @module models/location.model
  */
 
-import { BaseModel, AdvancedQueryOptions, PaginatedResult } from "../base";
+import { BaseModel, AdvancedQueryOptions, PaginatedResult, DatabaseRecord } from "../base";
+import { generateSlug } from "../base/helpers";
 import { Knex } from "knex";
 
 // ============================================================================
@@ -113,13 +114,13 @@ export class LocationModel extends BaseModel<
   protected relations = {
     parent: {
       type: "belongsTo" as const,
-      model: () => locationModel,
+      model: () => require("./location.model").default,
       foreignKey: "parentId",
       localKey: "id",
     },
     children: {
       type: "hasMany" as const,
-      model: () => locationModel,
+      model: () => require("./location.model").default,
       foreignKey: "parentId",
       localKey: "id",
     },
@@ -143,7 +144,7 @@ export class LocationModel extends BaseModel<
   ): Promise<CreateLocationDto> {
     // Generate slug if not provided
     if (!data.slug) {
-      data.slug = this.generateSlug(data.name);
+      data.slug = generateSlug(data.name);
     }
 
     // Validate slug uniqueness
@@ -282,7 +283,7 @@ export class LocationModel extends BaseModel<
     query = this.applyLocationFilters(query, options);
 
     const records = await query;
-    let entities = records.map((r: any) => this.mapToEntity(r));
+    let entities = records.map((r: DatabaseRecord) => this.mapToEntity(r));
 
     // Load relations if requested
     if (options.relations && options.relations.length > 0) {
@@ -454,7 +455,7 @@ export class LocationModel extends BaseModel<
       .whereNull("deleted_at")
       .orderBy("depth", "asc");
 
-    return records.map((r: any) => this.mapToEntity(r));
+    return records.map((r: DatabaseRecord) => this.mapToEntity(r));
   }
 
   /**
@@ -486,7 +487,7 @@ export class LocationModel extends BaseModel<
     }
 
     const records = await query;
-    return records.map((r: any) => this.mapToEntity(r));
+    return records.map((r: DatabaseRecord) => this.mapToEntity(r));
   }
 
   /**
@@ -554,7 +555,7 @@ export class LocationModel extends BaseModel<
         .whereNull("deleted_at")
         .orderBy("display_order", "asc");
 
-      return records.map((r: any) => this.mapToEntity(r));
+      return records.map((r: DatabaseRecord) => this.mapToEntity(r));
     } else {
       // Has parent - get siblings
       return this.findByParent(location.parentId, {}, trx).then((locations) =>
@@ -737,23 +738,9 @@ export class LocationModel extends BaseModel<
   }
 
   /**
-   * Generates URL-friendly slug from text
-   */
-  private generateSlug(text: string): string {
-    return text
-      .toLowerCase()
-      .trim()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "") // Remove accents
-      .replace(/[^\w\s-]/g, "") // Remove special chars
-      .replace(/[\s_-]+/g, "-") // Replace spaces/underscores with hyphens
-      .replace(/^-+|-+$/g, ""); // Remove leading/trailing hyphens
-  }
-
-  /**
    * Maps database record to Location entity
    */
-  protected mapToEntity(record: any): Location {
+  protected mapToEntity(record: DatabaseRecord): Location {
     return {
       id: record.id,
       name: record.name,
@@ -771,7 +758,5 @@ export class LocationModel extends BaseModel<
   }
 }
 
-var locationModel = new LocationModel();
-
 // Export singleton instance
-export default locationModel;
+export default new LocationModel();

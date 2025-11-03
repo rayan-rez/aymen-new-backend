@@ -7,7 +7,8 @@
  * @module models/event.model
  */
 
-import { BaseModel, AdvancedQueryOptions, PaginatedResult } from "../base";
+import { BaseModel, AdvancedQueryOptions, PaginatedResult, DatabaseRecord } from "../base";
+import { generateSlug } from "../base/helpers";
 import { Knex } from "knex";
 
 // ============================================================================
@@ -298,7 +299,7 @@ export class EventModel extends BaseModel<Event, CreateEventDto, UpdateEventDto>
   protected async beforeCreate(data: CreateEventDto): Promise<CreateEventDto> {
     // Generate slug if not provided
     if (!data.slug) {
-      data.slug = this.generateSlug(data.name);
+      data.slug = generateSlug(data.name);
     }
 
     // Validate slug uniqueness
@@ -411,7 +412,7 @@ export class EventModel extends BaseModel<Event, CreateEventDto, UpdateEventDto>
     query = this.applyEventFilters(query, options);
 
     const records = await query;
-    let entities = records.map((r: any) => this.mapToEntity(r));
+    let entities = records.map((r: DatabaseRecord) => this.mapToEntity(r));
 
     // Load relations if requested
     if (options.relations && options.relations.length > 0) {
@@ -905,23 +906,9 @@ export class EventModel extends BaseModel<Event, CreateEventDto, UpdateEventDto>
   }
 
   /**
-   * Generates URL-friendly slug from text
-   */
-  private generateSlug(text: string): string {
-    return text
-      .toLowerCase()
-      .trim()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^\w\s-]/g, "")
-      .replace(/[\s_-]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-  }
-
-  /**
    * Maps database record to Event entity
    */
-  protected mapToEntity(record: any): Event {
+  protected mapToEntity(record: DatabaseRecord): Event {
     return {
       id: record.id,
       name: record.name,

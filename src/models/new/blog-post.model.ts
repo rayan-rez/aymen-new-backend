@@ -7,9 +7,10 @@
  * @module models/blog-post.model
  */
 
-import { BaseModel, AdvancedQueryOptions, PaginatedResult } from "../base";
+import { BaseModel, AdvancedQueryOptions, PaginatedResult, DatabaseRecord } from "../base";
+import { generateSlug } from "../base/helpers";
 import { Knex } from "knex";
-import type { BlogPostSection, CreateSectionDto, UpdateSectionDto } from "./content-management.model";
+import type { BlogPostSection } from "./content-management.model";
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -154,7 +155,7 @@ export class BlogPostModel extends BaseModel<
   ): Promise<CreateBlogPostDto> {
     // Generate slug if not provided
     if (!data.slug) {
-      data.slug = this.generateSlug(data.title);
+      data.slug = generateSlug(data.title);
     }
 
     // Validate slug uniqueness
@@ -234,7 +235,7 @@ export class BlogPostModel extends BaseModel<
     query = this.applyBlogFilters(query, options);
 
     const records = await query;
-    let entities = records.map((r: any) => this.mapToEntity(r));
+    let entities = records.map((r: DatabaseRecord) => this.mapToEntity(r));
 
     // Load relations if requested
     if (options.relations && options.relations.length > 0) {
@@ -401,7 +402,7 @@ export class BlogPostModel extends BaseModel<
     );
 
     const records = await query;
-    return records.map((r: any) => this.mapToEntity(r));
+    return records.map((r: DatabaseRecord) => this.mapToEntity(r));
   }
 
   /**
@@ -460,7 +461,7 @@ export class BlogPostModel extends BaseModel<
       .orderBy("published_at", "desc")
       .limit(limit);
 
-    return records.map((r: any) => this.mapToEntity(r));
+    return records.map((r: DatabaseRecord) => this.mapToEntity(r));
   }
 
   // ============================================================================
@@ -693,23 +694,9 @@ export class BlogPostModel extends BaseModel<
   }
 
   /**
-   * Generates URL-friendly slug from text
-   */
-  private generateSlug(text: string): string {
-    return text
-      .toLowerCase()
-      .trim()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^\w\s-]/g, "")
-      .replace(/[\s_-]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-  }
-
-  /**
    * Maps database record to BlogPost entity
    */
-  protected mapToEntity(record: any): BlogPost {
+  protected mapToEntity(record: DatabaseRecord): BlogPost {
     return {
       id: record.id,
       title: record.title,

@@ -5,7 +5,13 @@
  * @module models/content-management
  */
 
-import { BaseModel, AdvancedQueryOptions, PaginatedResult } from "../base";
+import {
+  BaseModel,
+  AdvancedQueryOptions,
+  PaginatedResult,
+  DatabaseRecord,
+} from "../base";
+import { generateSlug } from "../base/helpers";
 import { Knex } from "knex";
 
 // ============================================================================
@@ -67,7 +73,7 @@ export class BlogPostSectionModel extends BaseModel<
       .where({ blog_post_id: blogPostId })
       .orderBy("display_order", "asc");
 
-    return records.map((r: any) => this.mapToEntity(r));
+    return records.map((r: DatabaseRecord) => this.mapToEntity(r));
   }
 
   async reorderSections(
@@ -90,7 +96,7 @@ export class BlogPostSectionModel extends BaseModel<
     return true;
   }
 
-  protected mapToEntity(record: any): BlogPostSection {
+  protected mapToEntity(record: DatabaseRecord): BlogPostSection {
     return {
       id: record.id,
       blogPostId: record.blog_post_id,
@@ -237,7 +243,7 @@ export class CommercialPropertyModel extends BaseModel<
     data: CreateCommercialPropertyDto
   ): Promise<CreateCommercialPropertyDto> {
     if (!data.slug) {
-      data.slug = this.generateSlug(data.title);
+      data.slug = generateSlug(data.title);
     }
 
     const existing = await this.findOne({ slug: data.slug });
@@ -284,7 +290,7 @@ export class CommercialPropertyModel extends BaseModel<
     query = this.applyPropertyFilters(query, options);
 
     const records = await query;
-    return records.map((r: any) => this.mapToEntity(r));
+    return records.map((r: DatabaseRecord) => this.mapToEntity(r));
   }
 
   private applyPropertyFilters(
@@ -346,18 +352,7 @@ export class CommercialPropertyModel extends BaseModel<
     return query;
   }
 
-  private generateSlug(text: string): string {
-    return text
-      .toLowerCase()
-      .trim()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^\w\s-]/g, "")
-      .replace(/[\s_-]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-  }
-
-  protected mapToEntity(record: any): CommercialProperty {
+  protected mapToEntity(record: DatabaseRecord): CommercialProperty {
     return {
       id: record.id,
       title: record.title,
@@ -546,7 +541,7 @@ export class CustomerFeedbackModel extends BaseModel<
     query = this.applyFeedbackFilters(query, options);
 
     const records = await query;
-    return records.map((r: any) => this.mapToEntity(r));
+    return records.map((r: DatabaseRecord) => this.mapToEntity(r));
   }
 
   async getStatistics(
@@ -689,7 +684,7 @@ export class CustomerFeedbackModel extends BaseModel<
     return query;
   }
 
-  protected mapToEntity(record: any): CustomerFeedback {
+  protected mapToEntity(record: DatabaseRecord): CustomerFeedback {
     return {
       id: record.id,
       fullName: record.full_name,
@@ -820,7 +815,7 @@ export class TradeShowFeedbackModel extends BaseModel<
     }
 
     const records = await query;
-    return records.map((r: any) => this.mapToEntity(r));
+    return records.map((r: DatabaseRecord) => this.mapToEntity(r));
   }
 
   async getTradeShowStatistics(
@@ -858,7 +853,7 @@ export class TradeShowFeedbackModel extends BaseModel<
     };
   }
 
-  protected mapToEntity(record: any): TradeShowFeedback {
+  protected mapToEntity(record: DatabaseRecord): TradeShowFeedback {
     return {
       id: record.id,
       companySatisfaction: Number(record.company_satisfaction),

@@ -1,9 +1,9 @@
 /**
  * Enhanced Base Model with Advanced Features
- * 
+ *
  * @module models/base
  * @abstract
- * 
+ *
  * Features:
  * - Full TypeScript type safety
  * - Advanced filtering and querying
@@ -34,6 +34,10 @@ export interface BaseQueryParams {
   search?: string;
   fields?: string[]; // Select specific fields
   relations?: string[]; // Relations to load
+}
+
+export interface DatabaseRecord {
+  [key: string]: any;
 }
 
 /**
@@ -182,7 +186,17 @@ export abstract class BaseModel<T, TCreate = Partial<T>, TUpdate = Partial<T>> {
 
   constructor(connection?: Knex) {
     this.db = connection || db;
+    this.validateConnection();
     this.initializeColumnMap();
+  }
+
+  private async validateConnection(): Promise<void> {
+    try {
+      await this.db.raw("SELECT 1");
+    } catch (error) {
+      console.error(`[${this.tableName}] Database connection failed:`, error);
+      throw new Error("Database connection unavailable");
+    }
   }
 
   // ------------------------------------------------------------------------
@@ -301,7 +315,7 @@ export abstract class BaseModel<T, TCreate = Partial<T>, TUpdate = Partial<T>> {
     const query = this.buildQuery(connection, options);
 
     const records = await query;
-    let entities = records.map((r:any) => this.mapToEntity(r));
+    let entities = records.map((r: DatabaseRecord) => this.mapToEntity(r));
 
     if (options.relations && options.relations.length > 0) {
       entities = await this.loadRelationsForMany(
@@ -580,9 +594,7 @@ export abstract class BaseModel<T, TCreate = Partial<T>, TUpdate = Partial<T>> {
             ...(this.config.timestamps && { updated_at: trx.fn.now() }),
           });
       } else {
-        deleted = await trx(this.tableName)
-          .whereIn(this.primaryKey, ids)
-          .del();
+        deleted = await trx(this.tableName).whereIn(this.primaryKey, ids).del();
       }
 
       await trx.commit();
@@ -711,7 +723,7 @@ export abstract class BaseModel<T, TCreate = Partial<T>, TUpdate = Partial<T>> {
     });
 
     const records = await query;
-    return records.map((r:any) => this.mapToEntity(r));
+    return records.map((r: DatabaseRecord) => this.mapToEntity(r));
   }
 
   // ------------------------------------------------------------------------
@@ -950,8 +962,15 @@ export abstract class BaseModel<T, TCreate = Partial<T>, TUpdate = Partial<T>> {
    * Executes callback within transaction
    */
   async transaction<R>(
-    callback: (trx: Knex.Transaction) => Promise<R>
+    callback: (trx: Knex.Transaction) => Promise<R>,
+    existingTrx?: Knex.Transaction
   ): Promise<R> {
+    if (existingTrx) {
+      // Use existing transaction
+      return callback(existingTrx);
+    }
+
+    // Create new transaction
     const trx = await this.db.transaction();
     try {
       const result = await callback(trx);

@@ -7,7 +7,7 @@
  * @module models/event-registration.model
  */
 
-import { BaseModel, AdvancedQueryOptions, PaginatedResult } from "../base";
+import { BaseModel, AdvancedQueryOptions, PaginatedResult, DatabaseRecord } from "../base";
 import { Knex } from "knex";
 
 // ============================================================================
@@ -320,7 +320,7 @@ export class EventRegistrationModel extends BaseModel<
     query = this.applyRegistrationFilters(query, options);
 
     const records = await query;
-    let entities = records.map((r: any) => this.mapToEntity(r));
+    let entities = records.map((r: DatabaseRecord) => this.mapToEntity(r));
 
     // Load relations if requested
     if (options.relations && options.relations.length > 0) {
@@ -696,7 +696,7 @@ export class EventRegistrationModel extends BaseModel<
   /**
    * Maps database record to EventRegistration entity
    */
-  protected mapToEntity(record: any): EventRegistration {
+  protected mapToEntity(record: DatabaseRecord): EventRegistration {
     return {
       id: record.id,
       eventId: record.event_id,

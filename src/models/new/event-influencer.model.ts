@@ -7,7 +7,7 @@
  * @module models/event-influencer.model
  */
 
-import { BaseModel, AdvancedQueryOptions, PaginatedResult } from "../base";
+import { BaseModel, AdvancedQueryOptions, PaginatedResult, DatabaseRecord } from "../base";
 import { Knex } from "knex";
 
 // ============================================================================
@@ -325,7 +325,7 @@ export class EventInfluencerModel extends BaseModel<
     query = this.applyInfluencerFilters(query, options);
 
     const records = await query;
-    let entities = records.map((r: any) => this.mapToEntity(r));
+    let entities = records.map((r: DatabaseRecord) => this.mapToEntity(r));
 
     // Load relations if requested
     if (options.relations && options.relations.length > 0) {
@@ -620,7 +620,7 @@ export class EventInfluencerModel extends BaseModel<
       .orderBy("reach_achieved", "desc")
       .limit(limit);
 
-    return records.map((r: any) => this.mapToEntity(r));
+    return records.map((r: DatabaseRecord) => this.mapToEntity(r));
   }
 
   // ============================================================================
@@ -702,7 +702,7 @@ export class EventInfluencerModel extends BaseModel<
   /**
    * Maps database record to EventInfluencer entity
    */
-  protected mapToEntity(record: any): EventInfluencer {
+  protected mapToEntity(record: DatabaseRecord): EventInfluencer {
     return {
       id: record.id,
       eventId: record.event_id,

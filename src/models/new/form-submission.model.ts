@@ -7,7 +7,7 @@
  * @module models/form-submission.model
  */
 
-import { BaseModel, AdvancedQueryOptions, PaginatedResult } from "../base";
+import { BaseModel, AdvancedQueryOptions, PaginatedResult, DatabaseRecord } from "../base";
 import { Knex } from "knex";
 
 // ============================================================================
@@ -336,7 +336,7 @@ export class FormSubmissionModel extends BaseModel<
     query = this.applySubmissionFilters(query, options);
 
     const records = await query;
-    let entities = records.map((r: any) => this.mapToEntity(r));
+    let entities = records.map((r: DatabaseRecord) => this.mapToEntity(r));
 
     // Load relations if requested
     if (options.relations && options.relations.length > 0) {
@@ -861,7 +861,7 @@ export class FormSubmissionModel extends BaseModel<
   /**
    * Maps database record to FormSubmission entity
    */
-  protected mapToEntity(record: any): FormSubmission {
+  protected mapToEntity(record: DatabaseRecord): FormSubmission {
     return {
       id: record.id,
       visitorId: record.visitor_id,

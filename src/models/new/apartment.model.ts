@@ -8,7 +8,7 @@
  * @module models/apartment.model
  */
 
-import { BaseModel, AdvancedQueryOptions, PaginatedResult } from "../base";
+import { BaseModel, AdvancedQueryOptions, PaginatedResult, DatabaseRecord } from "../base";
 import { Knex } from "knex";
 
 // ============================================================================
@@ -342,7 +342,7 @@ export class ApartmentModel extends BaseModel<
     query = this.applyApartmentFilters(query, options);
 
     const records = await query;
-    let entities = records.map((r: any) => this.mapToEntity(r));
+    let entities = records.map((r: DatabaseRecord) => this.mapToEntity(r));
 
     // Load relations if requested
     if (options.relations && options.relations.length > 0) {
@@ -525,7 +525,7 @@ export class ApartmentModel extends BaseModel<
     }
 
     const records = await query;
-    return records.map((r: any) => this.mapToEntity(r));
+    return records.map((r: DatabaseRecord) => this.mapToEntity(r));
   }
 
   // ============================================================================
@@ -918,7 +918,7 @@ export class ApartmentModel extends BaseModel<
   /**
    * Maps database record to Apartment entity
    */
-  protected mapToEntity(record: any): Apartment {
+  protected mapToEntity(record: DatabaseRecord): Apartment {
     return {
       id: record.id,
       projectId: record.project_id,

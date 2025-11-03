@@ -9,7 +9,8 @@
  * @module models/feature.model
  */
 
-import { BaseModel, AdvancedQueryOptions, PaginatedResult } from "../base";
+import { BaseModel, AdvancedQueryOptions, PaginatedResult, DatabaseRecord } from "../base";
+import { generateSlug } from "../base/helpers";
 import { Knex } from "knex";
 
 // ============================================================================
@@ -148,7 +149,7 @@ export class FeatureModel extends BaseModel<
   ): Promise<CreateFeatureDto> {
     // Generate slug if not provided
     if (!data.slug) {
-      data.slug = this.generateSlug(data.name);
+      data.slug = generateSlug(data.name);
     }
 
     // Validate slug uniqueness
@@ -235,7 +236,7 @@ export class FeatureModel extends BaseModel<
     query = this.applyFeatureFilters(query, options);
 
     const records = await query;
-    let entities = records.map((r: any) => this.mapToEntity(r));
+    let entities = records.map((r: DatabaseRecord) => this.mapToEntity(r));
 
     // Load relations if requested
     if (options.relations && options.relations.length > 0) {
@@ -555,7 +556,7 @@ export class FeatureModel extends BaseModel<
       .select("f.*")
       .orderBy("f.display_order", "asc");
 
-    return records.map((r: any) => this.mapToEntity(r));
+    return records.map((r: DatabaseRecord) => this.mapToEntity(r));
   }
 
   /**
@@ -723,23 +724,9 @@ export class FeatureModel extends BaseModel<
   }
 
   /**
-   * Generates URL-friendly slug from text
-   */
-  private generateSlug(text: string): string {
-    return text
-      .toLowerCase()
-      .trim()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "") // Remove accents
-      .replace(/[^\w\s-]/g, "") // Remove special chars
-      .replace(/[\s_-]+/g, "-") // Replace spaces/underscores with hyphens
-      .replace(/^-+|-+$/g, ""); // Remove leading/trailing hyphens
-  }
-
-  /**
    * Maps database record to Feature entity
    */
-  protected mapToEntity(record: any): Feature {
+  protected mapToEntity(record: DatabaseRecord): Feature {
     return {
       id: record.id,
       name: record.name,

@@ -7,7 +7,7 @@
  * @module models/lead-mirror.model
  */
 
-import { BaseModel, AdvancedQueryOptions, PaginatedResult } from "../base";
+import { BaseModel, AdvancedQueryOptions, PaginatedResult, DatabaseRecord } from "../base";
 import { Knex } from "knex";
 
 // ============================================================================
@@ -214,7 +214,7 @@ export class LeadMirrorModel extends BaseModel<
     query = this.applyLeadFilters(query, options);
 
     const records = await query;
-    let entities = records.map((r: any) => this.mapToEntity(r));
+    let entities = records.map((r: DatabaseRecord) => this.mapToEntity(r));
 
     // Load relations if requested
     if (options.relations && options.relations.length > 0) {
@@ -630,7 +630,7 @@ export class LeadMirrorModel extends BaseModel<
   /**
    * Maps database record to LeadMirror entity
    */
-  protected mapToEntity(record: any): LeadMirror {
+  protected mapToEntity(record: DatabaseRecord): LeadMirror {
     return {
       id: record.id,
       odooLeadId: record.odoo_lead_id,
