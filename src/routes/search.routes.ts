@@ -2,7 +2,7 @@
 // src/routes/search.routes.ts
 // ============================================
 import { Router } from "express";
-import searchController from "@controllers/search.controller";
+import searchController from "@/controllers/legacy/search.controller";
 
 const router = Router();
 

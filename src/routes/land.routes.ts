@@ -2,7 +2,7 @@
 // src/routes/land.routes.ts
 // ============================================
 import { Router } from "express";
-import landController from "@controllers/land.controller";
+import landController from "@/controllers/legacy/land.controller";
 
 const router = Router();
 

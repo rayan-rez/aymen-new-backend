@@ -10,7 +10,7 @@ import { ApiResponse } from "@/utils/response.util";
 import FormSubmissionModel, {
   FormType,
   ProcessingStatus,
-} from "@/models/new/form-submission.model";
+} from "@models/form-submission.model";
 import { AppError } from "@/middlewares/error-handler.middleware";
 
 /**

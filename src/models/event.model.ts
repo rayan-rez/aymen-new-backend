@@ -7,8 +7,13 @@
  * @module models/event.model
  */
 
-import { BaseModel, AdvancedQueryOptions, PaginatedResult, DatabaseRecord } from "../base";
-import { generateSlug } from "../base/helpers";
+import {
+  BaseModel,
+  AdvancedQueryOptions,
+  PaginatedResult,
+  DatabaseRecord,
+} from "./base";
+import { generateSlug } from "./base/helpers";
 import { Knex } from "knex";
 
 // ============================================================================
@@ -209,7 +214,11 @@ export interface EventWithStats extends Event {
 // EVENT MODEL CLASS
 // ============================================================================
 
-export class EventModel extends BaseModel<Event, CreateEventDto, UpdateEventDto> {
+export class EventModel extends BaseModel<
+  Event,
+  CreateEventDto,
+  UpdateEventDto
+> {
   protected tableName = "events";
   protected primaryKey = "id";
 
@@ -314,7 +323,10 @@ export class EventModel extends BaseModel<Event, CreateEventDto, UpdateEventDto>
     }
 
     // Validate registration deadline
-    if (data.registrationDeadline && data.registrationDeadline > data.startDate) {
+    if (
+      data.registrationDeadline &&
+      data.registrationDeadline > data.startDate
+    ) {
       throw new Error("Registration deadline must be before event start date");
     }
 
@@ -334,13 +346,21 @@ export class EventModel extends BaseModel<Event, CreateEventDto, UpdateEventDto>
     }
 
     // Validate location type requirements
-    if (data.locationType === EventsLocationType.PHYSICAL || data.locationType === EventsLocationType.HYBRID) {
+    if (
+      data.locationType === EventsLocationType.PHYSICAL ||
+      data.locationType === EventsLocationType.HYBRID
+    ) {
       if (!data.venueName || !data.venueAddress) {
-        throw new Error("Physical/Hybrid events require venue name and address");
+        throw new Error(
+          "Physical/Hybrid events require venue name and address"
+        );
       }
     }
 
-    if (data.locationType === EventsLocationType.ONLINE || data.locationType === EventsLocationType.HYBRID) {
+    if (
+      data.locationType === EventsLocationType.ONLINE ||
+      data.locationType === EventsLocationType.HYBRID
+    ) {
       if (!data.onlineMeetingUrl) {
         throw new Error("Online/Hybrid events require meeting URL");
       }
@@ -416,7 +436,11 @@ export class EventModel extends BaseModel<Event, CreateEventDto, UpdateEventDto>
 
     // Load relations if requested
     if (options.relations && options.relations.length > 0) {
-      entities = await this.loadRelationsForMany(entities, options.relations, trx);
+      entities = await this.loadRelationsForMany(
+        entities,
+        options.relations,
+        trx
+      );
     }
 
     return entities;
@@ -632,7 +656,11 @@ export class EventModel extends BaseModel<Event, CreateEventDto, UpdateEventDto>
     id: number,
     trx?: Knex.Transaction
   ): Promise<Event | null> {
-    return this.update(id, { isRegistrationOpen: false } as UpdateEventDto, trx);
+    return this.update(
+      id,
+      { isRegistrationOpen: false } as UpdateEventDto,
+      trx
+    );
   }
 
   // ============================================================================
@@ -704,9 +732,15 @@ export class EventModel extends BaseModel<Event, CreateEventDto, UpdateEventDto>
       .where({ event_id: eventId })
       .select(
         connection.raw("COUNT(*) as total"),
-        connection.raw("COUNT(CASE WHEN status = 'confirmed' THEN 1 END) as confirmed"),
-        connection.raw("COUNT(CASE WHEN status = 'attended' THEN 1 END) as attended"),
-        connection.raw("COUNT(CASE WHEN status = 'no_show' THEN 1 END) as noShow"),
+        connection.raw(
+          "COUNT(CASE WHEN status = 'confirmed' THEN 1 END) as confirmed"
+        ),
+        connection.raw(
+          "COUNT(CASE WHEN status = 'attended' THEN 1 END) as attended"
+        ),
+        connection.raw(
+          "COUNT(CASE WHEN status = 'no_show' THEN 1 END) as noShow"
+        ),
         connection.raw("SUM(number_of_guests) as totalGuests")
       );
 
@@ -869,7 +903,9 @@ export class EventModel extends BaseModel<Event, CreateEventDto, UpdateEventDto>
 
     // Has capacity filter
     if (options.hasCapacity) {
-      query = query.whereRaw("max_capacity IS NULL OR registered_count < max_capacity");
+      query = query.whereRaw(
+        "max_capacity IS NULL OR registered_count < max_capacity"
+      );
     }
 
     // Upcoming events filter

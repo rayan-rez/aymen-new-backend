@@ -7,7 +7,12 @@
  * @module models/form-submission.model
  */
 
-import { BaseModel, AdvancedQueryOptions, PaginatedResult, DatabaseRecord } from "../base";
+import {
+  BaseModel,
+  AdvancedQueryOptions,
+  PaginatedResult,
+  DatabaseRecord,
+} from "./base";
 import { Knex } from "knex";
 
 // ============================================================================

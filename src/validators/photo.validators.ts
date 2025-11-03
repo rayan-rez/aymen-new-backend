@@ -6,7 +6,6 @@
  */
 
 import Joi from "joi";
-import { PhotoableType } from "@/models/photo.model";
 
 /**
  * Common photo schemas

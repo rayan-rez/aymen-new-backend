@@ -1,13 +1,18 @@
 /**
  * Lead Mirror Model
- * 
+ *
  * Minimal local table that mirrors leads created in Odoo ERP.
  * Acts as correlation table between local form submissions and external CRM.
- * 
+ *
  * @module models/lead-mirror.model
  */
 
-import { BaseModel, AdvancedQueryOptions, PaginatedResult, DatabaseRecord } from "../base";
+import {
+  BaseModel,
+  AdvancedQueryOptions,
+  PaginatedResult,
+  DatabaseRecord,
+} from "./base";
 import { Knex } from "knex";
 
 // ============================================================================
@@ -45,22 +50,22 @@ export interface LeadMirror {
   odooLeadId: string;
   formSubmissionId: number;
   leadType: LeadType;
-  
+
   // Cached contact info for quick access
   email: string | null;
   phone: string | null;
-  
+
   // Sync status
   syncStatus: SyncStatus;
   syncedAt: Date | null;
   lastOdooUpdate: Date | null;
   syncError: string | null;
   syncRetryCount: number;
-  
+
   // Timestamps
   createdAt: Date;
   updatedAt: Date;
-  
+
   // Virtual relations
   formSubmission?: any;
   eventRegistrations?: any[];
@@ -218,7 +223,11 @@ export class LeadMirrorModel extends BaseModel<
 
     // Load relations if requested
     if (options.relations && options.relations.length > 0) {
-      entities = await this.loadRelationsForMany(entities, options.relations, trx);
+      entities = await this.loadRelationsForMany(
+        entities,
+        options.relations,
+        trx
+      );
     }
 
     return entities;
@@ -339,10 +348,7 @@ export class LeadMirrorModel extends BaseModel<
     options: LeadMirrorQueryOptions = {},
     trx?: Knex.Transaction
   ): Promise<LeadMirror[]> {
-    return this.findLeads(
-      { ...options, syncStatus: SyncStatus.FAILED },
-      trx
-    );
+    return this.findLeads({ ...options, syncStatus: SyncStatus.FAILED }, trx);
   }
 
   // ============================================================================

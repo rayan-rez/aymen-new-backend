@@ -1,63 +1,46 @@
 /**
- * Photo Model (Polymorphic)
- * Represents photos for multiple entity types
- * Replaces: project_photos, apartment_photos, commercial_property_photos, blog_post_gallery_images
+ * Photo Model (Polymorphic) - FIXED
+ *
+ * Handles photos for multiple entity types
+ * Uses polymorphic relationship pattern
  *
  * @module models/photo.model
  */
 
-import { BaseModel, BaseQueryParams } from "./base.model";
+import {
+  BasePolymorphicModel,
+  PolymorphicEntity,
+  PolymorphicQueryOptions,
+} from "./base/polymorphic";
+import { Knex } from "knex";
+import { DatabaseRecord } from "./base";
 
-/**
- * Photoable type enumeration
- * Defines which entities can have photos
- */
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
+
 export enum PhotoableType {
   PROJECT = "project",
   APARTMENT = "apartment",
   COMMERCIAL_PROPERTY = "commercial_property",
   BLOG_POST = "blog_post",
+  EVENT = "event",
 }
 
-/**
- * Photo entity interface
- * Represents a polymorphic photo
- */
-export interface Photo {
-  /** Unique identifier */
+export interface Photo extends PolymorphicEntity {
   id: number;
-
-  /** Type of parent entity */
   photoableType: PhotoableType;
-
-  /** ID of parent entity */
   photoableId: number;
-
-  /** Photo URL */
   url: string;
-
-  /** External URL (for CDN or external hosting) */
   externalUrl: string | null;
-
-  /** Photo caption */
   caption: string | null;
-
-  /** Display order */
   displayOrder: number;
-
-  /** Whether this is a cover/main photo */
   isCover: boolean;
-
-  /** Creation timestamp */
   createdAt: Date;
-
-  /** Last update timestamp */
   updatedAt: Date;
+  deletedAt: Date | null;
 }
 
-/**
- * Create photo DTO
- */
 export interface CreatePhotoDto {
   photoableType: PhotoableType;
   photoableId: number;
@@ -68,385 +51,363 @@ export interface CreatePhotoDto {
   isCover?: boolean;
 }
 
-/**
- * Update photo DTO
- */
-export interface UpdatePhotoDto {
-  url?: string;
-  externalUrl?: string | null;
-  caption?: string | null;
-  displayOrder?: number;
+export interface UpdatePhotoDto
+  extends Partial<Omit<CreatePhotoDto, "photoableType" | "photoableId">> {}
+
+export interface PhotoQueryOptions extends PolymorphicQueryOptions {
   isCover?: boolean;
+  hasCaption?: boolean;
+  hasExternalUrl?: boolean;
 }
 
-/**
- * Photo query parameters
- */
-export interface PhotoQueryParams extends BaseQueryParams {
-  photoableType?: PhotoableType;
-  photoableId?: number;
-  isCover?: boolean;
-}
+// ============================================================================
+// PHOTO MODEL CLASS
+// ============================================================================
 
-/**
- * Photo Model class
- * Handles all database operations for polymorphic photos
- */
-class PhotoModel extends BaseModel<Photo, CreatePhotoDto, UpdatePhotoDto> {
+export class PhotoModel extends BasePolymorphicModel<
+  Photo,
+  CreatePhotoDto,
+  UpdatePhotoDto
+> {
   protected tableName = "photos";
+  protected primaryKey = "id";
 
-  /**
-   * Table name mapping for entity validation
-   */
-  private readonly tableMap: Record<PhotoableType, string> = {
-    [PhotoableType.PROJECT]: "projects",
-    [PhotoableType.APARTMENT]: "apartments",
-    [PhotoableType.COMMERCIAL_PROPERTY]: "commercial_properties",
-    [PhotoableType.BLOG_POST]: "blog_posts",
+  protected polymorphicTypeColumn = "photoable_type";
+  protected polymorphicIdColumn = "photoable_id";
+  protected validPolymorphicTypes = Object.values(PhotoableType);
+
+  protected config = {
+    softDelete: true,
+    timestamps: true,
+    defaultSortColumn: "display_order",
+    defaultSortOrder: "asc" as const,
+    searchableColumns: ["caption"],
+    hiddenFields: [],
+    fillable: [
+      "photoableType",
+      "photoableId",
+      "url",
+      "externalUrl",
+      "caption",
+      "displayOrder",
+      "isCover",
+    ],
+    guarded: ["id", "createdAt", "updatedAt", "deletedAt"],
   };
 
-  /**
-   * Validates if entity exists before creating photo
-   */
-  private async validateEntity(
-    type: PhotoableType,
-    id: number
-  ): Promise<boolean> {
-    const table = this.tableMap[type];
-    const result = await this.db(table).where({ id }).first();
-    return !!result;
-  }
+  // ============================================================================
+  // LIFECYCLE HOOKS
+  // ============================================================================
 
-  /**
-   * Type guard for PhotoableType
-   */
-  static isValidPhotoableType(type: string): type is PhotoableType {
-    return Object.values(PhotoableType).includes(type as PhotoableType);
-  }
+  protected async beforeCreate(data: CreatePhotoDto): Promise<CreatePhotoDto> {
+    // Run polymorphic validation
+    await this.beforePolymorphicCreate(data);
 
-  /**
-   * Creates a new photo with entity validation
-   * @override
-   */
-  async create(data: CreatePhotoDto): Promise<Photo> {
-    // Validate entity exists
-    const entityExists = await this.validateEntity(
-      data.photoableType,
-      data.photoableId
-    );
+    // Validate URL
+    if (!data.url || data.url.trim().length === 0) {
+      throw new Error("Photo URL is required");
+    }
 
-    if (!entityExists) {
-      throw new Error(
-        `Entity ${data.photoableType}:${data.photoableId} does not exist`
+    // If this is marked as cover, unset other cover photos
+    if (data.isCover) {
+      await this.unsetOtherCovers(data.photoableType, data.photoableId);
+    }
+
+    // Set default display order if not provided
+    if (data.displayOrder === undefined) {
+      const count = await this.countForEntity(
+        data.photoableType,
+        data.photoableId
       );
+      data.displayOrder = count;
     }
 
-    return super.create(data);
+    return data;
   }
 
-  /**
-   * Finds all photos matching query parameters
-   */
-  async findAll(params: PhotoQueryParams = {}): Promise<Photo[]> {
-    let query = this.db(this.tableName);
-
-    if (params.photoableType) {
-      query = query.where({ photoable_type: params.photoableType });
-    }
-
-    if (params.photoableId !== undefined) {
-      query = query.where({ photoable_id: params.photoableId });
-    }
-
-    if (params.isCover !== undefined) {
-      query = query.where({ is_cover: params.isCover });
-    }
-
-    if (params.sortBy) {
-      query = query.orderBy(params.sortBy, params.sortOrder || "asc");
-    } else {
-      query = query.orderBy("display_order", "asc");
-    }
-
-    if (params.page && params.limit) {
-      const offset = (params.page - 1) * params.limit;
-      query = query.limit(params.limit).offset(offset);
-    }
-
-    const photos = await query;
-    return photos.map(this.mapToEntity);
+  protected async afterCreate(entity: Photo): Promise<void> {
+    console.log(
+      `✅ Photo created for ${entity.photoableType} ID ${entity.photoableId}`
+    );
   }
 
-  /**
-   * Gets photos for a specific entity
-   */
-  async getForEntity(
-    photoableType: PhotoableType,
-    photoableId: number
-  ): Promise<Photo[]> {
-    return this.findAll({ photoableType, photoableId });
+  protected async beforeUpdate(
+    id: number,
+    data: UpdatePhotoDto
+  ): Promise<UpdatePhotoDto> {
+    const photo = await this.findById(id);
+    if (!photo) {
+      throw new Error("Photo not found");
+    }
+
+    // If setting as cover, unset other covers
+    if (data.isCover === true) {
+      await this.unsetOtherCovers(photo.photoableType, photo.photoableId, id);
+    }
+
+    return data;
   }
+
+  // ============================================================================
+  // PHOTO-SPECIFIC METHODS (RENAMED TO AVOID CONFLICT)
+  // ============================================================================
 
   /**
    * Gets cover photo for an entity
    */
   async getCoverPhoto(
-    photoableType: PhotoableType,
-    photoableId: number
+    entityType: PhotoableType,
+    entityId: number,
+    trx?: Knex.Transaction
   ): Promise<Photo | null> {
-    const photo = await this.db(this.tableName)
-      .where({
-        photoable_type: photoableType,
-        photoable_id: photoableId,
-        is_cover: true,
-      })
+    const connection = trx || this.db;
+
+    let query = connection(this.tableName)
+      .where("photoable_type", entityType)
+      .where("photoable_id", entityId)
+      .where("is_cover", true)
       .first();
 
-    return photo ? this.mapToEntity(photo) : null;
-  }
-
-  /**
-   * Updates a photo with validation
-   * @override
-   */
-  async update(id: number, data: UpdatePhotoDto): Promise<Photo | null> {
-    const existing = await this.findById(id);
-    if (!existing) {
-      throw new Error(`Photo ${id} not found`);
+    if (this.config.softDelete) {
+      query = query.whereNull("deleted_at");
     }
 
-    return super.update(id, data);
+    const record = await query;
+    return record ? this.mapToEntity(record) : null;
   }
 
   /**
    * Sets a photo as cover (unsets others)
    */
-  async setCover(photoId: number): Promise<boolean> {
-    const photo = await this.findById(photoId);
-    if (!photo) return false;
-
-    const trx = await this.db.transaction();
-
-    try {
-      // Unset all other covers for this entity
-      await trx(this.tableName)
-        .where({
-          photoable_type: photo.photoableType,
-          photoable_id: photo.photoableId,
-        })
-        .update({ is_cover: false });
-
-      // Set this photo as cover
-      await trx(this.tableName)
-        .where({ id: photoId })
-        .update({ is_cover: true, updated_at: trx.fn.now() });
-
-      await trx.commit();
-      return true;
-    } catch (error) {
-      await trx.rollback();
-      throw error;
+  async setCover(
+    photoId: number,
+    trx?: Knex.Transaction
+  ): Promise<Photo | null> {
+    const photo = await this.findById(photoId, {}, trx);
+    if (!photo) {
+      throw new Error("Photo not found");
     }
+
+    await this.unsetOtherCovers(
+      photo.photoableType,
+      photo.photoableId,
+      photoId,
+      trx
+    );
+
+    return this.update(photoId, { isCover: true }, trx);
   }
 
   /**
-   * Deletes all photos for an entity
+   * Unsets all cover photos except the specified one
    */
-  async deleteForEntity(
-    photoableType: PhotoableType,
-    photoableId: number
-  ): Promise<boolean> {
-    const deleted = await this.db(this.tableName)
-      .where({
-        photoable_type: photoableType,
-        photoable_id: photoableId,
-      })
-      .del();
+  private async unsetOtherCovers(
+    entityType: PhotoableType,
+    entityId: number,
+    exceptId?: number,
+    trx?: Knex.Transaction
+  ): Promise<void> {
+    const connection = trx || this.db;
 
-    return deleted > 0;
+    let query = connection(this.tableName)
+      .where("photoable_type", entityType)
+      .where("photoable_id", entityId)
+      .where("is_cover", true);
+
+    if (exceptId) {
+      query = query.where("id", "!=", exceptId);
+    }
+
+    await query.update({
+      is_cover: false,
+      ...(this.config.timestamps && { updated_at: connection.fn.now() }),
+    });
+  }
+
+  /**
+   * Bulk creates photos for an entity
+   * RENAMED from bulkCreate to avoid conflict with base class
+   */
+  async createManyForEntity(
+    entityType: PhotoableType,
+    entityId: number,
+    photosData: Array<{
+      url: string;
+      externalUrl?: string | null;
+      caption?: string | null;
+      displayOrder?: number;
+      isCover?: boolean;
+    }>,
+    trx?: Knex.Transaction
+  ): Promise<Photo[]> {
+    const items = photosData.map((data) => ({
+      photoableType: entityType,
+      photoableId: entityId,
+      ...data,
+    }));
+
+    return this.bulkCreateForEntity(entityType, entityId, items, trx);
   }
 
   /**
    * Reorders photos for an entity
    */
   async reorder(
-    photoableType: PhotoableType,
-    photoableId: number,
-    photoIds: number[]
+    entityType: PhotoableType,
+    entityId: number,
+    photoIds: number[],
+    trx?: Knex.Transaction
   ): Promise<boolean> {
-    const trx = await this.db.transaction();
-
-    try {
-      for (let i = 0; i < photoIds.length; i++) {
-        await trx(this.tableName)
-          .where({
-            id: photoIds[i],
-            photoable_type: photoableType,
-            photoable_id: photoableId,
-          })
-          .update({ display_order: i, updated_at: trx.fn.now() });
-      }
-
-      await trx.commit();
-      return true;
-    } catch (error) {
-      await trx.rollback();
-      throw error;
-    }
+    return this.reorderForEntity(entityType, entityId, photoIds, trx);
   }
 
   /**
-   * Gets photo count for an entity
+   * Finds photos with custom filters
    */
-  async countForEntity(
-    photoableType: PhotoableType,
-    photoableId: number
-  ): Promise<number> {
-    return this.count({
-      photoable_type: photoableType,
-      photoable_id: photoableId,
-    });
-  }
-
-  /**
-   * Bulk creates photos for an entity with transaction safety
-   * FIXED: Now properly returns created photos
-   */
-  async bulkCreate(
-    photoableType: PhotoableType,
-    photoableId: number,
-    photos: Array<Omit<CreatePhotoDto, "photoableType" | "photoableId">>
+  async findPhotos(
+    options: PhotoQueryOptions = {},
+    trx?: Knex.Transaction
   ): Promise<Photo[]> {
-    // Validate entity exists
-    const entityExists = await this.validateEntity(photoableType, photoableId);
-    if (!entityExists) {
-      throw new Error(`Entity ${photoableType}:${photoableId} does not exist`);
+    const connection = trx || this.db;
+    let query = this.buildQuery(connection, options);
+
+    // Apply polymorphic filters
+    query = this.applyPolymorphicFilters(query, options);
+
+    // Apply photo-specific filters
+    query = this.applyPhotoFilters(query, options);
+
+    const records = await query;
+    return records.map((r: DatabaseRecord) => this.mapToEntity(r));
+  }
+
+  /**
+   * Gets photos with external URLs only
+   */
+  async getPhotosWithExternalUrls(
+    entityType: PhotoableType,
+    entityId: number,
+    trx?: Knex.Transaction
+  ): Promise<Photo[]> {
+    return this.findPhotos(
+      {
+        polymorphicType: entityType,
+        polymorphicId: entityId,
+        hasExternalUrl: true,
+      },
+      trx
+    );
+  }
+
+  /**
+   * Gets photos with captions only
+   */
+  async getPhotosWithCaptions(
+    entityType: PhotoableType,
+    entityId: number,
+    trx?: Knex.Transaction
+  ): Promise<Photo[]> {
+    return this.findPhotos(
+      {
+        polymorphicType: entityType,
+        polymorphicId: entityId,
+        hasCaption: true,
+      },
+      trx
+    );
+  }
+
+  /**
+   * Duplicates photos from one entity to another
+   */
+  async duplicatePhotos(
+    sourceType: PhotoableType,
+    sourceId: number,
+    targetType: PhotoableType,
+    targetId: number,
+    trx?: Knex.Transaction
+  ): Promise<Photo[]> {
+    const sourcePhotos = await this.getForEntity(sourceType, sourceId, {}, trx);
+
+    if (sourcePhotos.length === 0) return [];
+
+    const photoData = sourcePhotos.map((photo) => ({
+      url: photo.url,
+      externalUrl: photo.externalUrl,
+      caption: photo.caption,
+      displayOrder: photo.displayOrder,
+      isCover: photo.isCover,
+    }));
+
+    return this.createManyForEntity(targetType, targetId, photoData, trx);
+  }
+
+  // ============================================================================
+  // HELPER METHODS
+  // ============================================================================
+
+  private applyPhotoFilters(
+    query: Knex.QueryBuilder,
+    options: PhotoQueryOptions
+  ): Knex.QueryBuilder {
+    // Cover photo filter
+    if (options.isCover !== undefined) {
+      query = query.where("is_cover", options.isCover);
     }
 
-    const trx = await this.db.transaction();
-
-    try {
-      // Check if any photo in the batch is marked as cover
-      const hasCoverPhoto = photos.some((p) => p.isCover);
-
-      // If we're adding a new cover photo, unset existing covers first
-      if (hasCoverPhoto) {
-        await trx(this.tableName)
-          .where({
-            photoable_type: photoableType,
-            photoable_id: photoableId,
-            is_cover: true,
-          })
-          .update({ is_cover: false });
+    // Has caption filter
+    if (options.hasCaption !== undefined) {
+      if (options.hasCaption) {
+        query = query.whereNotNull("caption").where("caption", "!=", "");
+      } else {
+        query = query.where(function () {
+          this.whereNull("caption").orWhere("caption", "=", "");
+        });
       }
-
-      const timestamp = new Date();
-
-      // Ensure only one photo is marked as cover
-      let coverAssigned = false;
-      const photoData = photos.map((photo, index) => {
-        const shouldBeCover = photo.isCover && !coverAssigned;
-        if (shouldBeCover) coverAssigned = true;
-
-        return {
-          photoable_type: photoableType,
-          photoable_id: photoableId,
-          url: photo.url,
-          external_url: photo.externalUrl || null,
-          caption: photo.caption || null,
-          display_order:
-            photo.displayOrder !== undefined ? photo.displayOrder : index,
-          is_cover: shouldBeCover,
-          created_at: timestamp,
-          updated_at: timestamp,
-        };
-      });
-
-      // Insert and get IDs
-      const insertedIds = await trx(this.tableName).insert(photoData);
-      
-      // FIXED: Use the first inserted ID to fetch all records
-      const firstId = insertedIds[0];
-      
-      // Re-fetch the inserted records using IDs
-      const createdPhotos = await trx(this.tableName)
-        .where({
-          photoable_type: photoableType,
-          photoable_id: photoableId,
-        })
-        .where('id', '>=', firstId)
-        .orderBy("display_order", "asc")
-        .limit(photos.length);
-
-      await trx.commit();
-      return createdPhotos.map(this.mapToEntity);
-    } catch (error) {
-      await trx.rollback();
-      throw error;
     }
-  }
 
-  /**
-   * Updates multiple photos at once
-   */
-  async bulkUpdate(
-    updates: Array<{ id: number; data: UpdatePhotoDto }>
-  ): Promise<boolean> {
-    const trx = await this.db.transaction();
-
-    try {
-      for (const update of updates) {
-        const updateData = this.mapToDatabase(update.data);
-        await trx(this.tableName)
-          .where({ id: update.id })
-          .update({
-            ...updateData,
-            updated_at: trx.fn.now(),
-          });
+    // Has external URL filter
+    if (options.hasExternalUrl !== undefined) {
+      if (options.hasExternalUrl) {
+        query = query
+          .whereNotNull("external_url")
+          .where("external_url", "!=", "");
+      } else {
+        query = query.where(function () {
+          this.whereNull("external_url").orWhere("external_url", "=", "");
+        });
       }
-
-      await trx.commit();
-      return true;
-    } catch (error) {
-      await trx.rollback();
-      throw error;
     }
+
+    return query;
   }
 
-  /**
-   * Deletes multiple photos at once
-   */
-  async bulkDelete(photoIds: number[]): Promise<boolean> {
-    const trx = await this.db.transaction();
-
-    try {
-      await trx(this.tableName).whereIn("id", photoIds).del();
-
-      await trx.commit();
-      return true;
-    } catch (error) {
-      await trx.rollback();
-      throw error;
-    }
-  }
-
-  /**
-   * Maps database record to Photo entity
-   */
-  protected mapToEntity(record: any): Photo {
+  protected mapToEntity(record: DatabaseRecord): Photo {
     return {
       id: record.id,
       photoableType: record.photoable_type as PhotoableType,
       photoableId: record.photoable_id,
+      polymorphicType: record.photoable_type,
+      polymorphicId: record.photoable_id,
       url: record.url,
       externalUrl: record.external_url,
       caption: record.caption,
-      displayOrder: record.display_order,
+      displayOrder: record.display_order || 0,
       isCover: Boolean(record.is_cover),
       createdAt: new Date(record.created_at),
       updatedAt: new Date(record.updated_at),
+      deletedAt: record.deleted_at ? new Date(record.deleted_at) : null,
     };
+  }
+
+  protected initializeColumnMap(): void {
+    this.columnMap.set("photoableType", "photoable_type");
+    this.columnMap.set("photoableId", "photoable_id");
+    this.columnMap.set("externalUrl", "external_url");
+    this.columnMap.set("displayOrder", "display_order");
+    this.columnMap.set("isCover", "is_cover");
   }
 }
 
+// Export singleton instance
 export default new PhotoModel();

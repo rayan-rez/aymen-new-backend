@@ -10,8 +10,9 @@ import {
   AdvancedQueryOptions,
   PaginatedResult,
   DatabaseRecord,
-} from "../base";
-import { generateSlug } from "../base/helpers";
+} from "./base";
+import { generateSlug } from "./base/helpers";
+import PhotoModel, { PhotoableType, Photo } from "./photo.model";
 import { Knex } from "knex";
 
 // ============================================================================
@@ -154,6 +155,7 @@ export interface CommercialProperty {
   deletedAt: Date | null;
 
   location?: any;
+  photos?: Photo[];
 }
 
 export interface CreateCommercialPropertyDto {
@@ -191,6 +193,7 @@ export interface CommercialPropertyQueryOptions extends AdvancedQueryOptions {
   minPrice?: number;
   maxPrice?: number;
   hasCoordinates?: boolean;
+  includePhotos?: boolean;
 }
 
 export class CommercialPropertyModel extends BaseModel<
@@ -239,6 +242,105 @@ export class CommercialPropertyModel extends BaseModel<
     },
   };
 
+  /**
+   * Loads photos for a commercial property
+   */
+  async loadPhotos(
+    propertyId: number,
+    trx?: Knex.Transaction
+  ): Promise<Photo[]> {
+    return PhotoModel.getForEntity(
+      PhotoableType.COMMERCIAL_PROPERTY,
+      propertyId,
+      {},
+      trx
+    );
+  }
+
+  /**
+   * Loads photos for multiple properties (optimized)
+   */
+  private async loadPhotosForMany(
+    propertyIds: number[],
+    trx?: Knex.Transaction
+  ): Promise<Map<number, Photo[]>> {
+    if (propertyIds.length === 0) return new Map();
+
+    const photos = await PhotoModel.findPhotos(
+      {
+        polymorphicType: PhotoableType.COMMERCIAL_PROPERTY,
+        polymorphicId: propertyIds,
+      },
+      trx
+    );
+
+    const photosByProperty = new Map<number, Photo[]>();
+    for (const photo of photos) {
+      if (!photosByProperty.has(photo.photoableId)) {
+        photosByProperty.set(photo.photoableId, []);
+      }
+      photosByProperty.get(photo.photoableId)!.push(photo);
+    }
+
+    return photosByProperty;
+  }
+
+  /**
+   * Find property by ID with photos
+   * NEW METHOD
+   */
+  async findByIdWithPhotos(
+    id: number,
+    trx?: Knex.Transaction
+  ): Promise<CommercialProperty | null> {
+    const property = await this.findById(id, {}, trx);
+    if (!property) return null;
+
+    const photos = await this.loadPhotos(id, trx);
+    return {
+      ...property,
+      photos,
+    };
+  }
+
+  /**
+   * Validates media before publishing
+   * NEW METHOD
+   */
+  async validateMediaForPublishing(
+    propertyId: number,
+    trx?: Knex.Transaction
+  ): Promise<{ valid: boolean; errors: string[] }> {
+    const errors: string[] = [];
+
+    // Check for at least 3 photos
+    const photoCount = await PhotoModel.countForEntity(
+      PhotoableType.COMMERCIAL_PROPERTY,
+      propertyId,
+      trx
+    );
+
+    if (photoCount < 3) {
+      errors.push("At least 3 photos are required");
+    }
+
+    // Check for cover photo
+    const coverPhoto = await PhotoModel.getCoverPhoto(
+      PhotoableType.COMMERCIAL_PROPERTY,
+      propertyId,
+      trx
+    );
+
+    if (!coverPhoto) {
+      errors.push("Cover photo is required");
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+    };
+  }
+
   protected async beforeCreate(
     data: CreateCommercialPropertyDto
   ): Promise<CreateCommercialPropertyDto> {
@@ -253,6 +355,11 @@ export class CommercialPropertyModel extends BaseModel<
 
     if (!data.status) {
       data.status = CommercialPropertyStatus.AVAILABLE;
+    }
+
+    // Validate if publishing
+    if (data.isPublished && !data.mainImageUrl) {
+      throw new Error("Published properties must have a main image");
     }
 
     return data;
@@ -290,7 +397,20 @@ export class CommercialPropertyModel extends BaseModel<
     query = this.applyPropertyFilters(query, options);
 
     const records = await query;
-    return records.map((r: DatabaseRecord) => this.mapToEntity(r));
+    let entities = records.map((r: DatabaseRecord) => this.mapToEntity(r));
+
+    // Load photos if requested
+    if (options.includePhotos) {
+      const propertyIds = entities.map((e: DatabaseRecord) => e.id);
+      const photosByProperty = await this.loadPhotosForMany(propertyIds, trx);
+
+      entities = entities.map((entity: DatabaseRecord) => ({
+        ...entity,
+        photos: photosByProperty.get(entity.id) || [],
+      }));
+    }
+
+    return entities;
   }
 
   private applyPropertyFilters(

@@ -6,7 +6,7 @@
  */
 
 import Joi from "joi";
-import { ProjectType, ProjectStatus } from "@/models/new/project.model";
+import { ProjectType, ProjectStatus } from "@models/project.model";
 
 /**
  * Common project schemas

@@ -2,7 +2,7 @@
 // src/routes/social-media.routes.ts
 // ============================================
 import { Router } from "express";
-import socialMediaController from "@controllers/social-media.controller";
+import socialMediaController from "@/controllers/legacy/social-media.controller";
 
 const router = Router();
 

@@ -1,122 +1,295 @@
 /**
- * Location Controller
- * Manages location hierarchy and geographical data
+ * Location Controllers
+ * Handles location hierarchy
  *
- * @module controllers/location.controller
+ * @module controllers/location.controllers
  */
 
-import { Request, Response } from "express";
-import { LocationModel, LocationType, ProjectModel } from "@models";
-import { ApiResponse } from "@utils/response.util";
+import { Request, Response, NextFunction } from "express";
+import { ApiResponse } from "@/utils/response.util";
+import LocationModel, { LocationType } from "@models/location.model";
+import { AppError } from "@/middlewares/error-handler.middleware";
 
-class LocationController {
+// ============================================================================
+// LOCATION CONTROLLER
+// ============================================================================
+
+/**
+ * Location Controller Class
+ */
+export class LocationController {
   /**
-   * @route GET /api/locations
-   * @access Public
+   * Get all locations
+   * GET /api/locations
    */
-  getAll = async (req: Request, res: Response): Promise<void> => {
-    const { type, parentId, isActive = true } = req.query;
+  async getLocations(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { type, parentId, isActive, depth, page, limit } = req.query;
 
-    const locations = await LocationModel.findAll({
-      type: type as LocationType,
-      parentId: parentId ? Number(parentId) : undefined,
-      isActive: isActive === "true",
-    });
+      const options: any = {};
+      if (type) options.type = type;
+      if (parentId) options.parentId = Number(parentId);
+      if (isActive !== undefined) options.isActive = isActive === "true";
+      if (depth) options.depth = Number(depth);
 
-    ApiResponse.success(res, locations, "Locations retrieved successfully");
-  };
-
-  /**
-   * @route GET /api/locations/hierarchy
-   * @access Public
-   */
-  getHierarchy = async (req: Request, res: Response): Promise<void> => {
-    const { parentId } = req.query;
-
-    const hierarchy = await LocationModel.getHierarchy(
-      parentId ? Number(parentId) : null
-    );
-
-    ApiResponse.success(
-      res,
-      hierarchy,
-      "Location hierarchy retrieved successfully"
-    );
-  };
-
-  /**
-   * @route GET /api/locations/:identifier
-   * @access Public
-   */
-  getOne = async (req: Request, res: Response): Promise<void> => {
-    const { identifier } = req.params;
-    const { includeProjects } = req.query;
-
-    const isNumeric = /^\d+$/.test(identifier);
-    const location = isNumeric
-      ? await LocationModel.findById(Number(identifier))
-      : await LocationModel.findBySlug(identifier);
-
-    if (!location) {
-      ApiResponse.notFound(res, "Location not found");
-      return;
+      if (page && limit) {
+        options.page = Number(page);
+        options.limit = Number(limit);
+        const result = await LocationModel.paginateLocations(options);
+        ApiResponse.success(res, result, "Locations retrieved successfully");
+      } else {
+        const locations = await LocationModel.findLocations(options);
+        ApiResponse.success(res, locations, "Locations retrieved successfully");
+      }
+    } catch (error) {
+      next(error);
     }
+  }
 
-    if (includeProjects === "true") {
-      const [projects, children] = await Promise.all([
-        ProjectModel.findAll({ locationId: location.id }),
-        LocationModel.getChildren(location.id, false),
-      ]);
+  /**
+   * Get location by ID with hierarchy
+   * GET /api/locations/:id
+   */
+  async getLocationById(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { includeHierarchy } = req.query;
 
+      if (includeHierarchy === "true") {
+        const location = await LocationModel.getWithHierarchy(Number(id));
+        if (!location) {
+          throw new AppError("Location not found", 404);
+        }
+        ApiResponse.success(
+          res,
+          location,
+          "Location with hierarchy retrieved successfully"
+        );
+      } else {
+        const location = await LocationModel.findById(Number(id));
+        if (!location) {
+          throw new AppError("Location not found", 404);
+        }
+        ApiResponse.success(res, location, "Location retrieved successfully");
+      }
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get all countries
+   * GET /api/locations/countries
+   */
+  async getCountries(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const countries = await LocationModel.getCountries();
+      ApiResponse.success(res, countries, "Countries retrieved successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get regions by country
+   * GET /api/locations/countries/:countryId/regions
+   */
+  async getRegions(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { countryId } = req.params;
+      const regions = await LocationModel.getRegions(Number(countryId));
+      ApiResponse.success(res, regions, "Regions retrieved successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get cities by region
+   * GET /api/locations/regions/:regionId/cities
+   */
+  async getCities(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { regionId } = req.params;
+      const cities = await LocationModel.getCities(Number(regionId));
+      ApiResponse.success(res, cities, "Cities retrieved successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get neighborhoods by city
+   * GET /api/locations/cities/:cityId/neighborhoods
+   */
+  async getNeighborhoods(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { cityId } = req.params;
+      const neighborhoods = await LocationModel.getNeighborhoods(
+        Number(cityId)
+      );
       ApiResponse.success(
         res,
-        {
-          ...location,
-          projects,
-          childLocations: children,
-        },
-        "Location with projects retrieved successfully"
+        neighborhoods,
+        "Neighborhoods retrieved successfully"
       );
-    } else {
-      ApiResponse.success(res, location, "Location retrieved successfully");
+    } catch (error) {
+      next(error);
     }
-  };
+  }
 
   /**
-   * @route GET /api/locations/:id/children
-   * @access Public
+   * Get location hierarchy path
+   * GET /api/locations/:id/hierarchy
    */
-  getChildren = async (req: Request, res: Response): Promise<void> => {
-    const { id } = req.params;
-    const { recursive = "false" } = req.query;
-
-    const children = await LocationModel.getChildren(
-      Number(id),
-      recursive === "true"
-    );
-
-    ApiResponse.success(
-      res,
-      children,
-      "Location children retrieved successfully"
-    );
-  };
+  async getHierarchyPath(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+      const hierarchy = await LocationModel.getHierarchyPath(Number(id));
+      ApiResponse.success(
+        res,
+        hierarchy,
+        "Hierarchy path retrieved successfully"
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
 
   /**
-   * @route GET /api/locations/:id/parents
-   * @access Public
+   * Get location descendants
+   * GET /api/locations/:id/descendants
    */
-  getParents = async (req: Request, res: Response): Promise<void> => {
-    const { id } = req.params;
+  async getDescendants(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { maxDepth, typesOnly } = req.query;
 
-    const parents = await LocationModel.getParents(Number(id));
+      const options: any = {};
+      if (maxDepth) options.maxDepth = Number(maxDepth);
+      if (typesOnly) options.typesOnly = (typesOnly as string).split(",");
 
-    ApiResponse.success(
-      res,
-      parents,
-      "Location breadcrumb retrieved successfully"
-    );
-  };
+      const descendants = await LocationModel.getDescendants(
+        Number(id),
+        options
+      );
+      ApiResponse.success(
+        res,
+        descendants,
+        "Descendants retrieved successfully"
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Create location
+   * POST /api/locations
+   */
+  async createLocation(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const location = await LocationModel.create(req.body);
+      ApiResponse.created(res, location, "Location created successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Update location
+   * PUT /api/locations/:id
+   */
+  async updateLocation(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+      const location = await LocationModel.update(Number(id), req.body);
+      if (!location) {
+        throw new AppError("Location not found", 404);
+      }
+      ApiResponse.success(res, location, "Location updated successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Delete location
+   * DELETE /api/locations/:id
+   */
+  async deleteLocation(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+      const deleted = await LocationModel.delete(Number(id));
+      if (!deleted) {
+        throw new AppError("Location not found", 404);
+      }
+      ApiResponse.success(res, null, "Location deleted successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get location statistics
+   * GET /api/locations/statistics
+   */
+  async getStatistics(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const stats = await LocationModel.getStatistics();
+      ApiResponse.success(res, stats, "Statistics retrieved successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export default new LocationController();

@@ -5,7 +5,7 @@
  * @module controllers/feature.controllers
  */
 
-import FeatureModel, { FeatureCategory } from "@/models/new/feature.model";
+import FeatureModel, { FeatureCategory } from "@models/feature.model";
 import { Request, Response, NextFunction } from "express";
 import { ApiResponse } from "@/utils/response.util";
 import { AppError } from "@/middlewares/error-handler.middleware";

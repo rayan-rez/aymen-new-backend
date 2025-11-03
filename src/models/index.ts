@@ -1,271 +1,203 @@
 /**
  * Models Index
- * Central export point for all database models
+ * Central export point for all application models
  *
- * @module models/index
+ * @module models
  */
 
-// Base Model
-export { BaseModel, BaseQueryParams, PaginatedResult } from "./base.model";
+// ============================================================================
+// BASE MODEL
+// ============================================================================
+export * from "./base";
+export { default as BaseModel } from "./base";
 
-// Location Model
-export {
-  default as LocationModel,
-  Location,
-  LocationType,
-  CreateLocationDto,
-  UpdateLocationDto,
-  LocationQueryParams,
-  LocationWithChildren,
-} from "./location.model";
+// ============================================================================
+// CORE DOMAIN MODELS
+// ============================================================================
 
-// Feature Model
-export {
-  default as FeatureModel,
-  Feature,
-  FeatureCategory,
-  CreateFeatureDto,
-  UpdateFeatureDto,
-  FeatureQueryParams,
-} from "./feature.model";
+// Location & Geography
+export { default as LocationModel } from "./location.model";
+export * from "./location.model";
 
-// Project Model
-export {
-  default as ProjectModel,
-  Project,
-  ProjectStatus,
-  CreateProjectDto,
-  UpdateProjectDto,
-  ProjectQueryParams,
-  ProjectWithRelations,
-} from "./project.model";
+// Features & Amenities
+export { default as FeatureModel } from "./feature.model";
+export * from "./feature.model";
 
-// Apartment Model
-export {
-  default as ApartmentModel,
-  Apartment,
-  ApartmentStatus,
-  CreateApartmentDto,
-  UpdateApartmentDto,
-  ApartmentQueryParams,
-  ApartmentWithRelations,
-} from "./apartment.model";
+// Projects & Properties
+export { default as ProjectModel } from "./project.model";
+export * from "./project.model";
 
-// Commercial Property Model
-export {
-  default as CommercialPropertyModel,
-  CommercialProperty,
-  CommercialPropertyType,
-  CommercialPropertyStatus,
-  CreateCommercialPropertyDto,
-  UpdateCommercialPropertyDto,
-  CommercialPropertyQueryParams,
-  CommercialPropertyWithRelations,
-} from "./commercial-property.model";
+export { default as ApartmentModel } from "./apartment.model";
+export * from "./apartment.model";
 
-// Polymorphic Photo Model (NEW)
-export {
-  default as PhotoModel,
-  Photo,
-  PhotoableType,
-  CreatePhotoDto,
-  UpdatePhotoDto,
-  PhotoQueryParams,
-} from "./photo.model";
+// ============================================================================
+// FORM & LEAD MANAGEMENT
+// ============================================================================
 
-// Polymorphic Floor Plan Model (NEW)
-export {
-  default as FloorPlanModel,
-  FloorPlan,
-  PlannableType,
-  CreateFloorPlanDto,
-  UpdateFloorPlanDto,
-  FloorPlanQueryParams,
-} from "./floor-plan.model";
+export { default as FormSubmissionModel } from "./form-submission.model";
+export * from "./form-submission.model";
 
-// Contact Submission Model
-export {
-  default as ContactSubmissionModel,
-  ContactSubmission,
-  ContactSubmissionStatus,
-  CreateContactSubmissionDto,
-  UpdateContactSubmissionDto,
-  ContactSubmissionQueryParams,
-} from "./contact-submission.model";
+export { default as LeadMirrorModel } from "./lead-mirror.model";
+export * from "./lead-mirror.model";
 
-// Project Inquiry Model
-export {
-  default as ProjectInquiryModel,
-  ProjectInquiry,
-  ProjectInquiryStatus,
-  FinancingMethod,
-  PurchaseTimeline,
-  CreateProjectInquiryDto,
-  UpdateProjectInquiryDto,
-  ProjectInquiryQueryParams,
-} from "./project-inquiry.model";
+// ============================================================================
+// EVENT MANAGEMENT
+// ============================================================================
 
-// Appointment Request Model
-export {
-  default as AppointmentRequestModel,
-  AppointmentRequest,
-  AppointmentRequestStatus,
-  CreateAppointmentRequestDto,
-  UpdateAppointmentRequestDto,
-  AppointmentRequestQueryParams,
-} from "./appointment-request.model";
+export { default as EventModel } from "./event.model";
+export * from "./event.model";
 
-// Event Registration Model
-export {
-  default as EventRegistrationModel,
-  EventRegistration,
-  EventType,
-  CreateEventRegistrationDto,
-  UpdateEventRegistrationDto,
-  EventRegistrationQueryParams,
-} from "./event-registration.model";
+export { default as EventRegistrationModel } from "./event-registration.model";
+export * from "./event-registration.model";
 
-// Catalog Download Request Model
-export {
-  default as CatalogDownloadRequestModel,
-  CatalogDownloadRequest,
-  CreateCatalogDownloadRequestDto,
-  UpdateCatalogDownloadRequestDto,
-  CatalogDownloadRequestQueryParams,
-} from "./catalog-download-request.model";
+export { default as EventInfluencerModel } from "./event-influencer.model";
+export * from "./event-influencer.model";
 
-// Blog Post Model
-export {
-  default as BlogPostModel,
-  BlogPost,
-  CreateBlogPostDto,
-  UpdateBlogPostDto,
-  BlogPostQueryParams,
-  BlogPostWithRelations,
-} from "./blog-post.model";
+// ============================================================================
+// CONTENT MANAGEMENT
+// ============================================================================
 
-// Customer Feedback Model
-export {
-  default as CustomerFeedbackModel,
-  CustomerFeedback,
-  FeedbackType,
-  FeedbackLanguage,
-  CreateCustomerFeedbackDto,
-  UpdateCustomerFeedbackDto,
-  CustomerFeedbackQueryParams,
-} from "./customer-feedback.model";
+// Blog
+export { default as BlogPostModel } from "./blog-post.model";
+export * from "./blog-post.model";
 
-// Job Application Model
-export {
-  default as JobApplicationModel,
-  JobApplication,
-  JobApplicationStatus,
-  CreateJobApplicationDto,
-  UpdateJobApplicationDto,
-  JobApplicationQueryParams,
-} from "./job-application.model";
+// Commercial & Feedback (from combined file)
+export * from "./content-management.model";
 
-// Land Submission Model
-export {
-  default as LandSubmissionModel,
-  LandSubmission,
-  LandSubmissionStatus,
-  CreateLandSubmissionDto,
-  UpdateLandSubmissionDto,
-  LandSubmissionQueryParams,
-} from "./land-submission.model";
-
-// Lead Source Model
-export {
-  default as LeadSourceModel,
-  LeadSource,
-  LeadType,
-  DeviceType,
-  CreateLeadSourceDto,
-  UpdateLeadSourceDto,
-  LeadSourceQueryParams,
-} from "./lead-source.model";
-
-// Marketing Consent Model
-export {
-  default as MarketingConsentModel,
-  MarketingConsent,
-  CreateMarketingConsentDto,
-  UpdateMarketingConsentDto,
-  MarketingConsentQueryParams,
-} from "./marketing-consent.model";
-
-// User Model
-export {
-  default as UserModel,
-  User,
-  SafeUser,
-  UserRole,
-  CreateUserDto,
-  UpdateUserDto,
-  UserQueryParams,
-} from "./user.model";
+// ============================================================================
+// USAGE EXAMPLES
+// ============================================================================
 
 /**
- * Usage Examples with Polymorphic Models:
+ * Example: Using models in a service
  *
- * @example
- * // Working with polymorphic photos
- * import { PhotoModel, PhotoableType } from './models';
+ * ```typescript
+ * import { ProjectModel, ApartmentModel } from '@/models';
  *
- * // Add photos to a project
- * const projectPhotos = await PhotoModel.bulkCreate(
- *   PhotoableType.PROJECT,
- *   1,
- *   [
- *     { url: "photo1.jpg", caption: "Front view", isCover: true },
- *     { url: "photo2.jpg", caption: "Side view" }
- *   ]
- * );
+ * // Find project with apartments
+ * const project = await ProjectModel.findById(1, { relations: ['apartments'] });
  *
- * // Get all photos for an apartment
- * const apartmentPhotos = await PhotoModel.getForEntity(
- *   PhotoableType.APARTMENT,
- *   5
- * );
+ * // Get available apartments
+ * const available = await ApartmentModel.findAvailable(projectId);
  *
- * // Set cover photo
- * await PhotoModel.setCover(photoId);
+ * // Create event
+ * const event = await EventModel.create({
+ *   name: "Grand Opening",
+ *   eventType: EventType.LAUNCH_EVENT,
+ *   startDate: new Date("2025-12-01"),
+ *   endDate: new Date("2025-12-01"),
+ *   locationType: LocationType.PHYSICAL,
+ *   description: "Join us for the grand opening!"
+ * });
+ * ```
+ */
+
+/**
+ * Example: Using transactions
  *
- * @example
- * // Working with polymorphic floor plans
- * import { FloorPlanModel, PlannableType } from './models';
+ * ```typescript
+ * import { ProjectModel, ApartmentModel } from '@/models';
+ * import db from '@/config/database';
  *
- * // Add floor plans to a project
- * const plans = await FloorPlanModel.bulkCreate(
- *   PlannableType.PROJECT,
- *   1,
- *   [
- *     { name: "Ground Floor", imageUrl: "plan1.jpg", pdfUrl: "plan1.pdf" },
- *     { name: "First Floor", imageUrl: "plan2.jpg" }
- *   ]
- * );
+ * const trx = await db.transaction();
  *
- * // Get floor plans for an apartment
- * const apartmentPlans = await FloorPlanModel.getForEntity(
- *   PlannableType.APARTMENT,
- *   3
- * );
+ * try {
+ *   // Create project
+ *   const project = await ProjectModel.create({
+ *     name: "Luxury Residence",
+ *     slug: "luxury-residence",
+ *     address: "123 Main St",
+ *     projectType: ProjectType.LUXURY
+ *   }, trx);
  *
- * // Reorder floor plans
- * await FloorPlanModel.reorder(PlannableType.PROJECT, 1, [5, 3, 7, 2]);
+ *   // Create apartments
+ *   await ApartmentModel.bulkCreate([
+ *     { projectId: project.id, name: "Unit A", price: 1000000, areaSqm: 120 },
+ *     { projectId: project.id, name: "Unit B", price: 1200000, areaSqm: 150 }
+ *   ], { trx });
  *
- * @example
- * // Updated project queries with polymorphic relations
- * import { ProjectModel, PhotoModel, FloorPlanModel, PhotoableType, PlannableType } from './models';
+ *   await trx.commit();
+ * } catch (error) {
+ *   await trx.rollback();
+ *   throw error;
+ * }
+ * ```
+ */
+
+/**
+ * Example: Advanced filtering
  *
- * const project = await ProjectModel.findById(1);
- * const photos = await PhotoModel.getForEntity(PhotoableType.PROJECT, project.id);
- * const plans = await FloorPlanModel.getForEntity(PlannableType.PROJECT, project.id);
+ * ```typescript
+ * import { ProjectModel, ProjectType, ProjectStatus } from '@/models';
  *
- * const projectWithMedia = {
- *   ...project,
- *   photos,
- *   floorPlans: plans
- * };
+ * // Find published luxury projects with price range
+ * const projects = await ProjectModel.findProjects({
+ *   projectType: ProjectType.LUXURY,
+ *   status: ProjectStatus.COMPLETED,
+ *   isPublished: true,
+ *   minPrice: 50000000,
+ *   maxPrice: 100000000,
+ *   page: 1,
+ *   limit: 10
+ * });
+ *
+ * // Search with full-text
+ * const searchResults = await ProjectModel.fullTextSearch("beachfront villa", {
+ *   isPublished: true
+ * });
+ * ```
+ */
+
+/**
+ * Example: Statistics and analytics
+ *
+ * ```typescript
+ * import { EventModel, EventRegistrationModel } from '@/models';
+ *
+ * // Get event with full statistics
+ * const eventWithStats = await EventModel.getWithStats(eventId);
+ *
+ * console.log(eventWithStats.stats);
+ * // {
+ * //   totalRegistrations: 150,
+ * //   confirmedRegistrations: 145,
+ * //   attendedCount: 120,
+ * //   attendanceRate: 82.76,
+ * //   capacityPercentage: 75.00,
+ * //   influencerCount: 5,
+ * //   totalReach: 500000
+ * // }
+ *
+ * // Get registration statistics
+ * const regStats = await EventRegistrationModel.getEventStatistics(eventId);
+ * ```
+ */
+
+/**
+ * Example: Working with relations
+ *
+ * ```typescript
+ * import { BlogPostModel, blogPostSectionModel } from '@/models';
+ *
+ * // Create blog post with sections
+ * const post = await BlogPostModel.create({
+ *   title: "Top 10 Real Estate Tips",
+ *   authorName: "John Doe",
+ *   content: "Introduction...",
+ *   isPublished: true
+ * });
+ *
+ * // Add sections
+ * await blogPostSectionModel.create({
+ *   blogPostId: post.id,
+ *   sectionTitle: "Tip #1: Location Matters",
+ *   sectionContent: "When buying property...",
+ *   displayOrder: 0
+ * });
+ *
+ * // Load post with sections
+ * const fullPost = await BlogPostModel.findById(post.id, {
+ *   relations: ['sections']
+ * });
+ * ```
  */

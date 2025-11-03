@@ -6,7 +6,7 @@
  */
 
 import Joi from "joi";
-import { ApartmentStatus } from "@/models/new/apartment.model";
+import { ApartmentStatus } from "@models/apartment.model";
 
 /**
  * Common apartment schemas

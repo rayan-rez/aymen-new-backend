@@ -10,7 +10,7 @@ import { ApiResponse } from "@/utils/response.util";
 import ApartmentModel, { 
   ApartmentStatus, 
   ApartmentQueryOptions 
-} from "@/models/new/apartment.model";
+} from "@models/apartment.model";
 import { AppError } from "@/middlewares/error-handler.middleware";
 
 /**

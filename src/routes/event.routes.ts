@@ -2,7 +2,7 @@
 // src/routes/events.routes.ts
 // ============================================
 import { Router } from "express";
-import eventController from "@controllers/event.controller";
+import eventController from "@/controllers/legacy/event.controller";
 
 const router = Router();
 

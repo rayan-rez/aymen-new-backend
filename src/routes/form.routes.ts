@@ -2,7 +2,7 @@
 // src/routes/forms.routes.ts
 // ============================================
 import { Router } from "express";
-import formsController from "@controllers/form.controller";
+import formsController from "@/controllers/legacy/form.controller";
 import {
   validateContactForm,
   sanitizeContactForm,

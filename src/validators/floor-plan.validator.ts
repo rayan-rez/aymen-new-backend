@@ -6,7 +6,6 @@
  */
 
 import Joi from "joi";
-import { PlannableType } from "@/models/floor-plan.model";
 
 /**
  * Common floor plan schemas

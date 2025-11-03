@@ -2,7 +2,7 @@
 // src/routes/recruitment.routes.ts
 // ============================================
 import { Router } from "express";
-import recruitmentController from "@controllers/recruitement.controller";
+import recruitmentController from "@/controllers/legacy/recruitement.controller";
 
 const router = Router();
 

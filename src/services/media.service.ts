@@ -6,12 +6,16 @@
  * @module services/media.service
  */
 
-import PhotoModel, { PhotoableType, Photo, CreatePhotoDto } from "@models/new/photo.model";
+import PhotoModel, {
+  PhotoableType,
+  Photo,
+  CreatePhotoDto,
+} from "@models/photo.model";
 import FloorPlanModel, {
   PlannableType,
   FloorPlan,
   CreateFloorPlanDto,
-} from "@models/new/floor-plan.model";
+} from "@models/floor-plan.model";
 import db from "@/config/database";
 import { Knex } from "knex";
 
@@ -104,7 +108,12 @@ export class MediaService {
     try {
       const [photos, floorPlans] = await Promise.all([
         PhotoModel.getForEntity(PhotoableType.APARTMENT, apartmentId, {}, trx),
-        FloorPlanModel.getForEntity(PlannableType.APARTMENT, apartmentId, {}, trx),
+        FloorPlanModel.getForEntity(
+          PlannableType.APARTMENT,
+          apartmentId,
+          {},
+          trx
+        ),
       ]);
 
       return { photos, floorPlans };
@@ -425,7 +434,12 @@ export class MediaService {
       // Delete floor plans if applicable
       const plannableType = this.mapToPlannableType(entityType);
       if (plannableType) {
-        await FloorPlanModel.deleteForEntity(plannableType, entityId, true, useTrx);
+        await FloorPlanModel.deleteForEntity(
+          plannableType,
+          entityId,
+          true,
+          useTrx
+        );
       }
 
       // Delete main entity
@@ -531,7 +545,11 @@ export class MediaService {
     entityId: number,
     trx?: Knex.Transaction
   ): Promise<MediaCounts> {
-    const photoCount = await PhotoModel.countForEntity(entityType, entityId, trx);
+    const photoCount = await PhotoModel.countForEntity(
+      entityType,
+      entityId,
+      trx
+    );
 
     let floorPlanCount: number | undefined;
     const plannableType = this.mapToPlannableType(entityType);
