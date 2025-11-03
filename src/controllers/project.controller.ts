@@ -1,36 +1,39 @@
 /**
- * Project Controller
- * Handles all project-related HTTP requests
+ * Enhanced Project Controller - WITH POLYMORPHIC MEDIA SUPPORT
+ * Handles all project-related HTTP requests with integrated photo and floor plan management
  * 
  * @module controllers/project.controller
  */
 
 import { Request, Response, NextFunction } from "express";
 import { ApiResponse } from "@/utils/response.util";
-import ProjectModel, { ProjectType, ProjectStatus, ProjectQueryOptions } from "@models/project.model";
+import ProjectModel, {
+  ProjectType,
+  ProjectStatus,
+  ProjectQueryOptions,
+} from "@models/project.model";
+import PhotoModel, { PhotoableType } from "@models/photo.model";
+import FloorPlanModel, { PlannableType } from "@models/floor-plan.model";
 import { AppError } from "@/middlewares/error-handler.middleware";
+import db from "@/config/database";
 
 /**
- * Project Controller Class
+ * Enhanced Project Controller Class
  */
 export class ProjectController {
+  // ============================================================================
+  // CORE PROJECT OPERATIONS
+  // ============================================================================
+
   /**
    * Get all projects with filtering and pagination
    * GET /api/projects
-   * 
-   * Query params:
-   * - page: number (default: 1)
-   * - limit: number (default: 10)
-   * - projectType: ProjectType
-   * - status: ProjectStatus
-   * - locationId: number
-   * - isFeatured: boolean
-   * - isPublished: boolean
-   * - minPrice: number
-   * - maxPrice: number
-   * - search: string
    */
-  async getProjects(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getProjects(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const {
         page = 1,
@@ -45,6 +48,8 @@ export class ProjectController {
         search,
         sortBy = "created_at",
         sortOrder = "desc",
+        includePhotos,
+        includeFloorPlans,
       } = req.query;
 
       const options: ProjectQueryOptions & { page: number; limit: number } = {
@@ -52,6 +57,8 @@ export class ProjectController {
         limit: Number(limit),
         sortBy: sortBy as string,
         sortOrder: sortOrder as "asc" | "desc",
+        includePhotos: includePhotos === "true",
+        includeFloorPlans: includeFloorPlans === "true",
       };
 
       // Apply filters
@@ -64,7 +71,7 @@ export class ProjectController {
       if (maxPrice) options.maxPrice = Number(maxPrice);
       if (search) options.search = search as string;
 
-      const result = await ProjectModel.paginateProjects(options);
+      const result = await ProjectModel.findProjects(options);
 
       ApiResponse.success(res, result, "Projects retrieved successfully");
     } catch (error) {
@@ -73,83 +80,30 @@ export class ProjectController {
   }
 
   /**
-   * Get published projects (public endpoint)
-   * GET /api/projects/public
-   */
-  async getPublishedProjects(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const {
-        page = 1,
-        limit = 10,
-        projectType,
-        status,
-        locationId,
-        isFeatured,
-        minPrice,
-        maxPrice,
-        search,
-      } = req.query;
-
-      const options: ProjectQueryOptions & { page: number; limit: number } = {
-        page: Number(page),
-        limit: Number(limit),
-        isPublished: true, // Only published projects
-        sortBy: "created_at",
-        sortOrder: "desc",
-      };
-
-      if (projectType) options.projectType = projectType as ProjectType;
-      if (status) options.status = status as ProjectStatus;
-      if (locationId) options.locationId = Number(locationId);
-      if (isFeatured !== undefined) options.isFeatured = isFeatured === "true";
-      if (minPrice) options.minPrice = Number(minPrice);
-      if (maxPrice) options.maxPrice = Number(maxPrice);
-      if (search) options.search = search as string;
-
-      const result = await ProjectModel.paginateProjects(options);
-
-      ApiResponse.success(res, result, "Published projects retrieved successfully");
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * Get featured projects
-   * GET /api/projects/featured
-   */
-  async getFeaturedProjects(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { limit = 5 } = req.query;
-
-      const projects = await ProjectModel.findFeatured({
-        limit: Number(limit),
-        sortBy: "created_at",
-        sortOrder: "desc",
-      });
-
-      ApiResponse.success(res, projects, "Featured projects retrieved successfully");
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * Get project by ID
+   * Get project by ID with full media
    * GET /api/projects/:id
+   * 
+   * Query: { includePhotos?, includeFloorPlans?, includeApartments? }
    */
-  async getProjectById(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getProjectById(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { id } = req.params;
-      const { relations } = req.query;
+      const { includePhotos, includeFloorPlans, includeApartments } = req.query;
 
-      const relationsList = relations 
-        ? (relations as string).split(",") 
-        : ["location", "apartments"];
+      const relations: string[] = ["location"];
+      if (includeApartments === "true") relations.push("apartments");
 
-      const project = await ProjectModel.findById(
+      const project = await ProjectModel.findByIdWithMedia(
         Number(id),
-        { relations: relationsList }
+        {
+          includePhotos: includePhotos === "true",
+          includeFloorPlans: includeFloorPlans === "true",
+          includeRelations: relations,
+        }
       );
 
       if (!project) {
@@ -163,21 +117,26 @@ export class ProjectController {
   }
 
   /**
-   * Get project by slug
+   * Get project by slug with full media
    * GET /api/projects/slug/:slug
    */
-  async getProjectBySlug(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getProjectBySlug(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { slug } = req.params;
-      const { relations } = req.query;
+      const { includePhotos, includeFloorPlans } = req.query;
 
-      const relationsList = relations 
-        ? (relations as string).split(",") 
-        : ["location", "apartments"];
-
-      const project = await ProjectModel.findBySlug(slug, {
-        relations: relationsList,
-      });
+      const project = await ProjectModel.findOne(
+        { slug },
+        {
+          relations: ["location", "apartments"],
+          includePhotos: includePhotos === "true",
+          includeFloorPlans: includeFloorPlans === "true",
+        }
+      );
 
       if (!project) {
         throw new AppError("Project not found", 404);
@@ -190,30 +149,14 @@ export class ProjectController {
   }
 
   /**
-   * Get project with statistics
-   * GET /api/projects/:id/stats
-   */
-  async getProjectWithStats(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id } = req.params;
-
-      const project = await ProjectModel.findWithStats(Number(id));
-
-      if (!project) {
-        throw new AppError("Project not found", 404);
-      }
-
-      ApiResponse.success(res, project, "Project statistics retrieved successfully");
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
    * Create new project
    * POST /api/projects
    */
-  async createProject(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async createProject(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const project = await ProjectModel.create(req.body);
 
@@ -227,7 +170,11 @@ export class ProjectController {
    * Update project
    * PUT /api/projects/:id
    */
-  async updateProject(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async updateProject(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { id } = req.params;
 
@@ -247,7 +194,11 @@ export class ProjectController {
    * Delete project
    * DELETE /api/projects/:id
    */
-  async deleteProject(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async deleteProject(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { id } = req.params;
 
@@ -263,13 +214,471 @@ export class ProjectController {
     }
   }
 
+  // ============================================================================
+  // PHOTO MANAGEMENT
+  // ============================================================================
+
   /**
-   * Publish project
-   * PATCH /api/projects/:id/publish
+   * Get project photos
+   * GET /api/projects/:id/photos
    */
-  async publishProject(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getProjectPhotos(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { id } = req.params;
+      const { isCover, hasCaption } = req.query;
+
+      const options: any = {};
+      if (isCover !== undefined) options.isCover = isCover === "true";
+      if (hasCaption !== undefined) options.hasCaption = hasCaption === "true";
+
+      const photos = await PhotoModel.getForEntity(
+        PhotoableType.PROJECT,
+        Number(id),
+        options
+      );
+
+      ApiResponse.success(res, photos, "Project photos retrieved successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get project cover photo
+   * GET /api/projects/:id/photos/cover
+   */
+  async getProjectCoverPhoto(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      const photo = await PhotoModel.getCoverPhoto(
+        PhotoableType.PROJECT,
+        Number(id)
+      );
+
+      if (!photo) {
+        throw new AppError("Cover photo not found", 404);
+      }
+
+      ApiResponse.success(res, photo, "Cover photo retrieved successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Add photos to project
+   * POST /api/projects/:id/photos
+   * 
+   * Body: { photos: [{ url, externalUrl?, caption?, displayOrder?, isCover? }] }
+   */
+  async addProjectPhotos(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { photos } = req.body;
+
+      if (!photos || !Array.isArray(photos) || photos.length === 0) {
+        throw new AppError("Photos array is required", 400);
+      }
+
+      // Validate project exists
+      const project = await ProjectModel.findById(Number(id));
+      if (!project) {
+        throw new AppError("Project not found", 404);
+      }
+
+      const trx = await db.transaction();
+
+      try {
+        const createdPhotos = await PhotoModel.createManyForEntity(
+          PhotoableType.PROJECT,
+          Number(id),
+          photos,
+          trx
+        );
+
+        await trx.commit();
+
+        ApiResponse.created(
+          res,
+          createdPhotos,
+          `${createdPhotos.length} photo(s) added successfully`
+        );
+      } catch (error) {
+        await trx.rollback();
+        throw error;
+      }
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Update project photo
+   * PATCH /api/projects/:id/photos/:photoId
+   */
+  async updateProjectPhoto(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { photoId } = req.params;
+
+      const photo = await PhotoModel.update(Number(photoId), req.body);
+
+      if (!photo) {
+        throw new AppError("Photo not found", 404);
+      }
+
+      ApiResponse.success(res, photo, "Photo updated successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Set project cover photo
+   * PATCH /api/projects/:id/photos/:photoId/set-cover
+   */
+  async setProjectCoverPhoto(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { photoId } = req.params;
+
+      const photo = await PhotoModel.setCover(Number(photoId));
+
+      if (!photo) {
+        throw new AppError("Photo not found", 404);
+      }
+
+      ApiResponse.success(res, photo, "Cover photo set successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Delete project photo
+   * DELETE /api/projects/:id/photos/:photoId
+   */
+  async deleteProjectPhoto(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { photoId } = req.params;
+
+      const deleted = await PhotoModel.delete(Number(photoId));
+
+      if (!deleted) {
+        throw new AppError("Photo not found", 404);
+      }
+
+      ApiResponse.success(res, null, "Photo deleted successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Reorder project photos
+   * POST /api/projects/:id/photos/reorder
+   * 
+   * Body: { photoIds: number[] }
+   */
+  async reorderProjectPhotos(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { photoIds } = req.body;
+
+      if (!photoIds || !Array.isArray(photoIds)) {
+        throw new AppError("photoIds array is required", 400);
+      }
+
+      await PhotoModel.reorder(PhotoableType.PROJECT, Number(id), photoIds);
+
+      ApiResponse.success(res, null, "Photos reordered successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ============================================================================
+  // FLOOR PLAN MANAGEMENT
+  // ============================================================================
+
+  /**
+   * Get project floor plans
+   * GET /api/projects/:id/floor-plans
+   */
+  async getProjectFloorPlans(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { hasPdf } = req.query;
+
+      const options: any = {};
+      if (hasPdf !== undefined) options.hasPdf = hasPdf === "true";
+
+      const floorPlans = await FloorPlanModel.getForEntity(
+        PlannableType.PROJECT,
+        Number(id),
+        options
+      );
+
+      ApiResponse.success(
+        res,
+        floorPlans,
+        "Project floor plans retrieved successfully"
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Add floor plans to project
+   * POST /api/projects/:id/floor-plans
+   * 
+   * Body: { floorPlans: [{ name, imageUrl, pdfUrl?, displayOrder? }] }
+   */
+  async addProjectFloorPlans(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { floorPlans } = req.body;
+
+      if (!floorPlans || !Array.isArray(floorPlans) || floorPlans.length === 0) {
+        throw new AppError("floorPlans array is required", 400);
+      }
+
+      // Validate project exists
+      const project = await ProjectModel.findById(Number(id));
+      if (!project) {
+        throw new AppError("Project not found", 404);
+      }
+
+      const trx = await db.transaction();
+
+      try {
+        const createdFloorPlans = await FloorPlanModel.createManyForEntity(
+          PlannableType.PROJECT,
+          Number(id),
+          floorPlans,
+          trx
+        );
+
+        await trx.commit();
+
+        ApiResponse.created(
+          res,
+          createdFloorPlans,
+          `${createdFloorPlans.length} floor plan(s) added successfully`
+        );
+      } catch (error) {
+        await trx.rollback();
+        throw error;
+      }
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Update project floor plan
+   * PATCH /api/projects/:id/floor-plans/:floorPlanId
+   */
+  async updateProjectFloorPlan(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { floorPlanId } = req.params;
+
+      const floorPlan = await FloorPlanModel.update(
+        Number(floorPlanId),
+        req.body
+      );
+
+      if (!floorPlan) {
+        throw new AppError("Floor plan not found", 404);
+      }
+
+      ApiResponse.success(res, floorPlan, "Floor plan updated successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Delete project floor plan
+   * DELETE /api/projects/:id/floor-plans/:floorPlanId
+   */
+  async deleteProjectFloorPlan(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { floorPlanId } = req.params;
+
+      const deleted = await FloorPlanModel.delete(Number(floorPlanId));
+
+      if (!deleted) {
+        throw new AppError("Floor plan not found", 404);
+      }
+
+      ApiResponse.success(res, null, "Floor plan deleted successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Reorder project floor plans
+   * POST /api/projects/:id/floor-plans/reorder
+   * 
+   * Body: { floorPlanIds: number[] }
+   */
+  async reorderProjectFloorPlans(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { floorPlanIds } = req.body;
+
+      if (!floorPlanIds || !Array.isArray(floorPlanIds)) {
+        throw new AppError("floorPlanIds array is required", 400);
+      }
+
+      await FloorPlanModel.reorder(
+        PlannableType.PROJECT,
+        Number(id),
+        floorPlanIds
+      );
+
+      ApiResponse.success(res, null, "Floor plans reordered successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ============================================================================
+  // PUBLISHING & VALIDATION
+  // ============================================================================
+
+  /**
+   * Validate project media before publishing
+   * GET /api/projects/:id/validate-media
+   */
+  async validateProjectMedia(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      const errors: string[] = [];
+
+      // Check for cover photo
+      const coverPhoto = await PhotoModel.getCoverPhoto(
+        PhotoableType.PROJECT,
+        Number(id)
+      );
+      if (!coverPhoto) {
+        errors.push("Cover photo is required");
+      }
+
+      // Check for minimum photos
+      const photoCount = await PhotoModel.countForEntity(
+        PhotoableType.PROJECT,
+        Number(id)
+      );
+      if (photoCount < 3) {
+        errors.push("At least 3 photos are required");
+      }
+
+      // Check for floor plans (warning only)
+      const floorPlanCount = await FloorPlanModel.countForEntity(
+        PlannableType.PROJECT,
+        Number(id)
+      );
+      if (floorPlanCount === 0) {
+        errors.push("WARNING: No floor plans found (recommended)");
+      }
+
+      const isValid = errors.length === 0;
+
+      ApiResponse.success(
+        res,
+        { isValid, errors },
+        isValid ? "Media validation passed" : "Media validation failed"
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Publish project (with media validation)
+   * PATCH /api/projects/:id/publish
+   */
+  async publishProject(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      // Validate media before publishing
+      const coverPhoto = await PhotoModel.getCoverPhoto(
+        PhotoableType.PROJECT,
+        Number(id)
+      );
+
+      const photoCount = await PhotoModel.countForEntity(
+        PhotoableType.PROJECT,
+        Number(id)
+      );
+
+      if (!coverPhoto || photoCount < 3) {
+        throw new AppError(
+          "Cannot publish project: Cover photo and at least 3 photos are required",
+          400
+        );
+      }
 
       const project = await ProjectModel.publish(Number(id));
 
@@ -283,7 +692,11 @@ export class ProjectController {
    * Unpublish project
    * PATCH /api/projects/:id/unpublish
    */
-  async unpublishProject(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async unpublishProject(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { id } = req.params;
 
@@ -295,235 +708,43 @@ export class ProjectController {
     }
   }
 
+  // ============================================================================
+  // STATISTICS & ANALYTICS
+  // ============================================================================
+
   /**
-   * Toggle featured status
-   * PATCH /api/projects/:id/toggle-featured
+   * Get project media statistics
+   * GET /api/projects/:id/media-stats
    */
-  async toggleFeatured(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getProjectMediaStats(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { id } = req.params;
 
-      const project = await ProjectModel.toggleFeatured(Number(id));
+      const [photoStats, floorPlanStats] = await Promise.all([
+        PhotoModel.countForEntity(PhotoableType.PROJECT, Number(id)),
+        FloorPlanModel.getStatistics(PlannableType.PROJECT, Number(id)),
+      ]);
 
-      ApiResponse.success(res, project, "Featured status toggled successfully");
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * Full-text search projects
-   * GET /api/projects/search
-   */
-  async searchProjects(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { q, page = 1, limit = 10 } = req.query;
-
-      if (!q) {
-        throw new AppError("Search query is required", 400);
-      }
-
-      const options: ProjectQueryOptions & { page: number; limit: number } = {
-        page: Number(page),
-        limit: Number(limit),
-        isPublished: true,
-      };
-
-      const projects = await ProjectModel.fullTextSearch(q as string, options);
-
-      ApiResponse.success(res, projects, "Search completed successfully");
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * Get project features
-   * GET /api/projects/:id/features
-   */
-  async getProjectFeatures(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id } = req.params;
-
-      const features = await ProjectModel.getFeatures(Number(id));
-
-      ApiResponse.success(res, features, "Project features retrieved successfully");
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * Add features to project
-   * POST /api/projects/:id/features
-   * 
-   * Body: { featureIds: number[] }
-   */
-  async addProjectFeatures(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id } = req.params;
-      const { featureIds } = req.body;
-
-      if (!Array.isArray(featureIds) || featureIds.length === 0) {
-        throw new AppError("featureIds must be a non-empty array", 400);
-      }
-
-      await ProjectModel.addFeatures(Number(id), featureIds);
-
-      ApiResponse.success(res, null, "Features added successfully");
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * Sync project features (replace all)
-   * PUT /api/projects/:id/features
-   * 
-   * Body: { featureIds: number[] }
-   */
-  async syncProjectFeatures(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id } = req.params;
-      const { featureIds } = req.body;
-
-      if (!Array.isArray(featureIds)) {
-        throw new AppError("featureIds must be an array", 400);
-      }
-
-      await ProjectModel.syncFeatures(Number(id), featureIds);
-
-      ApiResponse.success(res, null, "Features synchronized successfully");
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * Remove features from project
-   * DELETE /api/projects/:id/features
-   * 
-   * Body: { featureIds: number[] }
-   */
-  async removeProjectFeatures(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id } = req.params;
-      const { featureIds } = req.body;
-
-      if (!Array.isArray(featureIds) || featureIds.length === 0) {
-        throw new AppError("featureIds must be a non-empty array", 400);
-      }
-
-      await ProjectModel.removeFeatures(Number(id), featureIds);
-
-      ApiResponse.success(res, null, "Features removed successfully");
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * Get project media
-   * GET /api/projects/:id/media
-   */
-  async getProjectMedia(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id } = req.params;
-      const { mediaType } = req.query;
-
-      const media = await ProjectModel.getMedia(
-        Number(id),
-        mediaType as string | undefined
+      const coverPhoto = await PhotoModel.getCoverPhoto(
+        PhotoableType.PROJECT,
+        Number(id)
       );
 
-      ApiResponse.success(res, media, "Project media retrieved successfully");
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * Get project apartments
-   * GET /api/projects/:id/apartments
-   */
-  async getProjectApartments(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id } = req.params;
-      const { status, minPrice, maxPrice, bedrooms } = req.query;
-
-      const filters: any = {};
-      if (status) filters.status = status;
-      if (minPrice) filters.minPrice = Number(minPrice);
-      if (maxPrice) filters.maxPrice = Number(maxPrice);
-      if (bedrooms) filters.bedrooms = Number(bedrooms);
-
-      const apartments = await ProjectModel.getApartments(Number(id), filters);
-
-      ApiResponse.success(res, apartments, "Project apartments retrieved successfully");
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * Get projects by location
-   * GET /api/projects/location/:locationId
-   */
-  async getProjectsByLocation(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { locationId } = req.params;
-      const { page = 1, limit = 10 } = req.query;
-
-      const options: ProjectQueryOptions & { page: number; limit: number } = {
-        page: Number(page),
-        limit: Number(limit),
-        locationId: Number(locationId),
-        isPublished: true,
-      };
-
-      const result = await ProjectModel.paginateProjects(options);
-
-      ApiResponse.success(res, result, "Projects retrieved successfully");
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * Get projects by type
-   * GET /api/projects/type/:type
-   */
-  async getProjectsByType(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { type } = req.params;
-      const { page = 1, limit = 10 } = req.query;
-
-      const options: ProjectQueryOptions & { page: number; limit: number } = {
-        page: Number(page),
-        limit: Number(limit),
-        projectType: type as ProjectType,
-        isPublished: true,
-      };
-
-      const result = await ProjectModel.paginateProjects(options);
-
-      ApiResponse.success(res, result, "Projects retrieved successfully");
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * Get projects with coordinates (for map)
-   * GET /api/projects/map
-   */
-  async getProjectsWithCoordinates(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const projects = await ProjectModel.findWithCoordinates({
-        isPublished: true,
-      });
-
-      ApiResponse.success(res, projects, "Projects with coordinates retrieved successfully");
+      ApiResponse.success(
+        res,
+        {
+          photos: {
+            total: photoStats,
+            hasCover: !!coverPhoto,
+          },
+          floorPlans: floorPlanStats,
+        },
+        "Media statistics retrieved successfully"
+      );
     } catch (error) {
       next(error);
     }
