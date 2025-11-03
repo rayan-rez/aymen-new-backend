@@ -10,7 +10,6 @@ import { configureTableEngine } from "../knex-extensions";
  * TABLES CREATED:
  * 1. project_features: Projects ↔ Features (amenities, facilities)
  * 2. project_media: Projects ↔ Media files (images, videos, documents)
- * 3. project_team: Projects ↔ Team members (architects, developers, sales)
  * 
  * ARCHITECTURE PATTERN:
  * - Simple junction tables with composite unique constraints
@@ -98,55 +97,6 @@ export async function up(knex: Knex): Promise<void> {
 
     configureTableEngine(table);
   });
-
-  // =================================================================
-  // PROJECT TEAM (Many-to-Many)
-  // =================================================================
-  await knex.schema.createTable("project_team", (table) => {
-    table.increments("id").primary();
-
-    // Foreign key to projects
-    table.withForeignKey("project_id", "projects", "id", "CASCADE");
-
-    // =================================================================
-    // TEAM MEMBER DETAILS
-    // =================================================================
-    table.string("name", 255).notNullable();
-    table.string("title", 255).nullable(); // Job title/position
-    
-    table.withStatusEnum(
-      ["architect", "developer", "contractor", "designer", "sales_manager", "other"],
-      { columnName: "role" }
-    );
-
-    // =================================================================
-    // CONTACT & PROFILE
-    // =================================================================
-    table.string("email", 255).nullable();
-    table.string("phone", 30).nullable();
-    table.string("company", 255).nullable();
-    table.string("photo_url", 500).nullable();
-    table.text("bio").nullable();
-
-    // =================================================================
-    // ORGANIZATION
-    // =================================================================
-    table.integer("display_order").unsigned().defaultTo(0);
-    table.boolean("is_visible").defaultTo(true); // Show on public page
-
-    table.withTimestamps();
-
-    // Prevent duplicate team member assignments
-    table.unique(["project_id", "email"], "uniq_project_email");
-
-    // Index for queries
-    table.index(
-      ["project_id", "role", "display_order"],
-      "idx_project_role_order"
-    );
-
-    configureTableEngine(table);
-  });
 }
 
 /**
@@ -154,7 +104,6 @@ export async function up(knex: Knex): Promise<void> {
  * Drops all project relation tables in reverse dependency order
  */
 export async function down(knex: Knex): Promise<void> {
-  await knex.schema.dropTableIfExists("project_team");
   await knex.schema.dropTableIfExists("project_media");
   await knex.schema.dropTableIfExists("project_features");
 }

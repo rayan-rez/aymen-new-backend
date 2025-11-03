@@ -2,7 +2,7 @@
  * Project Model
  * 
  * Manages real estate development projects with full support for:
- * - Related entities (apartments, features, media, team)
+ * - Related entities (apartments, features, media)
  * - Advanced filtering and search
  * - Publishing workflow
  * - Analytics integration
@@ -75,7 +75,6 @@ export interface Project {
   apartments?: any[];
   features?: any[];
   media?: any[];
-  team?: any[];
 }
 
 /**
@@ -137,7 +136,6 @@ export interface ProjectWithStats extends Project {
     soldPercentage: number;
     mediaCount: number;
     featuresCount: number;
-    teamMembersCount: number;
   };
 }
 
@@ -563,12 +561,6 @@ export class ProjectModel extends BaseModel<
       .count("* as count")
       .first();
 
-    // Get team members count
-    const teamCount = await connection("project_team")
-      .where({ project_id: projectId })
-      .count("* as count")
-      .first();
-
     return {
       totalApartments: total,
       availableApartments: Number(apartmentStats?.available || 0),
@@ -576,8 +568,7 @@ export class ProjectModel extends BaseModel<
       soldApartments: sold,
       soldPercentage,
       mediaCount: Number(mediaCount?.count || 0),
-      featuresCount: Number(featuresCount?.count || 0),
-      teamMembersCount: Number(teamCount?.count || 0),
+      featuresCount: Number(featuresCount?.count || 0)
     };
   }
 
@@ -655,28 +646,6 @@ export class ProjectModel extends BaseModel<
 
     if (mediaType) {
       query = query.where({ media_type: mediaType });
-    }
-
-    return query;
-  }
-
-  /**
-   * Gets team members for a project
-   */
-  async getTeam(
-    projectId: number,
-    role?: string,
-    trx?: Knex.Transaction
-  ): Promise<any[]> {
-    const connection = trx || this.db;
-
-    let query = connection("project_team")
-      .where({ project_id: projectId })
-      .where({ is_visible: true })
-      .orderBy("display_order");
-
-    if (role) {
-      query = query.where({ role });
     }
 
     return query;
