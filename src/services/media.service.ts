@@ -6,18 +6,40 @@
  * @module services/media.service
  */
 
-import PhotoModel, { PhotoableType, Photo } from "../models/photo.model";
+import PhotoModel, { PhotoableType, Photo, CreatePhotoDto } from "@models/new/photo.model";
 import FloorPlanModel, {
   PlannableType,
   FloorPlan,
-} from "../models/floor-plan.model";
-import db from "../config/database";
+  CreateFloorPlanDto,
+} from "@models/new/floor-plan.model";
+import db from "@/config/database";
+import { Knex } from "knex";
+
+/**
+ * Media counts interface
+ */
+export interface MediaCounts {
+  photoCount: number;
+  floorPlanCount?: number;
+}
+
+/**
+ * Entity media interface
+ */
+export interface EntityMedia {
+  photos: Photo[];
+  floorPlans?: FloorPlan[];
+}
 
 /**
  * Media Service Class
  * Centralizes common media operations across different entity types
  */
 export class MediaService {
+  // ============================================================================
+  // TYPE GUARDS & VALIDATION
+  // ============================================================================
+
   /**
    * Type guard for PhotoableType
    */
@@ -44,18 +66,25 @@ export class MediaService {
       case PhotoableType.APARTMENT:
         return PlannableType.APARTMENT;
       default:
-        return null;
+        return null; // Commercial properties, blog posts, events don't have floor plans
     }
   }
 
+  // ============================================================================
+  // RETRIEVE MEDIA
+  // ============================================================================
+
   /**
-   * Gets all media with error handling
+   * Gets all media for a project
    */
-  static async getProjectMedia(projectId: number) {
+  static async getProjectMedia(
+    projectId: number,
+    trx?: Knex.Transaction
+  ): Promise<EntityMedia> {
     try {
       const [photos, floorPlans] = await Promise.all([
-        PhotoModel.getForEntity(PhotoableType.PROJECT, projectId),
-        FloorPlanModel.getForEntity(PlannableType.PROJECT, projectId),
+        PhotoModel.getForEntity(PhotoableType.PROJECT, projectId, {}, trx),
+        FloorPlanModel.getForEntity(PlannableType.PROJECT, projectId, {}, trx),
       ]);
 
       return { photos, floorPlans };
@@ -68,53 +97,106 @@ export class MediaService {
   /**
    * Gets all media for an apartment
    */
-  static async getApartmentMedia(apartmentId: number) {
-    const [photos, floorPlans] = await Promise.all([
-      PhotoModel.getForEntity(PhotoableType.APARTMENT, apartmentId),
-      FloorPlanModel.getForEntity(PlannableType.APARTMENT, apartmentId),
-    ]);
+  static async getApartmentMedia(
+    apartmentId: number,
+    trx?: Knex.Transaction
+  ): Promise<EntityMedia> {
+    try {
+      const [photos, floorPlans] = await Promise.all([
+        PhotoModel.getForEntity(PhotoableType.APARTMENT, apartmentId, {}, trx),
+        FloorPlanModel.getForEntity(PlannableType.APARTMENT, apartmentId, {}, trx),
+      ]);
 
-    return { photos, floorPlans };
+      return { photos, floorPlans };
+    } catch (error) {
+      console.error(`Error getting media for apartment ${apartmentId}:`, error);
+      throw new Error(`Failed to retrieve media for apartment ${apartmentId}`);
+    }
   }
 
   /**
    * Gets all photos for a commercial property
    */
   static async getCommercialPropertyPhotos(
-    propertyId: number
+    propertyId: number,
+    trx?: Knex.Transaction
   ): Promise<Photo[]> {
     return PhotoModel.getForEntity(
       PhotoableType.COMMERCIAL_PROPERTY,
-      propertyId
+      propertyId,
+      {},
+      trx
     );
   }
 
   /**
    * Gets all photos for a blog post
    */
-  static async getBlogPostPhotos(blogPostId: number): Promise<Photo[]> {
-    return PhotoModel.getForEntity(PhotoableType.BLOG_POST, blogPostId);
+  static async getBlogPostPhotos(
+    blogPostId: number,
+    trx?: Knex.Transaction
+  ): Promise<Photo[]> {
+    return PhotoModel.getForEntity(
+      PhotoableType.BLOG_POST,
+      blogPostId,
+      {},
+      trx
+    );
+  }
+
+  /**
+   * Gets all photos for an event
+   */
+  static async getEventPhotos(
+    eventId: number,
+    trx?: Knex.Transaction
+  ): Promise<Photo[]> {
+    return PhotoModel.getForEntity(PhotoableType.EVENT, eventId, {}, trx);
   }
 
   /**
    * Gets media for any entity type with validation
    */
-  static async getEntityMedia(entityType: string, entityId: number) {
+  static async getEntityMedia(
+    entityType: string,
+    entityId: number,
+    trx?: Knex.Transaction
+  ): Promise<EntityMedia> {
     if (!this.isValidPhotoableType(entityType)) {
       throw new Error(`Invalid entity type: ${entityType}`);
     }
 
-    const photos = await PhotoModel.getForEntity(entityType, entityId);
+    const photos = await PhotoModel.getForEntity(entityType, entityId, {}, trx);
 
     const plannableType = this.mapToPlannableType(entityType);
     let floorPlans: FloorPlan[] | undefined;
 
     if (plannableType) {
-      floorPlans = await FloorPlanModel.getForEntity(plannableType, entityId);
+      floorPlans = await FloorPlanModel.getForEntity(
+        plannableType,
+        entityId,
+        {},
+        trx
+      );
     }
 
     return { photos, floorPlans };
   }
+
+  /**
+   * Gets cover photo for an entity
+   */
+  static async getCoverPhoto(
+    entityType: PhotoableType,
+    entityId: number,
+    trx?: Knex.Transaction
+  ): Promise<Photo | null> {
+    return PhotoModel.getCoverPhoto(entityType, entityId, trx);
+  }
+
+  // ============================================================================
+  // ADD MEDIA
+  // ============================================================================
 
   /**
    * Adds photos to any entity with validation
@@ -128,9 +210,10 @@ export class MediaService {
       caption?: string | null;
       displayOrder?: number;
       isCover?: boolean;
-    }>
+    }>,
+    trx?: Knex.Transaction
   ): Promise<Photo[]> {
-    return PhotoModel.bulkCreate(entityType, entityId, photoData);
+    return PhotoModel.bulkCreate(entityType, entityId, photoData, trx);
   }
 
   /**
@@ -144,9 +227,136 @@ export class MediaService {
       imageUrl: string;
       pdfUrl?: string | null;
       displayOrder?: number;
-    }>
+    }>,
+    trx?: Knex.Transaction
   ): Promise<FloorPlan[]> {
-    return FloorPlanModel.bulkCreate(entityType, entityId, planData);
+    return FloorPlanModel.bulkCreate(entityType, entityId, planData, trx);
+  }
+
+  /**
+   * Adds a single photo
+   */
+  static async addPhoto(
+    entityType: PhotoableType,
+    entityId: number,
+    photoData: {
+      url: string;
+      externalUrl?: string | null;
+      caption?: string | null;
+      displayOrder?: number;
+      isCover?: boolean;
+    },
+    trx?: Knex.Transaction
+  ): Promise<Photo> {
+    const createData: CreatePhotoDto = {
+      photoableType: entityType,
+      photoableId: entityId,
+      ...photoData,
+    };
+
+    return PhotoModel.create(createData, trx);
+  }
+
+  /**
+   * Adds a single floor plan
+   */
+  static async addFloorPlan(
+    entityType: PlannableType,
+    entityId: number,
+    planData: {
+      name: string;
+      imageUrl: string;
+      pdfUrl?: string | null;
+      displayOrder?: number;
+    },
+    trx?: Knex.Transaction
+  ): Promise<FloorPlan> {
+    const createData: CreateFloorPlanDto = {
+      plannableType: entityType,
+      plannableId: entityId,
+      ...planData,
+    };
+
+    return FloorPlanModel.create(createData, trx);
+  }
+
+  // ============================================================================
+  // UPDATE MEDIA
+  // ============================================================================
+
+  /**
+   * Updates a photo
+   */
+  static async updatePhoto(
+    photoId: number,
+    data: {
+      url?: string;
+      externalUrl?: string | null;
+      caption?: string | null;
+      displayOrder?: number;
+      isCover?: boolean;
+    },
+    trx?: Knex.Transaction
+  ): Promise<Photo | null> {
+    return PhotoModel.update(photoId, data, trx);
+  }
+
+  /**
+   * Updates a floor plan
+   */
+  static async updateFloorPlan(
+    floorPlanId: number,
+    data: {
+      name?: string;
+      imageUrl?: string;
+      pdfUrl?: string | null;
+      displayOrder?: number;
+    },
+    trx?: Knex.Transaction
+  ): Promise<FloorPlan | null> {
+    return FloorPlanModel.update(floorPlanId, data, trx);
+  }
+
+  /**
+   * Sets a photo as cover
+   */
+  static async setCoverPhoto(
+    photoId: number,
+    trx?: Knex.Transaction
+  ): Promise<Photo | null> {
+    return PhotoModel.setCover(photoId, trx);
+  }
+
+  // ============================================================================
+  // DELETE MEDIA
+  // ============================================================================
+
+  /**
+   * Deletes a single photo
+   */
+  static async deletePhoto(
+    photoId: number,
+    force: boolean = false,
+    trx?: Knex.Transaction
+  ): Promise<boolean> {
+    if (force) {
+      return PhotoModel.forceDelete(photoId, trx);
+    }
+    return PhotoModel.delete(photoId, trx);
+  }
+
+  /**
+   * Deletes a single floor plan
+   */
+  static async deleteFloorPlan(
+    floorPlanId: number,
+    force: boolean = false,
+    trx?: Knex.Transaction
+  ): Promise<boolean> {
+    if (force) {
+      return FloorPlanModel.forceDelete(floorPlanId, trx);
+    }
+    return FloorPlanModel.delete(floorPlanId, trx);
   }
 
   /**
@@ -155,15 +365,19 @@ export class MediaService {
   static async deleteEntityMedia(
     entityType: PhotoableType,
     entityId: number,
-    includeFloorPlans: boolean = false
+    includeFloorPlans: boolean = false,
+    force: boolean = false,
+    trx?: Knex.Transaction
   ): Promise<{ photosDeleted: boolean; plansDeleted?: boolean }> {
-    const trx = await db.transaction();
+    const useTrx = trx || (await db.transaction());
 
     try {
       // Delete photos
       const photosDeleted = await PhotoModel.deleteForEntity(
         entityType,
-        entityId
+        entityId,
+        force,
+        useTrx
       );
 
       let plansDeleted: boolean | undefined;
@@ -173,15 +387,22 @@ export class MediaService {
         if (plannableType) {
           plansDeleted = await FloorPlanModel.deleteForEntity(
             plannableType,
-            entityId
+            entityId,
+            force,
+            useTrx
           );
         }
       }
 
-      await trx.commit();
+      if (!trx) {
+        await useTrx.commit();
+      }
+
       return { photosDeleted, plansDeleted };
     } catch (error) {
-      await trx.rollback();
+      if (!trx) {
+        await useTrx.rollback();
+      }
       throw error;
     }
   }
@@ -192,66 +413,83 @@ export class MediaService {
   static async deleteEntityWithMedia(
     entityType: PhotoableType,
     entityId: number,
-    entityTable: string
+    entityTable: string,
+    trx?: Knex.Transaction
   ): Promise<boolean> {
-    const trx = await db.transaction();
+    const useTrx = trx || (await db.transaction());
 
     try {
       // Delete photos
-      await trx("photos")
-        .where({ photoable_type: entityType, photoable_id: entityId })
-        .del();
+      await PhotoModel.deleteForEntity(entityType, entityId, true, useTrx);
 
       // Delete floor plans if applicable
       const plannableType = this.mapToPlannableType(entityType);
       if (plannableType) {
-        await trx("floor_plans")
-          .where({ plannable_type: plannableType, plannable_id: entityId })
-          .del();
+        await FloorPlanModel.deleteForEntity(plannableType, entityId, true, useTrx);
       }
 
       // Delete main entity
-      await trx(entityTable).where({ id: entityId }).del();
+      await useTrx(entityTable).where({ id: entityId }).del();
 
-      await trx.commit();
+      if (!trx) {
+        await useTrx.commit();
+      }
+
       return true;
     } catch (error) {
-      await trx.rollback();
+      if (!trx) {
+        await useTrx.rollback();
+      }
       throw error;
     }
   }
 
+  // ============================================================================
+  // REORDER MEDIA
+  // ============================================================================
+
   /**
-   * Gets or sets cover photo for an entity
+   * Reorders photos for an entity
    */
-  static async manageCoverPhoto(
+  static async reorderPhotos(
     entityType: PhotoableType,
     entityId: number,
-    photoId?: number
-  ): Promise<Photo | null> {
-    if (photoId) {
-      await PhotoModel.setCover(photoId);
-    }
-
-    return PhotoModel.getCoverPhoto(entityType, entityId);
+    photoIds: number[],
+    trx?: Knex.Transaction
+  ): Promise<boolean> {
+    return PhotoModel.reorder(entityType, entityId, photoIds, trx);
   }
 
   /**
-   * Reorders media for an entity
+   * Reorders floor plans for an entity
+   */
+  static async reorderFloorPlans(
+    entityType: PlannableType,
+    entityId: number,
+    planIds: number[],
+    trx?: Knex.Transaction
+  ): Promise<boolean> {
+    return FloorPlanModel.reorder(entityType, entityId, planIds, trx);
+  }
+
+  /**
+   * Reorders all media for an entity
    */
   static async reorderMedia(
     entityType: PhotoableType,
     entityId: number,
     photoIds: number[],
-    planIds?: number[]
+    planIds?: number[],
+    trx?: Knex.Transaction
   ): Promise<{ photosReordered: boolean; plansReordered?: boolean }> {
-    const trx = await db.transaction();
+    const useTrx = trx || (await db.transaction());
 
     try {
       const photosReordered = await PhotoModel.reorder(
         entityType,
         entityId,
-        photoIds
+        photoIds,
+        useTrx
       );
 
       let plansReordered: boolean | undefined;
@@ -262,48 +500,47 @@ export class MediaService {
           plansReordered = await FloorPlanModel.reorder(
             plannableType,
             entityId,
-            planIds
+            planIds,
+            useTrx
           );
         }
       }
 
-      await trx.commit();
+      if (!trx) {
+        await useTrx.commit();
+      }
+
       return { photosReordered, plansReordered };
     } catch (error) {
-      await trx.rollback();
+      if (!trx) {
+        await useTrx.rollback();
+      }
       throw error;
     }
   }
 
+  // ============================================================================
+  // STATISTICS & COUNTS
+  // ============================================================================
+
   /**
    * Gets media counts for an entity
-   *
-   * @param entityType - Entity type
-   * @param entityId - Entity ID
-   * @returns Promise with media counts
-   *
-   * @example
-   * const counts = await MediaHelperService.getMediaCounts(PhotoableType.PROJECT, 1);
-   * // Returns: { photoCount: 15, floorPlanCount: 3 }
    */
   static async getMediaCounts(
     entityType: PhotoableType,
-    entityId: number
-  ): Promise<{ photoCount: number; floorPlanCount?: number }> {
-    const photoCount = await PhotoModel.countForEntity(entityType, entityId);
+    entityId: number,
+    trx?: Knex.Transaction
+  ): Promise<MediaCounts> {
+    const photoCount = await PhotoModel.countForEntity(entityType, entityId, trx);
 
     let floorPlanCount: number | undefined;
-    const plannableType =
-      entityType === PhotoableType.PROJECT
-        ? PlannableType.PROJECT
-        : entityType === PhotoableType.APARTMENT
-        ? PlannableType.APARTMENT
-        : null;
+    const plannableType = this.mapToPlannableType(entityType);
 
     if (plannableType) {
       floorPlanCount = await FloorPlanModel.countForEntity(
         plannableType,
-        entityId
+        entityId,
+        trx
       );
     }
 
@@ -311,80 +548,146 @@ export class MediaService {
   }
 
   /**
+   * Gets floor plan statistics
+   */
+  static async getFloorPlanStatistics(
+    entityType: PlannableType,
+    entityId: number,
+    trx?: Knex.Transaction
+  ): Promise<{
+    total: number;
+    withPdf: number;
+    withoutPdf: number;
+  }> {
+    return FloorPlanModel.getStatistics(entityType, entityId, trx);
+  }
+
+  // ============================================================================
+  // COPY/DUPLICATE MEDIA
+  // ============================================================================
+
+  /**
    * Copies media from one entity to another
-   * Useful for duplicating projects/apartments
-   *
-   * @param sourceType - Source entity type
-   * @param sourceId - Source entity ID
-   * @param targetType - Target entity type
-   * @param targetId - Target entity ID
-   * @param includeFloorPlans - Whether to copy floor plans too
-   * @returns Promise with copied media
-   *
-   * @example
-   * // Duplicate project media to another project
-   * await MediaHelperService.copyMedia(
-   *   PhotoableType.PROJECT,
-   *   1,
-   *   PhotoableType.PROJECT,
-   *   2,
-   *   true
-   * );
    */
   static async copyMedia(
     sourceType: PhotoableType,
     sourceId: number,
     targetType: PhotoableType,
     targetId: number,
-    includeFloorPlans: boolean = false
+    includeFloorPlans: boolean = false,
+    trx?: Knex.Transaction
   ): Promise<{ photos: Photo[]; floorPlans?: FloorPlan[] }> {
-    // Copy photos
-    const sourcePhotos = await PhotoModel.getForEntity(sourceType, sourceId);
-    const photoData = sourcePhotos.map((photo) => ({
-      url: photo.url,
-      externalUrl: photo.externalUrl,
-      caption: photo.caption,
-      displayOrder: photo.displayOrder,
-      isCover: photo.isCover,
-    }));
-    const photos = await PhotoModel.bulkCreate(targetType, targetId, photoData);
+    const useTrx = trx || (await db.transaction());
 
-    let floorPlans: FloorPlan[] | undefined;
-    if (includeFloorPlans) {
-      const sourcePlannableType =
-        sourceType === PhotoableType.PROJECT
-          ? PlannableType.PROJECT
-          : sourceType === PhotoableType.APARTMENT
-          ? PlannableType.APARTMENT
-          : null;
+    try {
+      // Copy photos
+      const photos = await PhotoModel.duplicatePhotos(
+        sourceType,
+        sourceId,
+        targetType,
+        targetId,
+        useTrx
+      );
 
-      const targetPlannableType =
-        targetType === PhotoableType.PROJECT
-          ? PlannableType.PROJECT
-          : targetType === PhotoableType.APARTMENT
-          ? PlannableType.APARTMENT
-          : null;
+      let floorPlans: FloorPlan[] | undefined;
+      if (includeFloorPlans) {
+        const sourcePlannableType = this.mapToPlannableType(sourceType);
+        const targetPlannableType = this.mapToPlannableType(targetType);
 
-      if (sourcePlannableType && targetPlannableType) {
-        const sourcePlans = await FloorPlanModel.getForEntity(
-          sourcePlannableType,
-          sourceId
-        );
-        const planData = sourcePlans.map((plan) => ({
-          name: plan.name,
-          imageUrl: plan.imageUrl,
-          pdfUrl: plan.pdfUrl,
-          displayOrder: plan.displayOrder,
-        }));
-        floorPlans = await FloorPlanModel.bulkCreate(
-          targetPlannableType,
-          targetId,
-          planData
+        if (sourcePlannableType && targetPlannableType) {
+          floorPlans = await FloorPlanModel.duplicateFloorPlans(
+            sourcePlannableType,
+            sourceId,
+            targetPlannableType,
+            targetId,
+            useTrx
+          );
+        }
+      }
+
+      if (!trx) {
+        await useTrx.commit();
+      }
+
+      return { photos, floorPlans };
+    } catch (error) {
+      if (!trx) {
+        await useTrx.rollback();
+      }
+      throw error;
+    }
+  }
+
+  // ============================================================================
+  // VALIDATION HELPERS
+  // ============================================================================
+
+  /**
+   * Validates that an entity has required media before publishing
+   */
+  static async validateRequiredMedia(
+    entityType: PhotoableType,
+    entityId: number,
+    requirements: {
+      minPhotos?: number;
+      requireCoverPhoto?: boolean;
+      minFloorPlans?: number;
+    },
+    trx?: Knex.Transaction
+  ): Promise<{ valid: boolean; errors: string[] }> {
+    const errors: string[] = [];
+
+    // Check photo count
+    if (requirements.minPhotos) {
+      const photoCount = await PhotoModel.countForEntity(
+        entityType,
+        entityId,
+        trx
+      );
+
+      if (photoCount < requirements.minPhotos) {
+        errors.push(
+          `Requires at least ${requirements.minPhotos} photo(s), found ${photoCount}`
         );
       }
     }
 
-    return { photos, floorPlans };
+    // Check cover photo
+    if (requirements.requireCoverPhoto) {
+      const coverPhoto = await PhotoModel.getCoverPhoto(
+        entityType,
+        entityId,
+        trx
+      );
+
+      if (!coverPhoto) {
+        errors.push("Cover photo is required");
+      }
+    }
+
+    // Check floor plans
+    if (requirements.minFloorPlans) {
+      const plannableType = this.mapToPlannableType(entityType);
+
+      if (plannableType) {
+        const planCount = await FloorPlanModel.countForEntity(
+          plannableType,
+          entityId,
+          trx
+        );
+
+        if (planCount < requirements.minFloorPlans) {
+          errors.push(
+            `Requires at least ${requirements.minFloorPlans} floor plan(s), found ${planCount}`
+          );
+        }
+      }
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+    };
   }
 }
 
