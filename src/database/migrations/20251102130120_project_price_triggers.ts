@@ -54,9 +54,29 @@ export async function up(knex: Knex): Promise<void> {
       END IF;
     END;
   `);
+
+    await knex.raw(`
+    CREATE TRIGGER trg_update_project_price_range_delete
+    AFTER DELETE ON apartments
+    FOR EACH ROW
+    BEGIN
+      UPDATE projects 
+      SET 
+        price_min = (
+          SELECT MIN(price) FROM apartments 
+          WHERE project_id = OLD.project_id AND price IS NOT NULL AND deleted_at IS NULL
+        ),
+        price_max = (
+          SELECT MAX(price) FROM apartments 
+          WHERE project_id = OLD.project_id AND price IS NOT NULL AND deleted_at IS NULL
+        )
+      WHERE id = OLD.project_id;
+    END;
+  `);
 }
 
 export async function down(knex: Knex): Promise<void> {
   await knex.raw("DROP TRIGGER IF EXISTS trg_update_project_price_range_update");
+  await knex.raw("DROP TRIGGER IF EXISTS trg_update_project_price_range_delete");
   await knex.raw("DROP TRIGGER IF EXISTS trg_update_project_price_range");
 }
