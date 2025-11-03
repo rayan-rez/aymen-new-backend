@@ -106,7 +106,7 @@ export interface CreateFormSubmissionDto {
   sessionId?: string;
   formType: FormType;
   formId?: string;
-  projectId?: number;
+  projectId?: number | null;
 
   email?: string;
   phone?: string;

@@ -1,125 +1,129 @@
 /**
- * Error handling middleware
- * Centralized error handling for the entire application
- * Catches and formats errors consistently
+ * Error Handler Middleware
+ * Central error handling for the application
+ * 
+ * @module middlewares/error-handler.middleware
  */
 
 import { Request, Response, NextFunction } from "express";
-import { ApiResponse } from "@utils/response.util";
+import { ApiResponse } from "@/utils/response.util";
 
 /**
- * Custom application error class
- * Extends native Error with HTTP status code
- *
- * @example
- * throw new AppError("Resource not found", 404);
- * throw new AppError("Unauthorized access", 401);
+ * Custom Application Error Class
  */
 export class AppError extends Error {
-  /** HTTP status code */
-  public readonly statusCode: number;
+  public statusCode: number;
+  public isOperational: boolean;
+  public errors?: Record<string, any>;
 
-  /** Whether the error is operational (expected) or programming error */
-  public readonly isOperational: boolean;
-
-  /**
-   * Creates an AppError instance
-   * @param message - Error message to display
-   * @param statusCode - HTTP status code (default: 500)
-   * @param isOperational - Whether error is operational (default: true)
-   */
   constructor(
     message: string,
     statusCode: number = 500,
-    isOperational: boolean = true
+    isOperational: boolean = true,
+    errors?: Record<string, any>
   ) {
     super(message);
     this.statusCode = statusCode;
     this.isOperational = isOperational;
+    this.errors = errors;
 
-    // Capture stack trace for debugging
     Error.captureStackTrace(this, this.constructor);
   }
 }
 
 /**
- * Global error handling middleware
- * Should be the last middleware mounted in the application
- *
- * @param err - Error object (can be AppError or native Error)
- * @param req - Express request object
- * @param res - Express response object
- * @param next - Express next middleware function (for compatibility)
- *
- * @example
- * app.use(errorHandler); // Mount as last middleware
+ * Error handler middleware
+ * Catches and formats all errors
  */
 export const errorHandler = (
-  err: AppError | Error | any,
+  err: Error | AppError,
   req: Request,
   res: Response,
   next: NextFunction
 ): void => {
-  // Determine status code and message
+  // Default error values
   let statusCode = 500;
   let message = "Internal server error";
-  let isOperational = false;
+  let errors: Record<string, any> | undefined;
 
+  // Handle AppError instances
   if (err instanceof AppError) {
-    // Handle custom AppError instances
     statusCode = err.statusCode;
     message = err.message;
-    isOperational = err.isOperational;
-  } else if (err instanceof Error) {
-    // Handle native Error instances
-    message = err.message;
+    errors = err.errors;
+  }
+  // Handle validation errors from Joi or other libraries
+  else if (err.name === "ValidationError") {
+    statusCode = 400;
+    message = "Validation failed";
+  }
+  // Handle database errors
+  else if (err.name === "DatabaseError" || err.name === "SequelizeError") {
+    statusCode = 500;
+    message = "Database error occurred";
+  }
+  // Handle JWT errors
+  else if (err.name === "JsonWebTokenError") {
+    statusCode = 401;
+    message = "Invalid token";
+  }
+  else if (err.name === "TokenExpiredError") {
+    statusCode = 401;
+    message = "Token expired";
+  }
+  // Generic error
+  else {
+    message = err.message || message;
   }
 
-  // Log error for debugging
-  const errorLog = {
-    timestamp: new Date().toISOString(),
-    statusCode,
-    message,
-    isOperational,
-    path: req.path,
-    method: req.method,
-    ...(process.env.NODE_ENV === "development" && {
+  // Log error in development
+  if (process.env.NODE_ENV !== "production") {
+    console.error("❌ Error:", {
+      message: err.message,
       stack: err.stack,
-    }),
-  };
-
-  console.error("Error:", errorLog);
+      statusCode,
+    });
+  }
 
   // Send error response
-  ApiResponse.error(res, message, statusCode);
+  ApiResponse.error(res, message, statusCode, errors);
+};
+
+/**
+ * 404 Not Found handler
+ * Catches requests to undefined routes
+ */
+export const notFoundHandler = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void => {
+  const error = new AppError(
+    `Route ${req.method} ${req.originalUrl} not found`,
+    404
+  );
+  next(error);
 };
 
 /**
  * Async error wrapper
  * Wraps async route handlers to catch errors
- *
- * @param fn - Async route handler function
- * @returns Wrapped function that catches errors
- *
+ * 
+ * @param fn - Async function to wrap
+ * @returns Express middleware function
+ * 
  * @example
- * router.get("/users", asyncHandler(async (req, res) => {
- *   const users = await User.findAll();
- *   ApiResponse.success(res, users);
+ * router.get('/projects', asyncHandler(async (req, res) => {
+ *   const projects = await ProjectModel.findAll();
+ *   res.json(projects);
  * }));
  */
-export const asyncHandler =
-  (fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) =>
-  (req: Request, res: Response, next: NextFunction): void => {
+export const asyncHandler = (
+  fn: (req: Request, res: Response, next: NextFunction) => Promise<any>
+) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     Promise.resolve(fn(req, res, next)).catch(next);
   };
-
-/**
- * Not found middleware
- * Handles requests to non-existent routes
- *
- * @param req - Express request object
- * @param res - Express response object
- */
-export const notFoundHandler = (req: Request, res: Response): void => {
-  ApiResponse.notFound(res, `Route ${req.path} not found`);
 };
+
+export default errorHandler;
