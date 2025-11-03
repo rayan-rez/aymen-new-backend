@@ -116,6 +116,8 @@ export async function up(knex: Knex): Promise<void> {
       "idx_listing_query"
     );
 
+    table.index(["project_id", "status", "bedrooms", "price"], "idx_search_filters");
+
     // =================================================================
     // TABLE CONFIGURATION
     // =================================================================
@@ -180,6 +182,13 @@ export async function up(knex: Knex): Promise<void> {
     "apartments",
     "chk_apartments_balconies",
     "balconies IS NULL OR balconies >= 0"
+  );
+
+  await addCheckConstraint(
+    knex,
+    "apartments",
+    "chk_apartments_floor_number",
+    "floor_number IS NULL OR floor_number >= -5" // Allow basement floors
   );
 
 }

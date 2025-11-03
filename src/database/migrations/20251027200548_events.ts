@@ -230,6 +230,13 @@ export async function up(knex: Knex): Promise<void> {
     "click_count >= 0"
   );
 
+  await addCheckConstraint(
+    knex,
+    "events",
+    "chk_events_registration_deadline",
+    "registration_deadline IS NULL OR registration_deadline <= start_date"
+  );
+
   // ====================================================================
   // EVENT REGISTRATIONS (JUNCTION TABLE)
   // ====================================================================

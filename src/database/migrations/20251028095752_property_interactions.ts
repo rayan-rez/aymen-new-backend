@@ -76,6 +76,7 @@ export async function up(knex: Knex): Promise<void> {
     table.index(["visitor_id", "property_id"], "idx_visitor_property");
     table.index(["lead_mirror_id", "property_id"], "idx_lead_property");
     table.index(["action_category", "interaction_ts"], "idx_category_time");
+    table.index(["property_id", "visitor_id", "action"], "idx_unique_visitor_actions");
 
     configureTableEngine(table);
   });

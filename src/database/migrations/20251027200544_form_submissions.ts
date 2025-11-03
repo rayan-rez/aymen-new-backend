@@ -136,6 +136,7 @@ export async function up(knex: Knex): Promise<void> {
       ["is_spam", "submitted_at"],
       "idx_spam_time"
     );
+    table.index(["visitor_id", "submitted_at"], "idx_visitor_submissions");
 
     configureTableEngine(table);
   });

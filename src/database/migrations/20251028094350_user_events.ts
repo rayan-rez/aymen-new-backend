@@ -106,6 +106,7 @@ export async function up(knex: Knex): Promise<void> {
     table.index(["page_path", "event_type"], "idx_page_type");
     table.index(["visitor_id", "event_ts"], "idx_visitor_time");
     table.index(["event_category", "event_ts"], "idx_category_time");
+    table.index(["event_type", "page_path", "event_ts"], "idx_event_page_time");
 
     configureTableEngine(table);
   });

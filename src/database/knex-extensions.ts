@@ -69,7 +69,8 @@ declare module "knex" {
         columnName: string,
         referencedTable: string,
         referencedColumn?: string,
-        onDeleteAction?: string
+        onDeleteAction?: string,
+        onUpdateAction?: string // ADD THIS
       ): Knex.TableBuilder;
 
       /**
@@ -244,22 +245,24 @@ export function registerKnexExtensions(): void {
   // =================================================================
 
   if (!TableBuilder.prototype.withForeignKey) {
-    TableBuilder.prototype.withForeignKey = function (
+    TableBuilder.prototype.withForeignKey = function(
       columnName: string,
       referencedTable: string,
       referencedColumn: string = "id",
-      onDeleteAction: string = "CASCADE"
+      onDeleteAction: string = "CASCADE",
+      onUpdateAction: string = "CASCADE"
     ): Knex.TableBuilder {
       this.integer(columnName)
         .unsigned()
         .nullable()
         .references(referencedColumn)
         .inTable(referencedTable)
-        .onDelete(onDeleteAction);
+        .onDelete(onDeleteAction)
+        .onUpdate(onUpdateAction);
 
       this.index(columnName, `idx_${columnName}`);
       return this;
-    };
+    }
   }
 
   // =================================================================

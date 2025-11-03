@@ -74,6 +74,7 @@ export async function up(knex: Knex): Promise<void> {
     table.index(["visitor_id", "start_time"], "idx_visitor_time");
     table.index(["utm_source", "utm_medium", "utm_campaign"], "idx_attribution");
     table.index(["start_time", "location_region"], "idx_time_region");
+    table.index(["device", "start_time"], "idx_device_analysis");
 
     configureTableEngine(table);
   });

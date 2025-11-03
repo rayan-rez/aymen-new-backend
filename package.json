@@ -20,7 +20,20 @@
     "test:coverage": "jest --coverage --verbose",
     "test:ci": "jest --ci --coverage --maxWorkers=2",
     "test:unit": "jest --testPathPattern=unit",
-    "test:integration": "jest --testPathPattern=integration"
+    "test:integration": "jest --testPathPattern=integration",
+    "archive:all": "ts-node src/scripts/archive-data.ts all",
+    "archive:table": "ts-node src/scripts/archive-data.ts table",
+    "archive:purge": "ts-node src/scripts/archive-data.ts purge",
+    "archive:verify": "ts-node src/scripts/archive-data.ts verify",
+    "archive:stats": "ts-node src/scripts/archive-data.ts stats",
+    "partition:create": "ts-node src/scripts/manage-partitions.ts create",
+    "partition:drop": "ts-node src/scripts/manage-partitions.ts drop",
+    "partition:stats": "ts-node src/scripts/manage-partitions.ts stats",
+    "partition:health": "ts-node src/scripts/manage-partitions.ts health",
+    "partition:optimize": "ts-node src/scripts/manage-partitions.ts optimize",
+    "partition:auto": "ts-node src/scripts/manage-partitions.ts auto-maintain",
+    "maintain:monthly": "npm run partition:auto && npm run archive:all && npm run archive:verify",
+    "maintain:weekly": "npm run partition:health && npm run partition:stats"
   },
   "keywords": [
     "real-estate",
