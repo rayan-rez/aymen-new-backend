@@ -1,9 +1,9 @@
 /**
  * Validation Middleware
  * Uses Joi for request validation
- * 
+ *
  * Install: npm install joi
- * 
+ *
  * @module middlewares/validation.middleware
  */
 
@@ -22,12 +22,12 @@ interface ValidationOptions {
 
 /**
  * Request validation middleware factory
- * 
+ *
  * @param schema - Joi validation schema
  * @param property - Request property to validate (body, query, params)
  * @param options - Joi validation options
  * @returns Express middleware function
- * 
+ *
  * @example
  * router.post(
  *   '/projects',
@@ -51,10 +51,10 @@ export const validate = (
 
     if (error) {
       const errors: Record<string, string> = {};
-      
+
       error.details.forEach((detail) => {
         const key = detail.path.join(".");
-        errors[key] = detail.message;
+        Object.assign(errors[key], detail.message);
       });
 
       ApiResponse.badRequest(res, "Validation failed", errors);
@@ -62,17 +62,17 @@ export const validate = (
     }
 
     // Replace request property with validated value
-    req[property] = value;
+    Object.assign(req[property], value);
     next();
   };
 };
 
 /**
  * Validate multiple request properties
- * 
+ *
  * @param schemas - Object with schemas for different properties
  * @returns Express middleware function
- * 
+ *
  * @example
  * router.get(
  *   '/projects/:id',
@@ -96,20 +96,23 @@ export const validateMultiple = (schemas: {
     for (const [property, schema] of Object.entries(schemas)) {
       if (!schema) continue;
 
-      const { error, value } = schema.validate(req[property as keyof typeof schemas], {
-        abortEarly: false,
-        allowUnknown: true,
-        stripUnknown: true,
-      });
+      const { error, value } = schema.validate(
+        req[property as keyof typeof schemas],
+        {
+          abortEarly: false,
+          allowUnknown: true,
+          stripUnknown: true,
+        }
+      );
 
       if (error) {
         hasError = true;
         error.details.forEach((detail) => {
           const key = `${property}.${detail.path.join(".")}`;
-          errors[key] = detail.message;
+          Object.assign(errors[key], detail.message);
         });
       } else {
-        req[property as keyof typeof schemas] = value;
+        Object.assign(req[property as keyof typeof schemas], value);
       }
     }
 

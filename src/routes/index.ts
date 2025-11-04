@@ -1,7 +1,7 @@
 /**
  * Main Routes Index
  * Central router that combines all application routes
- * 
+ *
  * @module routes/index
  */
 
@@ -12,14 +12,17 @@ import { apiLimiter } from "@/middlewares/rate-limit.middleware";
 import projectRoutes from "./project.routes";
 import apartmentRoutes from "./apartment.routes";
 import eventRoutes from "./event.routes";
-// import locationRoutes from "./location.routes";
-// import featureRoutes from "./feature.routes";
-// import photoRoutes from "./photo.routes";
-// import floorPlanRoutes from "./floor-plan.routes";
+import locationRoutes from "./location.routes";
+import featureRoutes from "./feature.routes";
+import photoRoutes from "./photo.routes";
+import { formSubmissionRoutes } from "./form-submission.routes";
+// import eventRegistrationRoutes from "./event-registration.routes";
+// import eventInfluencerRoutes from "./event-influencer.routes";
 // import blogPostRoutes from "./blog-post.routes";
-// import commercialPropertyRoutes from "./commercial-property.routes";
+// import floorPlanRoutes from "./floor-plan.routes";
 // import customerFeedbackRoutes from "./customer-feedback.routes";
-import { formSubmissionRoutes, locationRoutes as locationFormRoutes } from "./form-submission.routes";
+// import commercialPropertyRoutes from "./commercial-property.routes";
+// import leadMirrorRoutes from "./lead-mirror.routes";
 
 const router = Router();
 
@@ -46,7 +49,7 @@ router.get("/health", (req, res) => {
  * @route   GET /api
  * @desc    API root endpoint - provides basic API information
  * @access  Public
- * @returns {object} API information
+ * @returns {object} API information and available endpoints
  */
 router.get("/", (req, res) => {
   res.json({
@@ -58,6 +61,8 @@ router.get("/", (req, res) => {
       projects: "/api/projects",
       apartments: "/api/apartments",
       events: "/api/events",
+      eventRegistrations: "/api/event-registrations",
+      eventInfluencers: "/api/event-influencers",
       locations: "/api/locations",
       features: "/api/features",
       photos: "/api/photos",
@@ -66,6 +71,7 @@ router.get("/", (req, res) => {
       commercialProperties: "/api/commercial-properties",
       feedback: "/api/feedback",
       forms: "/api/forms",
+      leads: "/api/leads",
     },
   });
 });
@@ -74,31 +80,34 @@ router.get("/", (req, res) => {
 // MOUNT ROUTE MODULES
 // ============================================================================
 
-// Apply rate limiting to all routes
+// Apply global rate limiting to all routes
 router.use(apiLimiter);
 
 // Core domain routes
 router.use("/projects", projectRoutes);
 router.use("/apartments", apartmentRoutes);
 router.use("/events", eventRoutes);
+// router.use("/event-registrations", eventRegistrationRoutes);
+// router.use("/event-influencers", eventInfluencerRoutes);
 
-// // Location & geography
-// router.use("/locations", locationRoutes);
+// Location & geography
+router.use("/locations", locationRoutes);
 
-// // Features & amenities
-// router.use("/features", featureRoutes);
+// Features & amenities
+router.use("/features", featureRoutes);
 
-// // Media routes (polymorphic)
-// router.use("/photos", photoRoutes);
+// Media routes (polymorphic)
+router.use("/photos", photoRoutes);
 // router.use("/floor-plans", floorPlanRoutes);
 
-// // Content management
+// Content management
 // router.use("/blog-posts", blogPostRoutes);
 // router.use("/commercial-properties", commercialPropertyRoutes);
 
-// // Feedback & forms
-// router.use("/feedback", customerFeedbackRoutes);
+// Feedback & forms
 router.use("/forms", formSubmissionRoutes);
+// router.use("/feedback", customerFeedbackRoutes);
+// router.use("/leads", leadMirrorRoutes);
 
 // ============================================================================
 // 404 HANDLER

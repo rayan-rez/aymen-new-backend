@@ -7,7 +7,9 @@
  * @module middlewares/rate-limit.middleware
  */
 
-import rateLimit, { RateLimitRequestHandler } from "express-rate-limit";
+import rateLimit, {
+  RateLimitRequestHandler,
+} from "express-rate-limit";
 import { ApiResponse } from "@/utils/response.util";
 import { Request, Response } from "express";
 
@@ -20,11 +22,11 @@ const rateLimitHandler = (req: Request, res: Response): void => {
 
 /**
  * General API rate limiter
- * 100 requests per 15 minutes per IP
+ * 300 requests per 15 minutes per IP
  */
 export const apiLimiter: RateLimitRequestHandler = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: 300, // Limit each IP to 300 requests per windowMs
   message: "Too many requests from this IP, please try again later",
   standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
   legacyHeaders: false, // Disable `X-RateLimit-*` headers
