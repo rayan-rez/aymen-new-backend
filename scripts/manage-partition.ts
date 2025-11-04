@@ -1,6 +1,6 @@
 // src/scripts/manage-partitions.ts
-import knex from "../config/database";
-import PartitionManager from "../services/partition.service";
+import knex from "../src/config/database";
+import PartitionManager from "../src/services/partition.service";
 
 /**
  * CLI Script: Partition Management

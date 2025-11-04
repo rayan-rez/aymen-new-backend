@@ -1,6 +1,6 @@
 // src/scripts/archive-data.ts
-import knex from "../config/database";
-import ArchivalService from "../services/archive.service";
+import knex from "../src/config/database";
+import ArchivalService from "../src/services/archive.service";
 
 /**
  * CLI Script: Data Archival

@@ -32,6 +32,6 @@
       "@tests/*": ["src/__tests__/*"]
     }
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "scripts/archive-data.ts", "scripts/manage-partition.ts", "scripts/verify-migration.ts"],
   "exclude": ["node_modules", "dist", "**/*.spec.ts"]
 }
