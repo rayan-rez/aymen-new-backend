@@ -709,7 +709,7 @@ export abstract class BaseModel<T, TCreate = Partial<T>, TUpdate = Partial<T>> {
    */
   async search(
     searchTerm: string,
-    options: AdvancedQueryOptions = {},
+    options: AdvancedQueryOptions & { isPublished?: boolean } = {},
     trx?: Knex.Transaction
   ): Promise<T[]> {
     if (!searchTerm || this.config.searchableColumns!.length === 0) {

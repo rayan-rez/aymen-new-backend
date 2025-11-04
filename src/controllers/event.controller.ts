@@ -14,12 +14,17 @@ import EventModel, {
 } from "@models/event.model";
 import EventRegistrationModel from "@models/event-registration.model";
 import EventInfluencerModel from "@models/event-influencer.model";
+import PhotoModel, { PhotoableType } from "@models/photo.model";
 import { AppError } from "@/middlewares/error-handler.middleware";
 
 /**
  * Event Controller Class
  */
 export class EventController {
+  // ============================================================================
+  // CORE EVENT OPERATIONS
+  // ============================================================================
+
   /**
    * Get all events with filtering
    * GET /api/events
@@ -43,11 +48,15 @@ export class EventController {
         isUpcoming,
         isPast,
         search,
+        sortBy = "start_date",
+        sortOrder = "desc",
       } = req.query;
 
       const options: any = {
         page: Number(page),
         limit: Number(limit),
+        sortBy: sortBy as string,
+        sortOrder: sortOrder as "asc" | "desc",
       };
 
       if (eventType) options.eventType = eventType;
@@ -278,6 +287,10 @@ export class EventController {
     }
   }
 
+  // ============================================================================
+  // PUBLISHING & STATUS MANAGEMENT
+  // ============================================================================
+
   /**
    * Publish event
    * PATCH /api/events/:id/publish
@@ -317,6 +330,38 @@ export class EventController {
       next(error);
     }
   }
+
+  /**
+   * Update event status
+   * PATCH /api/events/:id/status
+   */
+  async updateEventStatus(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+
+      const event = await EventModel.updateStatus(
+        Number(id),
+        status as EventStatus
+      );
+
+      if (!event) {
+        throw new AppError("Event not found", 404);
+      }
+
+      ApiResponse.success(res, event, "Event status updated successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ============================================================================
+  // REGISTRATION MANAGEMENT
+  // ============================================================================
 
   /**
    * Open registration
@@ -394,6 +439,36 @@ export class EventController {
   }
 
   /**
+   * Get registration statistics
+   * GET /api/events/:id/registrations/statistics
+   */
+  async getRegistrationStatistics(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      const stats = await EventRegistrationModel.getEventStatistics(
+        Number(id)
+      );
+
+      ApiResponse.success(
+        res,
+        stats,
+        "Registration statistics retrieved successfully"
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ============================================================================
+  // INFLUENCER MANAGEMENT
+  // ============================================================================
+
+  /**
    * Get event influencers
    * GET /api/events/:id/influencers
    */
@@ -418,6 +493,105 @@ export class EventController {
   }
 
   /**
+   * Get influencer statistics for event
+   * GET /api/events/:id/influencers/statistics
+   */
+  async getInfluencerStatistics(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      const stats = await EventInfluencerModel.getEventStatistics(Number(id));
+
+      ApiResponse.success(
+        res,
+        stats,
+        "Influencer statistics retrieved successfully"
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ============================================================================
+  // PHOTO MANAGEMENT (Following Project Controller Pattern)
+  // ============================================================================
+
+  /**
+   * Get event photos
+   * GET /api/events/:id/photos
+   */
+  async getEventPhotos(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { isCover, hasCaption } = req.query;
+
+      const options: any = {};
+      if (isCover !== undefined) options.isCover = isCover === "true";
+      if (hasCaption !== undefined) options.hasCaption = hasCaption === "true";
+
+      const photos = await PhotoModel.getForEntity(
+        PhotoableType.EVENT,
+        Number(id),
+        options
+      );
+
+      ApiResponse.success(res, photos, "Event photos retrieved successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Add photos to event
+   * POST /api/events/:id/photos
+   */
+  async addEventPhotos(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { photos } = req.body;
+
+      if (!photos || !Array.isArray(photos) || photos.length === 0) {
+        throw new AppError("Photos array is required", 400);
+      }
+
+      const event = await EventModel.findById(Number(id));
+      if (!event) {
+        throw new AppError("Event not found", 404);
+      }
+
+      const createdPhotos = await PhotoModel.createManyForEntity(
+        PhotoableType.EVENT,
+        Number(id),
+        photos
+      );
+
+      ApiResponse.created(
+        res,
+        createdPhotos,
+        `${createdPhotos.length} photo(s) added successfully`
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ============================================================================
+  // ANALYTICS
+  // ============================================================================
+
+  /**
    * Increment view count
    * POST /api/events/:id/view
    */
@@ -432,6 +606,194 @@ export class EventController {
       await EventModel.incrementViewCount(Number(id));
 
       ApiResponse.success(res, null, "View count incremented");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Increment click count
+   * POST /api/events/:id/click
+   */
+  async incrementClickCount(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      await EventModel.incrementClickCount(Number(id));
+
+      ApiResponse.success(res, null, "Click count incremented");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ============================================================================
+  // CAPACITY & AVAILABILITY
+  // ============================================================================
+
+  /**
+   * Check event capacity availability
+   * GET /api/events/:id/capacity
+   */
+  async checkCapacity(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { guestCount = 1 } = req.query;
+
+      const event = await EventModel.findById(Number(id));
+      if (!event) {
+        throw new AppError("Event not found", 404);
+      }
+
+      const hasCapacity = await EventModel.hasAvailableCapacity(
+        Number(id),
+        Number(guestCount)
+      );
+
+      const remainingCapacity = event.maxCapacity
+        ? event.maxCapacity - event.registeredCount
+        : null;
+
+      ApiResponse.success(
+        res,
+        {
+          hasCapacity,
+          registeredCount: event.registeredCount,
+          maxCapacity: event.maxCapacity,
+          remainingCapacity,
+          isRegistrationOpen: event.isRegistrationOpen,
+        },
+        "Capacity check completed"
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ============================================================================
+  // SEARCH & FILTER
+  // ============================================================================
+
+  /**
+   * Search events
+   * GET /api/events/search
+   */
+  async searchEvents(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { q, page = 1, limit = 10 } = req.query;
+
+      if (!q || typeof q !== "string") {
+        throw new AppError("Search query is required", 400);
+      }
+
+      const events = await EventModel.search(q, {
+        page: Number(page),
+        limit: Number(limit),
+        isPublished: true,
+      });
+
+      ApiResponse.success(res, events, "Events search results retrieved");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get events by type
+   * GET /api/events/by-type/:type
+   */
+  async getEventsByType(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { type } = req.params;
+      const { page = 1, limit = 10 } = req.query;
+
+      if (!Object.values(EventType).includes(type as EventType)) {
+        throw new AppError("Invalid event type", 400);
+      }
+
+      const events = await EventModel.findByType(type as EventType, {
+        page: Number(page),
+        limit: Number(limit),
+        isPublished: true,
+      });
+
+      ApiResponse.success(
+        res,
+        events,
+        `${type} events retrieved successfully`
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get events by project
+   * GET /api/events/by-project/:projectId
+   */
+  async getEventsByProject(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { projectId } = req.params;
+      const { page = 1, limit = 10 } = req.query;
+
+      const events = await EventModel.findByProject(Number(projectId), {
+        page: Number(page),
+        limit: Number(limit),
+        isPublished: true,
+      });
+
+      ApiResponse.success(
+        res,
+        events,
+        "Project events retrieved successfully"
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get events with available capacity
+   * GET /api/events/with-capacity
+   */
+  async getEventsWithCapacity(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { page = 1, limit = 10 } = req.query;
+
+      const events = await EventModel.findWithCapacity({
+        page: Number(page),
+        limit: Number(limit),
+      });
+
+      ApiResponse.success(
+        res,
+        events,
+        "Events with capacity retrieved successfully"
+      );
     } catch (error) {
       next(error);
     }
