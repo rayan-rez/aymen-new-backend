@@ -17,7 +17,11 @@ export class FeatureController {
    * Get all features
    * GET /api/features
    */
-  async getFeatures(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getFeatures(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { category, isActive, page, limit } = req.query;
 
@@ -43,10 +47,18 @@ export class FeatureController {
    * Get active features only
    * GET /api/features/active
    */
-  async getActiveFeatures(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getActiveFeatures(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const features = await FeatureModel.findActive();
-      ApiResponse.success(res, features, "Active features retrieved successfully");
+      ApiResponse.success(
+        res,
+        features,
+        "Active features retrieved successfully"
+      );
     } catch (error) {
       next(error);
     }
@@ -56,10 +68,16 @@ export class FeatureController {
    * Get features by category
    * GET /api/features/category/:category
    */
-  async getFeaturesByCategory(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getFeaturesByCategory(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { category } = req.params;
-      const features = await FeatureModel.findByCategory(category as FeatureCategory);
+      const features = await FeatureModel.findByCategory(
+        category as FeatureCategory
+      );
       ApiResponse.success(res, features, "Features retrieved successfully");
     } catch (error) {
       next(error);
@@ -70,7 +88,11 @@ export class FeatureController {
    * Get feature by ID
    * GET /api/features/:id
    */
-  async getFeatureById(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getFeatureById(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { id } = req.params;
       const { includeUsage } = req.query;
@@ -80,7 +102,11 @@ export class FeatureController {
         if (!feature) {
           throw new AppError("Feature not found", 404);
         }
-        ApiResponse.success(res, feature, "Feature with usage retrieved successfully");
+        ApiResponse.success(
+          res,
+          feature,
+          "Feature with usage retrieved successfully"
+        );
       } else {
         const feature = await FeatureModel.findById(Number(id));
         if (!feature) {
@@ -97,11 +123,19 @@ export class FeatureController {
    * Get most popular features
    * GET /api/features/popular
    */
-  async getPopularFeatures(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getPopularFeatures(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { limit = 10 } = req.query;
       const features = await FeatureModel.getMostPopular(Number(limit));
-      ApiResponse.success(res, features, "Popular features retrieved successfully");
+      ApiResponse.success(
+        res,
+        features,
+        "Popular features retrieved successfully"
+      );
     } catch (error) {
       next(error);
     }
@@ -111,7 +145,11 @@ export class FeatureController {
    * Create feature
    * POST /api/features
    */
-  async createFeature(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async createFeature(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const feature = await FeatureModel.create(req.body);
       ApiResponse.created(res, feature, "Feature created successfully");
@@ -124,7 +162,11 @@ export class FeatureController {
    * Update feature
    * PUT /api/features/:id
    */
-  async updateFeature(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async updateFeature(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { id } = req.params;
       const feature = await FeatureModel.update(Number(id), req.body);
@@ -141,7 +183,11 @@ export class FeatureController {
    * Delete feature
    * DELETE /api/features/:id
    */
-  async deleteFeature(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async deleteFeature(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { id } = req.params;
       const deleted = await FeatureModel.delete(Number(id));
@@ -158,7 +204,11 @@ export class FeatureController {
    * Update feature translations
    * PATCH /api/features/:id/translations
    */
-  async updateTranslations(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async updateTranslations(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { id } = req.params;
       const { translations, merge = true } = req.body;
@@ -183,7 +233,11 @@ export class FeatureController {
    * Get feature statistics
    * GET /api/features/statistics
    */
-  async getStatistics(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getStatistics(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const stats = await FeatureModel.getStatistics();
       ApiResponse.success(res, stats, "Statistics retrieved successfully");
@@ -191,6 +245,35 @@ export class FeatureController {
       next(error);
     }
   }
+
+  /**
+   * Bulk create features
+   * POST /api/features/bulk
+   */
+  async bulkCreateFeatures(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { features } = req.body;
+
+      if (!Array.isArray(features) || features.length === 0) {
+        throw new AppError("Features array is required", 400);
+      }
+
+      const created = [];
+      for (const featureData of features) {
+        const feature = await FeatureModel.create(featureData);
+        created.push(feature);
+      }
+
+      ApiResponse.created(res, created, `${created.length} feature(s) created`);
+    } catch (error) {
+      next(error);
+    }
+  }
+
 }
 
 export default new FeatureController();

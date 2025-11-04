@@ -290,6 +290,7 @@ export class LocationController {
       next(error);
     }
   }
+
 }
 
 export default new LocationController();

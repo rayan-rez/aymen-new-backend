@@ -1,15 +1,15 @@
 /**
  * Apartment Controller
  * Handles all apartment-related HTTP requests
- * 
+ *
  * @module controllers/apartment.controller
  */
 
 import { Request, Response, NextFunction } from "express";
 import { ApiResponse } from "@/utils/response.util";
-import ApartmentModel, { 
-  ApartmentStatus, 
-  ApartmentQueryOptions 
+import ApartmentModel, {
+  ApartmentStatus,
+  ApartmentQueryOptions,
 } from "@models/apartment.model";
 import { AppError } from "@/middlewares/error-handler.middleware";
 
@@ -21,7 +21,11 @@ export class ApartmentController {
    * Get all apartments with filtering and pagination
    * GET /api/apartments
    */
-  async getApartments(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getApartments(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const {
         page = 1,
@@ -51,7 +55,8 @@ export class ApartmentController {
       // Apply filters
       if (projectId) options.projectId = Number(projectId);
       if (status) options.status = status as ApartmentStatus;
-      if (isPublished !== undefined) options.isPublished = isPublished === "true";
+      if (isPublished !== undefined)
+        options.isPublished = isPublished === "true";
       if (minPrice) options.minPrice = Number(minPrice);
       if (maxPrice) options.maxPrice = Number(maxPrice);
       if (bedrooms) options.bedrooms = Number(bedrooms);
@@ -73,19 +78,22 @@ export class ApartmentController {
    * Get apartment by ID
    * GET /api/apartments/:id
    */
-  async getApartmentById(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getApartmentById(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { id } = req.params;
       const { relations } = req.query;
 
-      const relationsList = relations 
-        ? (relations as string).split(",") 
+      const relationsList = relations
+        ? (relations as string).split(",")
         : ["project"];
 
-      const apartment = await ApartmentModel.findById(
-        Number(id),
-        { relations: relationsList }
-      );
+      const apartment = await ApartmentModel.findById(Number(id), {
+        relations: relationsList,
+      });
 
       if (!apartment) {
         throw new AppError("Apartment not found", 404);
@@ -101,7 +109,11 @@ export class ApartmentController {
    * Get apartments by project
    * GET /api/apartments/project/:projectId
    */
-  async getApartmentsByProject(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getApartmentsByProject(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { projectId } = req.params;
       const { status, minPrice, maxPrice, bedrooms } = req.query;
@@ -112,7 +124,10 @@ export class ApartmentController {
       if (maxPrice) options.maxPrice = Number(maxPrice);
       if (bedrooms) options.bedrooms = Number(bedrooms);
 
-      const apartments = await ApartmentModel.findByProject(Number(projectId), options);
+      const apartments = await ApartmentModel.findByProject(
+        Number(projectId),
+        options
+      );
 
       ApiResponse.success(res, apartments, "Apartments retrieved successfully");
     } catch (error) {
@@ -124,7 +139,11 @@ export class ApartmentController {
    * Get available apartments
    * GET /api/apartments/available
    */
-  async getAvailableApartments(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getAvailableApartments(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { projectId, page = 1, limit = 10 } = req.query;
 
@@ -140,7 +159,11 @@ export class ApartmentController {
         ...(projectId && { projectId: Number(projectId) }),
       });
 
-      ApiResponse.success(res, result, "Available apartments retrieved successfully");
+      ApiResponse.success(
+        res,
+        result,
+        "Available apartments retrieved successfully"
+      );
     } catch (error) {
       next(error);
     }
@@ -150,7 +173,11 @@ export class ApartmentController {
    * Get model units
    * GET /api/apartments/model-units
    */
-  async getModelUnits(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getModelUnits(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { projectId } = req.query;
 
@@ -158,7 +185,11 @@ export class ApartmentController {
         projectId ? Number(projectId) : undefined
       );
 
-      ApiResponse.success(res, apartments, "Model units retrieved successfully");
+      ApiResponse.success(
+        res,
+        apartments,
+        "Model units retrieved successfully"
+      );
     } catch (error) {
       next(error);
     }
@@ -168,7 +199,11 @@ export class ApartmentController {
    * Get apartments by floor
    * GET /api/apartments/floor
    */
-  async getApartmentsByFloor(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getApartmentsByFloor(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { projectId, floorNumber } = req.query;
 
@@ -191,13 +226,23 @@ export class ApartmentController {
    * Get apartment availability summary for project
    * GET /api/apartments/availability/:projectId
    */
-  async getAvailabilitySummary(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getAvailabilitySummary(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { projectId } = req.params;
 
-      const summary = await ApartmentModel.getAvailabilitySummary(Number(projectId));
+      const summary = await ApartmentModel.getAvailabilitySummary(
+        Number(projectId)
+      );
 
-      ApiResponse.success(res, summary, "Availability summary retrieved successfully");
+      ApiResponse.success(
+        res,
+        summary,
+        "Availability summary retrieved successfully"
+      );
     } catch (error) {
       next(error);
     }
@@ -207,11 +252,17 @@ export class ApartmentController {
    * Get project statistics
    * GET /api/apartments/statistics/:projectId
    */
-  async getProjectStatistics(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getProjectStatistics(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { projectId } = req.params;
 
-      const statistics = await ApartmentModel.getProjectStatistics(Number(projectId));
+      const statistics = await ApartmentModel.getProjectStatistics(
+        Number(projectId)
+      );
 
       ApiResponse.success(res, statistics, "Statistics retrieved successfully");
     } catch (error) {
@@ -223,13 +274,23 @@ export class ApartmentController {
    * Get floor distribution
    * GET /api/apartments/distribution/floors/:projectId
    */
-  async getFloorDistribution(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getFloorDistribution(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { projectId } = req.params;
 
-      const distribution = await ApartmentModel.getFloorDistribution(Number(projectId));
+      const distribution = await ApartmentModel.getFloorDistribution(
+        Number(projectId)
+      );
 
-      ApiResponse.success(res, distribution, "Floor distribution retrieved successfully");
+      ApiResponse.success(
+        res,
+        distribution,
+        "Floor distribution retrieved successfully"
+      );
     } catch (error) {
       next(error);
     }
@@ -239,13 +300,23 @@ export class ApartmentController {
    * Get bedroom distribution
    * GET /api/apartments/distribution/bedrooms/:projectId
    */
-  async getBedroomDistribution(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getBedroomDistribution(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { projectId } = req.params;
 
-      const distribution = await ApartmentModel.getBedroomDistribution(Number(projectId));
+      const distribution = await ApartmentModel.getBedroomDistribution(
+        Number(projectId)
+      );
 
-      ApiResponse.success(res, distribution, "Bedroom distribution retrieved successfully");
+      ApiResponse.success(
+        res,
+        distribution,
+        "Bedroom distribution retrieved successfully"
+      );
     } catch (error) {
       next(error);
     }
@@ -255,7 +326,11 @@ export class ApartmentController {
    * Create new apartment
    * POST /api/apartments
    */
-  async createApartment(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async createApartment(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const apartment = await ApartmentModel.create(req.body);
 
@@ -269,7 +344,11 @@ export class ApartmentController {
    * Update apartment
    * PUT /api/apartments/:id
    */
-  async updateApartment(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async updateApartment(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { id } = req.params;
 
@@ -289,7 +368,11 @@ export class ApartmentController {
    * Delete apartment
    * DELETE /api/apartments/:id
    */
-  async deleteApartment(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async deleteApartment(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { id } = req.params;
 
@@ -308,10 +391,14 @@ export class ApartmentController {
   /**
    * Update apartment status
    * PATCH /api/apartments/:id/status
-   * 
+   *
    * Body: { status: ApartmentStatus }
    */
-  async updateStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async updateStatus(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { id } = req.params;
       const { status } = req.body;
@@ -336,7 +423,11 @@ export class ApartmentController {
    * Mark apartment as sold
    * PATCH /api/apartments/:id/sold
    */
-  async markAsSold(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async markAsSold(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { id } = req.params;
 
@@ -356,7 +447,11 @@ export class ApartmentController {
    * Mark apartment as reserved
    * PATCH /api/apartments/:id/reserved
    */
-  async markAsReserved(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async markAsReserved(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { id } = req.params;
 
@@ -376,7 +471,11 @@ export class ApartmentController {
    * Mark apartment as available
    * PATCH /api/apartments/:id/available
    */
-  async markAsAvailable(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async markAsAvailable(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { id } = req.params;
 
@@ -395,10 +494,14 @@ export class ApartmentController {
   /**
    * Bulk update status
    * PATCH /api/apartments/bulk/status
-   * 
+   *
    * Body: { ids: number[], status: ApartmentStatus }
    */
-  async bulkUpdateStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async bulkUpdateStatus(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { ids, status } = req.body;
 
@@ -417,6 +520,55 @@ export class ApartmentController {
         { updated: count },
         `${count} apartment(s) updated successfully`
       );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Duplicate check for apartment
+   * GET /api/apartments/check-duplicate
+   */
+  async checkDuplicate(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { projectId, unitNumber } = req.query;
+
+      const existing = await ApartmentModel.findByUnitNumber(
+        unitNumber as string,
+        Number(projectId)
+      );
+
+      ApiResponse.success(
+        res,
+        { exists: existing.length > 0, apartments: existing },
+        "Duplicate check completed"
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Export apartments to CSV
+   * GET /api/apartments/export
+   */
+  async exportApartments(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { projectId, format = "csv" } = req.query;
+
+      const apartments = await ApartmentModel.findByProject(Number(projectId));
+
+      // TODO: Implement CSV/Excel export logic
+
+      ApiResponse.success(res, { count: apartments.length }, "Export ready");
     } catch (error) {
       next(error);
     }

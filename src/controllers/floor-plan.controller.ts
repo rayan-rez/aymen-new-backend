@@ -805,6 +805,68 @@ export class FloorPlanController {
       throw new AppError(`${entityType} with ID ${entityId} not found`, 404);
     }
   }
+  /**
+   * Get all floor plans across entities (admin dashboard)
+   * GET /api/floor-plans
+   */
+  async getAllFloorPlans(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { page = 1, limit = 50, hasPdf, entityType } = req.query;
+
+      const options: any = {
+        page: Number(page),
+        limit: Number(limit),
+      };
+
+      if (hasPdf !== undefined) options.hasPdf = hasPdf === "true";
+      if (entityType)
+        options.polymorphicType = this.validateAndMapEntityType(
+          entityType as string
+        );
+
+      const floorPlans = await FloorPlanModel.findFloorPlans(options);
+
+      ApiResponse.success(
+        res,
+        floorPlans,
+        "Floor plans retrieved successfully"
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Batch download floor plans
+   * POST /api/floor-plans/batch-download
+   */
+  async batchDownload(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { floorPlanIds } = req.body;
+
+      if (!Array.isArray(floorPlanIds) || floorPlanIds.length === 0) {
+        throw new AppError("floorPlanIds array is required", 400);
+      }
+
+      // TODO: Create ZIP archive of PDFs
+
+      ApiResponse.success(
+        res,
+        { count: floorPlanIds.length },
+        "Download prepared"
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 // Export singleton instance

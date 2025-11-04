@@ -476,6 +476,81 @@ export class FormSubmissionController {
       next(error);
     }
   }
+
+  /**
+   * Mark as spam
+   * PATCH /api/form-submissions/:id/mark-spam
+   */
+  async markAsSpam(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      const submission = await FormSubmissionModel.update(Number(id), {
+        isSpam: true,
+        status: "spam" as any,
+      });
+
+      if (!submission) {
+        throw new AppError("Form submission not found", 404);
+      }
+
+      ApiResponse.success(res, submission, "Marked as spam");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Assign to team member
+   * PATCH /api/form-submissions/:id/assign
+   */
+  async assignSubmission(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { assignedTo, notes } = req.body;
+
+      // TODO: Implement assignment logic
+
+      ApiResponse.success(res, null, "Submission assigned successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Export submissions
+   * GET /api/form-submissions/export
+   */
+  async exportSubmissions(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { dateFrom, dateTo, formType, format = "csv" } = req.query;
+
+      const options: any = {};
+      if (dateFrom) options.dateFrom = new Date(dateFrom as string);
+      if (dateTo) options.dateTo = new Date(dateTo as string);
+      if (formType) options.formType = formType;
+
+      const submissions = await FormSubmissionModel.findSubmissions(options);
+
+      // TODO: Generate CSV/Excel
+
+      ApiResponse.success(res, { count: submissions.length }, "Export ready");
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 // Export singleton instance

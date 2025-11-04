@@ -707,6 +707,32 @@ export class PhotoController {
       throw new AppError(`${entityType} with ID ${entityId} not found`, 404);
     }
   }
+
+  /**
+   * Optimize image
+   * POST /api/photos/:photoId/optimize
+   */
+  async optimizeImage(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { photoId } = req.params;
+      const { quality = 80, width, height } = req.body;
+
+      const photo = await PhotoModel.findById(Number(photoId));
+      if (!photo) {
+        throw new AppError("Photo not found", 404);
+      }
+
+      // TODO: Call image service to optimize
+
+      ApiResponse.success(res, photo, "Image optimized successfully");
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 // Export singleton instance

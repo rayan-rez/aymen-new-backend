@@ -751,6 +751,37 @@ export class ProjectController {
       next(error);
     }
   }
+
+  /**
+   * Compare projects
+   * POST /api/projects/compare
+   */
+  async compareProjects(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const { projectIds } = req.body;
+
+      if (!Array.isArray(projectIds) || projectIds.length < 2) {
+        throw new AppError("At least 2 project IDs required", 400);
+      }
+
+      const projects = await Promise.all(
+        projectIds.map((id: number) =>
+          ProjectModel.findByIdWithMedia(id, {
+            includePhotos: true,
+            includeRelations: ["location", "apartments"],
+          })
+        )
+      );
+
+      ApiResponse.success(res, projects, "Projects comparison data retrieved");
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 // Export singleton instance
