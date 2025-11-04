@@ -386,6 +386,20 @@ export class ProjectModel extends BaseModel<
     return plansByProject;
   }
 
+  /**
+   * Publishes a project
+   */
+  async publish(id: number, trx?: Knex.Transaction): Promise<Project | null> {
+    return this.update(id, { isPublished: true } as UpdateProjectDto, trx);
+  }
+
+  /**
+   * Unpublishes a project
+   */
+  async unpublish(id: number, trx?: Knex.Transaction): Promise<Project | null> {
+    return this.update(id, { isPublished: false } as UpdateProjectDto, trx);
+  }
+
   // ============================================================================
   // ENHANCED QUERY METHODS WITH MEDIA LOADING
   // ============================================================================

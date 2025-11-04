@@ -528,43 +528,46 @@ export abstract class BaseModel<T, TCreate = Partial<T>, TUpdate = Partial<T>> {
    */
   async bulkUpdate(
     updates: Array<{ id: number; data: TUpdate }>,
-    options: { chunkSize?: number } = {}
+    trx?: Knex.Transaction // Changed from options object to transaction
   ): Promise<BatchOperationResult> {
-    const chunkSize = options.chunkSize || 100;
-    const chunks = this.chunk(updates, chunkSize);
     let processed = 0;
     let failed = 0;
     const errors: Array<{ id?: number; error: string }> = [];
 
-    const trx = await this.db.transaction();
+    const connection = trx || this.db;
+    const shouldCommit = !trx;
+    const localTrx = trx || (await this.db.transaction());
 
     try {
-      for (const chunk of chunks) {
-        for (const { id, data } of chunk) {
-          try {
-            const filtered = this.filterFields(data);
-            const updateData = this.mapToDatabase(filtered);
+      for (const { id, data } of updates) {
+        try {
+          const filtered = this.filterFields(data);
+          const updateData = this.mapToDatabase(filtered);
 
-            if (this.config.timestamps) {
-              updateData.updated_at = trx.fn.now();
-            }
-
-            await trx(this.tableName)
-              .where({ [this.primaryKey]: id })
-              .update(updateData);
-
-            processed++;
-          } catch (error) {
-            failed++;
-            errors.push({ id, error: (error as Error).message });
+          if (this.config.timestamps) {
+            updateData.updated_at = localTrx.fn.now();
           }
+
+          await localTrx(this.tableName)
+            .where({ [this.primaryKey]: id })
+            .update(updateData);
+
+          processed++;
+        } catch (error) {
+          failed++;
+          errors.push({ id, error: (error as Error).message });
         }
       }
 
-      await trx.commit();
+      if (shouldCommit) {
+        await localTrx.commit();
+      }
+
       return { success: failed === 0, processed, failed, errors };
     } catch (error) {
-      await trx.rollback();
+      if (shouldCommit) {
+        await localTrx.rollback();
+      }
       throw error;
     }
   }

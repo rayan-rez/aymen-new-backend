@@ -1,7 +1,7 @@
 /**
  * Enhanced Project Controller - WITH POLYMORPHIC MEDIA SUPPORT
  * Handles all project-related HTTP requests with integrated photo and floor plan management
- * 
+ *
  * @module controllers/project.controller
  */
 
@@ -66,7 +66,8 @@ export class ProjectController {
       if (status) options.status = status as ProjectStatus;
       if (locationId) options.locationId = Number(locationId);
       if (isFeatured !== undefined) options.isFeatured = isFeatured === "true";
-      if (isPublished !== undefined) options.isPublished = isPublished === "true";
+      if (isPublished !== undefined)
+        options.isPublished = isPublished === "true";
       if (minPrice) options.minPrice = Number(minPrice);
       if (maxPrice) options.maxPrice = Number(maxPrice);
       if (search) options.search = search as string;
@@ -82,7 +83,7 @@ export class ProjectController {
   /**
    * Get project by ID with full media
    * GET /api/projects/:id
-   * 
+   *
    * Query: { includePhotos?, includeFloorPlans?, includeApartments? }
    */
   async getProjectById(
@@ -97,14 +98,11 @@ export class ProjectController {
       const relations: string[] = ["location"];
       if (includeApartments === "true") relations.push("apartments");
 
-      const project = await ProjectModel.findByIdWithMedia(
-        Number(id),
-        {
-          includePhotos: includePhotos === "true",
-          includeFloorPlans: includeFloorPlans === "true",
-          includeRelations: relations,
-        }
-      );
+      const project = await ProjectModel.findByIdWithMedia(Number(id), {
+        includePhotos: includePhotos === "true",
+        includeFloorPlans: includeFloorPlans === "true",
+        includeRelations: relations,
+      });
 
       if (!project) {
         throw new AppError("Project not found", 404);
@@ -129,14 +127,14 @@ export class ProjectController {
       const { slug } = req.params;
       const { includePhotos, includeFloorPlans } = req.query;
 
-      const project = await ProjectModel.findOne(
-        { slug },
-        {
-          relations: ["location", "apartments"],
-          includePhotos: includePhotos === "true",
-          includeFloorPlans: includeFloorPlans === "true",
-        }
-      );
+      // Use ProjectQueryOptions instead of generic options
+      const options: ProjectQueryOptions = {
+        relations: ["location", "apartments"],
+        includePhotos: includePhotos === "true",
+        includeFloorPlans: includeFloorPlans === "true",
+      };
+
+      const project = await ProjectModel.findOne({ slug }, options);
 
       if (!project) {
         throw new AppError("Project not found", 404);
@@ -277,7 +275,7 @@ export class ProjectController {
   /**
    * Add photos to project
    * POST /api/projects/:id/photos
-   * 
+   *
    * Body: { photos: [{ url, externalUrl?, caption?, displayOrder?, isCover? }] }
    */
   async addProjectPhotos(
@@ -400,7 +398,7 @@ export class ProjectController {
   /**
    * Reorder project photos
    * POST /api/projects/:id/photos/reorder
-   * 
+   *
    * Body: { photoIds: number[] }
    */
   async reorderProjectPhotos(
@@ -463,7 +461,7 @@ export class ProjectController {
   /**
    * Add floor plans to project
    * POST /api/projects/:id/floor-plans
-   * 
+   *
    * Body: { floorPlans: [{ name, imageUrl, pdfUrl?, displayOrder? }] }
    */
   async addProjectFloorPlans(
@@ -475,7 +473,11 @@ export class ProjectController {
       const { id } = req.params;
       const { floorPlans } = req.body;
 
-      if (!floorPlans || !Array.isArray(floorPlans) || floorPlans.length === 0) {
+      if (
+        !floorPlans ||
+        !Array.isArray(floorPlans) ||
+        floorPlans.length === 0
+      ) {
         throw new AppError("floorPlans array is required", 400);
       }
 
@@ -565,7 +567,7 @@ export class ProjectController {
   /**
    * Reorder project floor plans
    * POST /api/projects/:id/floor-plans/reorder
-   * 
+   *
    * Body: { floorPlanIds: number[] }
    */
   async reorderProjectFloorPlans(

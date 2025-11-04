@@ -595,7 +595,8 @@ export class PhotoController {
       const trx = await db.transaction();
 
       try {
-        const result = await PhotoModel.bulkUpdate(updates, {}, trx);
+        // Remove the empty options object
+        const result = await PhotoModel.bulkUpdate(updates, trx);
 
         await trx.commit();
 

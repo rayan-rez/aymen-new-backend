@@ -702,7 +702,8 @@ export class FloorPlanController {
       const trx = await db.transaction();
 
       try {
-        const result = await FloorPlanModel.bulkUpdate(updates, {}, trx);
+        // Remove the empty options object, pass trx directly as second argument
+        const result = await FloorPlanModel.bulkUpdate(updates, trx);
 
         await trx.commit();
 

@@ -222,7 +222,8 @@ export class MediaService {
     }>,
     trx?: Knex.Transaction
   ): Promise<Photo[]> {
-    return PhotoModel.bulkCreate(entityType, entityId, photoData, trx);
+    // Use createManyForEntity which is the correct method name
+    return PhotoModel.createManyForEntity(entityType, entityId, photoData, trx);
   }
 
   /**
@@ -239,9 +240,14 @@ export class MediaService {
     }>,
     trx?: Knex.Transaction
   ): Promise<FloorPlan[]> {
-    return FloorPlanModel.bulkCreate(entityType, entityId, planData, trx);
+    // Use createManyForEntity which is the correct method name
+    return FloorPlanModel.createManyForEntity(
+      entityType,
+      entityId,
+      planData,
+      trx
+    );
   }
-
   /**
    * Adds a single photo
    */
