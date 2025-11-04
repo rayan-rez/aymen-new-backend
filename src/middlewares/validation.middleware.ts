@@ -54,7 +54,7 @@ export const validate = (
 
       error.details.forEach((detail) => {
         const key = detail.path.join(".");
-        Object.assign(errors[key], detail.message);
+        errors[key] = detail.message;
       });
 
       ApiResponse.badRequest(res, "Validation failed", errors);

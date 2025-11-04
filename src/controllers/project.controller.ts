@@ -1,6 +1,6 @@
 /**
- * Enhanced Project Controller - WITH POLYMORPHIC MEDIA SUPPORT
- * Handles all project-related HTTP requests with integrated photo and floor plan management
+ * Enhanced Project Controller - WITH FULL RELATION LOADING
+ * Returns complete project data including all related entities
  *
  * @module controllers/project.controller
  */
@@ -21,6 +21,7 @@ import db from "@/config/database";
  * Enhanced Project Controller Class
  */
 export class ProjectController {
+
   // ============================================================================
   // CORE PROJECT OPERATIONS
   // ============================================================================
@@ -50,6 +51,9 @@ export class ProjectController {
         sortOrder = "desc",
         includePhotos,
         includeFloorPlans,
+        includeApartments,
+        includeLocation,
+        includeFeatures,
       } = req.query;
 
       const options: ProjectQueryOptions & { page: number; limit: number } = {
@@ -60,6 +64,14 @@ export class ProjectController {
         includePhotos: includePhotos === "true",
         includeFloorPlans: includeFloorPlans === "true",
       };
+
+      // Build relations array based on query params
+      const relations: string[] = [];
+      if (includeLocation === "true") relations.push("location");
+      if (includeApartments === "true") relations.push("apartments");
+      if (relations.length > 0) {
+        options.relations = relations;
+      }
 
       // Apply filters
       if (projectType) options.projectType = projectType as ProjectType;
@@ -72,7 +84,17 @@ export class ProjectController {
       if (maxPrice) options.maxPrice = Number(maxPrice);
       if (search) options.search = search as string;
 
-      const result = await ProjectModel.findProjects(options);
+      let result = await ProjectModel.findProjects(options);
+
+      // Load features if requested
+      if (includeFeatures === "true") {
+        result = await ProjectModel.loadFeaturesForProjects(result);
+      }
+
+      // Load apartment media if apartments are included
+      if (includeApartments === "true") {
+        result = await ProjectModel.loadApartmentMediaForProjects(result);
+      }
 
       ApiResponse.success(res, result, "Projects retrieved successfully");
     } catch (error) {
@@ -81,10 +103,8 @@ export class ProjectController {
   }
 
   /**
-   * Get project by ID with full media
+   * Get project by ID with FULL relations
    * GET /api/projects/:id
-   *
-   * Query: { includePhotos?, includeFloorPlans?, includeApartments? }
    */
   async getProjectById(
     req: Request,
@@ -93,12 +113,21 @@ export class ProjectController {
   ): Promise<void> {
     try {
       const { id } = req.params;
-      const { includePhotos, includeFloorPlans, includeApartments } = req.query;
+      const {
+        includePhotos = "true",
+        includeFloorPlans = "true",
+        includeApartments = "true",
+        includeLocation = "true",
+        includeFeatures = "true",
+      } = req.query;
 
-      const relations: string[] = ["location"];
+      // Build relations array
+      const relations: string[] = [];
+      if (includeLocation === "true") relations.push("location");
       if (includeApartments === "true") relations.push("apartments");
 
-      const project = await ProjectModel.findByIdWithMedia(Number(id), {
+      // Get project with media
+      let project = await ProjectModel.findByIdWithMedia(Number(id), {
         includePhotos: includePhotos === "true",
         includeFloorPlans: includeFloorPlans === "true",
         includeRelations: relations,
@@ -108,6 +137,18 @@ export class ProjectController {
         throw new AppError("Project not found", 404);
       }
 
+      // Load features if requested
+      if (includeFeatures === "true") {
+        project = await ProjectModel.loadFeaturesForProject(project);
+      }
+
+      // Load apartment photos if apartments are included
+      if (includeApartments === "true" && project?.apartments) {
+        project.apartments = await ProjectModel.loadApartmentMedia(
+          project.apartments
+        );
+      }
+
       ApiResponse.success(res, project, "Project retrieved successfully");
     } catch (error) {
       next(error);
@@ -115,7 +156,7 @@ export class ProjectController {
   }
 
   /**
-   * Get project by slug with full media
+   * Get project by slug with FULL relations
    * GET /api/projects/slug/:slug
    */
   async getProjectBySlug(
@@ -125,19 +166,41 @@ export class ProjectController {
   ): Promise<void> {
     try {
       const { slug } = req.params;
-      const { includePhotos, includeFloorPlans } = req.query;
+      const {
+        includePhotos = "true",
+        includeFloorPlans = "true",
+        includeApartments = "true",
+        includeLocation = "true",
+        includeFeatures = "true",
+      } = req.query;
 
-      // Use ProjectQueryOptions instead of generic options
+      // Build options
       const options: ProjectQueryOptions = {
-        relations: ["location", "apartments"],
+        relations: [],
         includePhotos: includePhotos === "true",
         includeFloorPlans: includeFloorPlans === "true",
       };
 
-      const project = await ProjectModel.findOne({ slug }, options);
+      // Add relations
+      if (includeLocation === "true") options.relations!.push("location");
+      if (includeApartments === "true") options.relations!.push("apartments");
+
+      let project = await ProjectModel.findOne({ slug }, options);
 
       if (!project) {
         throw new AppError("Project not found", 404);
+      }
+
+      // Load features if requested
+      if (includeFeatures === "true") {
+        project = await ProjectModel.loadFeaturesForProject(project);
+      }
+
+      // Load apartment media if apartments are included
+      if (includeApartments === "true" && project?.apartments) {
+        project.apartments = await ProjectModel.loadApartmentMedia(
+          project.apartments
+        );
       }
 
       ApiResponse.success(res, project, "Project retrieved successfully");
@@ -275,8 +338,6 @@ export class ProjectController {
   /**
    * Add photos to project
    * POST /api/projects/:id/photos
-   *
-   * Body: { photos: [{ url, externalUrl?, caption?, displayOrder?, isCover? }] }
    */
   async addProjectPhotos(
     req: Request,
@@ -398,8 +459,6 @@ export class ProjectController {
   /**
    * Reorder project photos
    * POST /api/projects/:id/photos/reorder
-   *
-   * Body: { photoIds: number[] }
    */
   async reorderProjectPhotos(
     req: Request,
@@ -461,8 +520,6 @@ export class ProjectController {
   /**
    * Add floor plans to project
    * POST /api/projects/:id/floor-plans
-   *
-   * Body: { floorPlans: [{ name, imageUrl, pdfUrl?, displayOrder? }] }
    */
   async addProjectFloorPlans(
     req: Request,
@@ -567,8 +624,6 @@ export class ProjectController {
   /**
    * Reorder project floor plans
    * POST /api/projects/:id/floor-plans/reorder
-   *
-   * Body: { floorPlanIds: number[] }
    */
   async reorderProjectFloorPlans(
     req: Request,

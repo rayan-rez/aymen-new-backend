@@ -1,5 +1,5 @@
 /**
- * Project Model - WITH MEDIA SUPPORT
+ * Project Model - WITH MEDIA SUPPORT & UTILITY FUNCTIONS
  *
  * Manages real estate development projects with integrated photo and floor plan support
  *
@@ -16,6 +16,7 @@ import { generateSlug } from "./base/helpers";
 import { Knex } from "knex";
 import PhotoModel, { PhotoableType, Photo } from "./photo.model";
 import FloorPlanModel, { PlannableType, FloorPlan } from "./floor-plan.model";
+import db from "@/config/database";
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -386,6 +387,195 @@ export class ProjectModel extends BaseModel<
     return plansByProject;
   }
 
+  // ============================================================================
+  // FEATURE LOADING METHODS (MOVED FROM CONTROLLER)
+  // ============================================================================
+
+  /**
+   * Load features for a single project
+   */
+  async loadFeaturesForProject(project: any): Promise<any> {
+    const features = await db("project_features as pf")
+      .join("features as f", "pf.feature_id", "f.id")
+      .where("pf.project_id", project.id)
+      .select(
+        "f.id",
+        "f.name",
+        "f.slug",
+        "f.icon",
+        "f.translations",
+        "f.category",
+        "f.display_order",
+        "pf.feature_value",
+        "pf.display_order as project_display_order"
+      )
+      .orderBy("pf.display_order", "asc");
+
+    return {
+      ...project,
+      features: features.map((f) => ({
+        id: f.id,
+        name: f.name,
+        slug: f.slug,
+        icon: f.icon,
+        translations: f.translations,
+        category: f.category,
+        displayOrder: f.display_order,
+        projectValue: f.feature_value,
+        projectDisplayOrder: f.project_display_order,
+      })),
+    };
+  }
+
+  /**
+   * Load features for multiple projects (optimized)
+   */
+  async loadFeaturesForProjects(projects: any[]): Promise<any[]> {
+    if (projects.length === 0) return projects;
+
+    const projectIds = projects.map((p) => p.id);
+
+    // Fetch all features for all projects in one query
+    const features = await db("project_features as pf")
+      .join("features as f", "pf.feature_id", "f.id")
+      .whereIn("pf.project_id", projectIds)
+      .select(
+        "pf.project_id",
+        "f.id",
+        "f.name",
+        "f.slug",
+        "f.icon",
+        "f.translations",
+        "f.category",
+        "f.display_order",
+        "pf.feature_value",
+        "pf.display_order as project_display_order"
+      )
+      .orderBy("pf.display_order", "asc");
+
+    // Group features by project
+    const featuresByProject = new Map<number, any[]>();
+    for (const feature of features) {
+      if (!featuresByProject.has(feature.project_id)) {
+        featuresByProject.set(feature.project_id, []);
+      }
+      featuresByProject.get(feature.project_id)!.push({
+        id: feature.id,
+        name: feature.name,
+        slug: feature.slug,
+        icon: feature.icon,
+        translations: feature.translations
+          ? JSON.parse(feature.translations)
+          : null,
+        category: feature.category,
+        displayOrder: feature.display_order,
+        projectValue: feature.feature_value,
+        projectDisplayOrder: feature.project_display_order,
+      });
+    }
+
+    // Attach features to projects
+    return projects.map((project) => ({
+      ...project,
+      features: featuresByProject.get(project.id) || [],
+    }));
+  }
+
+  // ============================================================================
+  // APARTMENT MEDIA LOADING METHODS (MOVED FROM CONTROLLER)
+  // ============================================================================
+
+  /**
+   * Load photos and floor plans for apartments
+   */
+  async loadApartmentMedia(apartments: any[]): Promise<any[]> {
+    if (!apartments || apartments.length === 0) return apartments;
+
+    const apartmentIds = apartments.map((a) => a.id);
+
+    // Load photos for all apartments
+    const photos = await PhotoModel.findPhotos({
+      polymorphicType: PhotoableType.APARTMENT,
+      polymorphicId: apartmentIds,
+    });
+
+    // Load floor plans for all apartments
+    const floorPlans = await FloorPlanModel.findFloorPlans({
+      polymorphicType: PlannableType.APARTMENT,
+      polymorphicId: apartmentIds,
+    });
+
+    // Group by apartment
+    const photosByApartment = new Map<number, any[]>();
+    const plansByApartment = new Map<number, any[]>();
+
+    for (const photo of photos) {
+      if (!photosByApartment.has(photo.photoableId)) {
+        photosByApartment.set(photo.photoableId, []);
+      }
+      photosByApartment.get(photo.photoableId)!.push(photo);
+    }
+
+    for (const plan of floorPlans) {
+      if (!plansByApartment.has(plan.plannableId)) {
+        plansByApartment.set(plan.plannableId, []);
+      }
+      plansByApartment.get(plan.plannableId)!.push(plan);
+    }
+
+    // Attach to apartments
+    return apartments.map((apartment) => ({
+      ...apartment,
+      photos: photosByApartment.get(apartment.id) || [],
+      floorPlans: plansByApartment.get(apartment.id) || [],
+    }));
+  }
+
+  /**
+   * Load apartment media for multiple projects (optimized)
+   */
+  async loadApartmentMediaForProjects(projects: any[]): Promise<any[]> {
+    if (!projects || projects.length === 0) return projects;
+
+    // Extract all apartments from all projects
+    const allApartments: any[] = [];
+    const projectApartmentMap = new Map<number, any[]>();
+
+    for (const project of projects) {
+      if (project.apartments && Array.isArray(project.apartments)) {
+        projectApartmentMap.set(project.id, project.apartments);
+        allApartments.push(...project.apartments);
+      }
+    }
+
+    if (allApartments.length === 0) return projects;
+
+    // Load media for all apartments at once
+    const apartmentsWithMedia = await this.loadApartmentMedia(allApartments);
+
+    // Create a map for quick lookup
+    const apartmentMediaMap = new Map(
+      apartmentsWithMedia.map((apt) => [apt.id, apt])
+    );
+
+    // Attach updated apartments back to projects
+    return projects.map((project) => {
+      if (projectApartmentMap.has(project.id)) {
+        return {
+          ...project,
+          apartments: projectApartmentMap
+            .get(project.id)!
+            .map((apt) => apartmentMediaMap.get(apt.id) || apt),
+        };
+      }
+      return project;
+    });
+  }
+
+  // ============================================================================
+  // PUBLISHING METHODS
+  // ============================================================================
+
   /**
    * Publishes a project
    */
@@ -488,8 +678,9 @@ export class ProjectModel extends BaseModel<
     return project;
   }
 
-  // Continue with remaining methods...
-  // (The rest of the original ProjectModel methods remain the same)
+  // ============================================================================
+  // MAPPING & FILTERING
+  // ============================================================================
 
   /**
    * Maps database record to Project entity
@@ -536,7 +727,6 @@ export class ProjectModel extends BaseModel<
     query: Knex.QueryBuilder,
     options: ProjectQueryOptions
   ): Knex.QueryBuilder {
-    // (Same as original - no changes needed)
     if (options.projectType) {
       if (Array.isArray(options.projectType)) {
         query = query.whereIn("project_type", options.projectType);
@@ -589,6 +779,10 @@ export class ProjectModel extends BaseModel<
 
     return query;
   }
+
+  // ============================================================================
+  // VALIDATION METHODS
+  // ============================================================================
 
   private validateCoordinates(
     latitude?: number | null,
