@@ -4,7 +4,6 @@ import { Knex } from "knex";
 import {
   fetchLegacyRecords,
   generateSlug,
-  ensureUniqueSlug,
   cleanText,
   processBatch,
   printMigrationStats,
@@ -25,11 +24,9 @@ interface LegacyLocation {
 }
 
 interface NewLocation {
-  id: number;
   name: string;
   slug: string;
   parent_id: number | null;
-  path: string;
   depth: number;
   type: "country" | "region" | "city" | "neighborhood";
   display_order: number;
@@ -64,8 +61,6 @@ const LOCATION_HIERARCHY: Record<
 
 async function transformLocation(
   legacy: LegacyLocation,
-  knex: Knex,
-  algeriaId: number,
   algiersRegionId: number,
   existingSlugs: Set<string>
 ): Promise<TransformResult<NewLocation>> {
@@ -90,17 +85,14 @@ async function transformLocation(
     // Determine hierarchy
     const hierarchyInfo = LOCATION_HIERARCHY[slug];
     const type = hierarchyInfo?.type || "city";
-    const parentId =
-      type === "city" ? algiersRegionId : type === "region" ? algeriaId : null;
+    const parentId = type === "city" ? algiersRegionId : null;
     const depth = type === "city" ? 2 : type === "region" ? 1 : 0;
 
     return {
       data: {
-        id: legacy.localite_id,
         name,
         slug,
         parent_id: parentId,
-        path: "", // Will be set by trigger
         depth,
         type,
         display_order: 0,
@@ -128,36 +120,62 @@ export async function seed(knex: Knex): Promise<void> {
   await clearTable(knex, "locations");
   console.log("✓ Cleared locations table");
 
-  // 1. Create root country (Algeria)
-  const [algeriaId] = await knex("locations").insert({
+  // 1. Create root country (Algeria) - WITHOUT TRIGGER
+  // We'll set path manually to avoid trigger execution during insert
+  await knex.raw(`SET @disable_triggers = 1`);
+
+  const [algeriaResult] = await knex("locations").insert({
     name: "Algeria",
     slug: "algeria",
     parent_id: null,
-    path: "/1/",
+    path: null, // Will be set by trigger
     depth: 0,
     type: "country",
     display_order: 0,
     is_active: true,
   });
+
+  // Extract the actual ID (Knex returns array with insertId)
+  const algeriaId =
+    typeof algeriaResult === "number"
+      ? algeriaResult
+      : (algeriaResult as any).insertId || 1;
+
+  // Update path manually for root node
+  await knex("locations")
+    .where("id", algeriaId)
+    .update({ path: `/${algeriaId}/` });
+
   console.log(`✓ Created root location: Algeria (ID: ${algeriaId})`);
 
   // 2. Create Algiers region
-  const [algiersRegionId] = await knex("locations").insert({
+  const [algiersResult] = await knex("locations").insert({
     name: "Algiers",
     slug: "algiers",
     parent_id: algeriaId,
-    path: `/1/${algeriaId + 1}/`,
+    path: null, // Will be set by trigger
     depth: 1,
     type: "region",
     display_order: 0,
     is_active: true,
   });
+
+  const algiersRegionId =
+    typeof algiersResult === "number"
+      ? algiersResult
+      : (algiersResult as any).insertId || 2;
+
+  // Update path manually
+  await knex("locations")
+    .where("id", algiersRegionId)
+    .update({ path: `/${algeriaId}/${algiersRegionId}/` });
+
   console.log(`✓ Created region: Algiers (ID: ${algiersRegionId})`);
 
+  await knex.raw(`SET @disable_triggers = 0`);
+
   // 3. Fetch legacy locations
-  const legacyLocations = await fetchLegacyRecords<LegacyLocation>(
-    "localites"
-  );
+  const legacyLocations = await fetchLegacyRecords<LegacyLocation>("localites");
   console.log(`✓ Fetched ${legacyLocations.length} legacy locations\n`);
 
   if (legacyLocations.length === 0) {
@@ -170,16 +188,11 @@ export async function seed(knex: Knex): Promise<void> {
 
   const stats = await processBatch(
     legacyLocations,
-    (record) =>
-      transformLocation(
-        record,
-        knex,
-        algeriaId,
-        algiersRegionId,
-        existingSlugs
-      ),
+    (record) => transformLocation(record, algiersRegionId, existingSlugs),
     async (batch) => {
-      await knex("locations").insert(batch);
+      if (batch.length > 0) {
+        await knex("locations").insert(batch);
+      }
     },
     { batchSize: 50, tableName: "locations" }
   );
@@ -192,4 +205,18 @@ export async function seed(knex: Knex): Promise<void> {
   console.log(
     `✓ Migration complete. Total locations in new DB: ${totalCount?.count}\n`
   );
+
+  // 7. Show location hierarchy
+  const hierarchy = await knex("locations")
+    .select("id", "name", "type", "depth", "path")
+    .orderBy("depth")
+    .orderBy("name")
+    .limit(10);
+
+  console.log("Location hierarchy (first 10):");
+  hierarchy.forEach((loc: any) => {
+    const indent = "  ".repeat(loc.depth);
+    console.log(`${indent}${loc.name} (${loc.type}) - ${loc.path}`);
+  });
+  console.log("");
 }

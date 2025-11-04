@@ -7,31 +7,51 @@
     "dev": "nodemon",
     "build": "tsc && babel src --out-dir dist --extensions \".ts\" --copy-files",
     "start": "node dist/index.js",
+    
     "migrate:make": "ts-node -r tsconfig-paths/register ./node_modules/.bin/knex migrate:make --knexfile knexfile.ts -x ts",
     "migrate:latest": "ts-node -r tsconfig-paths/register ./node_modules/.bin/knex migrate:latest --knexfile knexfile.ts",
     "migrate:rollback": "ts-node -r tsconfig-paths/register ./node_modules/.bin/knex migrate:rollback --knexfile knexfile.ts",
+    "migrate:rollback:all": "ts-node -r tsconfig-paths/register ./node_modules/.bin/knex migrate:rollback --all --knexfile knexfile.ts",
+    "migrate:status": "ts-node -r tsconfig-paths/register ./node_modules/.bin/knex migrate:status --knexfile knexfile.ts",
+    
     "seed:make": "ts-node -r tsconfig-paths/register ./node_modules/.bin/knex seed:make --knexfile knexfile.ts -x ts",
     "seed:run": "ts-node -r tsconfig-paths/register ./node_modules/.bin/knex seed:run --knexfile knexfile.ts --specific=main.ts",
+    "seed:run:locations": "ts-node -r tsconfig-paths/register ./node_modules/.bin/knex seed:run --knexfile knexfile.ts --specific=locations.ts",
+    "seed:run:features": "ts-node -r tsconfig-paths/register ./node_modules/.bin/knex seed:run --knexfile knexfile.ts --specific=features.ts",
+    "seed:run:projects": "ts-node -r tsconfig-paths/register ./node_modules/.bin/knex seed:run --knexfile knexfile.ts --specific=projects.ts",
+    "seed:run:apartments": "ts-node -r tsconfig-paths/register ./node_modules/.bin/knex seed:run --knexfile knexfile.ts --specific=apartments.ts",
+    "seed:run:blog": "ts-node -r tsconfig-paths/register ./node_modules/.bin/knex seed:run --knexfile knexfile.ts --specific=blog_posts.ts",
+    
+    "db:reset": "npm run migrate:rollback:all && npm run migrate:latest",
     "db:setup": "npm run migrate:latest && npm run seed:run",
+    "db:fresh": "npm run db:reset && npm run seed:run",
+    
+    "db:verify": "ts-node -r tsconfig-paths/register src/scripts/verify-migration.ts",
+    
     "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
     "type-check": "tsc --noEmit",
+    
     "test": "jest --verbose --runInBand --logHeapUsage",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage --verbose",
     "test:ci": "jest --ci --coverage --maxWorkers=2",
     "test:unit": "jest --testPathPattern=unit",
     "test:integration": "jest --testPathPattern=integration",
+    
     "archive:all": "ts-node src/scripts/archive-data.ts all",
     "archive:table": "ts-node src/scripts/archive-data.ts table",
     "archive:purge": "ts-node src/scripts/archive-data.ts purge",
     "archive:verify": "ts-node src/scripts/archive-data.ts verify",
     "archive:stats": "ts-node src/scripts/archive-data.ts stats",
+    
     "partition:create": "ts-node src/scripts/manage-partitions.ts create",
     "partition:drop": "ts-node src/scripts/manage-partitions.ts drop",
     "partition:stats": "ts-node src/scripts/manage-partitions.ts stats",
     "partition:health": "ts-node src/scripts/manage-partitions.ts health",
     "partition:optimize": "ts-node src/scripts/manage-partitions.ts optimize",
     "partition:auto": "ts-node src/scripts/manage-partitions.ts auto-maintain",
+    
     "maintain:monthly": "npm run partition:auto && npm run archive:all && npm run archive:verify",
     "maintain:weekly": "npm run partition:health && npm run partition:stats"
   },

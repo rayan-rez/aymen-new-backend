@@ -1,10 +1,11 @@
-// src/database/seeds/helpers/seed-helpers.ts
+// src/database/seed-helpers.ts
 
 import { Knex } from "knex";
 import legacyDb from "@/config/legacy-database";
 
 /**
  * ETL Helper utilities for data migration
+ * IMPROVED: Better error handling, retry logic, and logging
  */
 
 // ============================================================================
@@ -31,23 +32,18 @@ export interface TransformResult<T> {
 // SLUG GENERATION
 // ============================================================================
 
-/**
- * Generate URL-friendly slug from text
- */
 export function generateSlug(text: string): string {
   return text
     .toLowerCase()
-    .normalize("NFD") // Normalize Unicode (handle accented chars)
-    .replace(/[\u0300-\u036f]/g, "") // Remove diacritics
-    .replace(/[^a-z0-9\s-]/g, "") // Remove special chars
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
     .trim()
-    .replace(/\s+/g, "-") // Replace spaces with hyphens
-    .replace(/-+/g, "-"); // Remove duplicate hyphens
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, ""); // Remove leading/trailing hyphens
 }
 
-/**
- * Ensure slug uniqueness in target table
- */
 export async function ensureUniqueSlug(
   knex: Knex,
   tableName: string,
@@ -73,17 +69,12 @@ export async function ensureUniqueSlug(
 // DATA CLEANING
 // ============================================================================
 
-/**
- * Clean and normalize text fields
- */
 export function cleanText(text: string | null | undefined): string | null {
   if (!text) return null;
-  return text.trim().replace(/\s+/g, " ") || null;
+  const cleaned = text.trim().replace(/\s+/g, " ");
+  return cleaned || null;
 }
 
-/**
- * Parse boolean from various formats (1, "1", true, "true", etc.)
- */
 export function parseBoolean(value: any): boolean {
   if (typeof value === "boolean") return value;
   if (typeof value === "number") return value === 1;
@@ -93,38 +84,27 @@ export function parseBoolean(value: any): boolean {
   return false;
 }
 
-/**
- * Parse decimal/float with fallback
- */
 export function parseDecimal(value: any): number | null {
   if (value === null || value === undefined || value === "") return null;
-  const parsed = parseFloat(value);
+  const parsed = parseFloat(String(value).replace(",", "."));
   return isNaN(parsed) ? null : parsed;
 }
 
-/**
- * Parse integer with fallback
- */
 export function parseInteger(value: any): number | null {
   if (value === null || value === undefined || value === "") return null;
-  const parsed = parseInt(value, 10);
+  const parsed = parseInt(String(value), 10);
   return isNaN(parsed) ? null : parsed;
 }
 
-/**
- * Clean URL - ensure proper format
- */
 export function cleanUrl(url: string | null | undefined): string | null {
   if (!url) return null;
   const cleaned = url.trim();
   if (!cleaned) return null;
   
-  // If it's a relative path, keep as-is
   if (cleaned.startsWith("/") || cleaned.startsWith("images/")) {
     return cleaned;
   }
   
-  // Ensure protocol for absolute URLs
   if (!cleaned.match(/^https?:\/\//i)) {
     return `https://${cleaned}`;
   }
@@ -136,9 +116,6 @@ export function cleanUrl(url: string | null | undefined): string | null {
 // DATE HANDLING
 // ============================================================================
 
-/**
- * Parse date from various formats
- */
 export function parseDate(value: any): Date | null {
   if (!value) return null;
   if (value instanceof Date) return value;
@@ -147,9 +124,6 @@ export function parseDate(value: any): Date | null {
   return isNaN(parsed.getTime()) ? null : parsed;
 }
 
-/**
- * Format MySQL timestamp
- */
 export function formatMySQLTimestamp(date: Date | string | null): string | null {
   if (!date) return null;
   const d = date instanceof Date ? date : new Date(date);
@@ -157,12 +131,9 @@ export function formatMySQLTimestamp(date: Date | string | null): string | null 
 }
 
 // ============================================================================
-// BATCH PROCESSING
+// BATCH PROCESSING (IMPROVED)
 // ============================================================================
 
-/**
- * Process records in batches with progress logging
- */
 export async function processBatch<TSource, TTarget>(
   records: TSource[],
   transformFn: (record: TSource) => Promise<TransformResult<TTarget>>,
@@ -170,6 +141,8 @@ export async function processBatch<TSource, TTarget>(
   options: {
     batchSize?: number;
     tableName: string;
+    retryAttempts?: number;
+    retryDelay?: number;
   }
 ): Promise<MigrationStats> {
   const startTime = Date.now();
@@ -184,6 +157,9 @@ export async function processBatch<TSource, TTarget>(
   };
 
   const batchSize = options.batchSize || 100;
+  const retryAttempts = options.retryAttempts || 3;
+  const retryDelay = options.retryDelay || 1000;
+  
   let batch: TTarget[] = [];
 
   for (let i = 0; i < records.length; i++) {
@@ -210,7 +186,7 @@ export async function processBatch<TSource, TTarget>(
 
       // Insert batch when full
       if (batch.length >= batchSize) {
-        await insertFn(batch);
+        await insertWithRetry(insertFn, batch, retryAttempts, retryDelay);
         console.log(
           `✓ ${options.tableName}: Processed ${i + 1}/${records.length}`
         );
@@ -219,25 +195,51 @@ export async function processBatch<TSource, TTarget>(
     } catch (error: any) {
       stats.errorCount++;
       stats.errors.push({ record, error: error.message });
+      console.error(`✗ Error processing record ${i + 1}:`, error.message);
     }
   }
 
   // Insert remaining records
   if (batch.length > 0) {
-    await insertFn(batch);
+    await insertWithRetry(insertFn, batch, retryAttempts, retryDelay);
   }
 
   stats.duration = Date.now() - startTime;
   return stats;
 }
 
+/**
+ * Retry logic for database operations
+ */
+async function insertWithRetry<T>(
+  insertFn: (batch: T[]) => Promise<void>,
+  batch: T[],
+  maxAttempts: number,
+  delay: number
+): Promise<void> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await insertFn(batch);
+      return; // Success
+    } catch (error: any) {
+      lastError = error;
+      console.warn(`⚠️  Insert attempt ${attempt}/${maxAttempts} failed: ${error.message}`);
+      
+      if (attempt < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, delay * attempt));
+      }
+    }
+  }
+  
+  throw lastError;
+}
+
 // ============================================================================
 // LOOKUP CACHING
 // ============================================================================
 
-/**
- * Build lookup map for foreign key resolution
- */
 export async function buildLookupMap<T = any>(
   knex: Knex,
   tableName: string,
@@ -248,9 +250,6 @@ export async function buildLookupMap<T = any>(
   return new Map(records.map((r) => [r[keyField], r[valueField]]));
 }
 
-/**
- * Build reverse lookup map (many-to-one relationships)
- */
 export async function buildReverseLookupMap<T = any>(
   knex: Knex,
   tableName: string,
@@ -275,9 +274,6 @@ export async function buildReverseLookupMap<T = any>(
 // REPORTING
 // ============================================================================
 
-/**
- * Print migration statistics
- */
 export function printMigrationStats(stats: MigrationStats): void {
   console.log("\n" + "=".repeat(60));
   console.log(`Migration Summary: ${stats.tableName}`);
@@ -287,15 +283,16 @@ export function printMigrationStats(stats: MigrationStats): void {
   console.log(`⊗ Skipped:        ${stats.skippedCount}`);
   console.log(`✗ Errors:         ${stats.errorCount}`);
   console.log(`Duration:         ${(stats.duration / 1000).toFixed(2)}s`);
+  console.log(`Success Rate:     ${((stats.successCount / stats.totalRecords) * 100).toFixed(1)}%`);
 
   if (stats.errors.length > 0) {
-    console.log("\nErrors:");
-    stats.errors.slice(0, 10).forEach(({ record, error }, i) => {
+    console.log("\n⚠️  First 5 Errors:");
+    stats.errors.slice(0, 5).forEach(({ record, error }, i) => {
       console.log(`  ${i + 1}. ${error}`);
-      console.log(`     Record: ${JSON.stringify(record).slice(0, 100)}...`);
+      console.log(`     Record ID: ${record.id || 'N/A'}`);
     });
-    if (stats.errors.length > 10) {
-      console.log(`  ... and ${stats.errors.length - 10} more errors`);
+    if (stats.errors.length > 5) {
+      console.log(`  ... and ${stats.errors.length - 5} more errors`);
     }
   }
   console.log("=".repeat(60) + "\n");
@@ -305,9 +302,6 @@ export function printMigrationStats(stats: MigrationStats): void {
 // LEGACY DB HELPERS
 // ============================================================================
 
-/**
- * Fetch all records from legacy table
- */
 export async function fetchLegacyRecords<T = any>(
   tableName: string,
   options?: {
@@ -316,26 +310,28 @@ export async function fetchLegacyRecords<T = any>(
     limit?: number;
   }
 ): Promise<T[]> {
-  let query = legacyDb(tableName);
+  try {
+    let query = legacyDb(tableName);
 
-  if (options?.where) {
-    query = query.where(options.where);
+    if (options?.where) {
+      query = query.where(options.where);
+    }
+
+    if (options?.orderBy) {
+      query = query.orderBy(options.orderBy);
+    }
+
+    if (options?.limit) {
+      query = query.limit(options.limit);
+    }
+
+    return await query;
+  } catch (error: any) {
+    console.error(`❌ Failed to fetch from legacy table ${tableName}:`, error.message);
+    throw error;
   }
-
-  if (options?.orderBy) {
-    query = query.orderBy(options.orderBy);
-  }
-
-  if (options?.limit) {
-    query = query.limit(options.limit);
-  }
-
-  return await query;
 }
 
-/**
- * Check if legacy table exists
- */
 export async function legacyTableExists(tableName: string): Promise<boolean> {
   return await legacyDb.schema.hasTable(tableName);
 }
@@ -344,26 +340,33 @@ export async function legacyTableExists(tableName: string): Promise<boolean> {
 // IDEMPOTENCY HELPERS
 // ============================================================================
 
-/**
- * Clear table before seeding (for idempotent seeds)
- */
 export async function clearTable(
   knex: Knex,
   tableName: string,
   options?: { where?: Record<string, any> }
 ): Promise<number> {
-  let query = knex(tableName);
+  try {
+    // Disable foreign key checks temporarily
+    await knex.raw("SET FOREIGN_KEY_CHECKS = 0");
+    
+    let query = knex(tableName);
 
-  if (options?.where) {
-    query = query.where(options.where);
+    if (options?.where) {
+      query = query.where(options.where);
+    }
+
+    const count = await query.del();
+    
+    // Re-enable foreign key checks
+    await knex.raw("SET FOREIGN_KEY_CHECKS = 1");
+    
+    return count;
+  } catch (error: any) {
+    console.error(`❌ Failed to clear table ${tableName}:`, error.message);
+    throw error;
   }
-
-  return await query.del();
 }
 
-/**
- * Check if seeding is needed (table empty or specific condition)
- */
 export async function shouldSeed(
   knex: Knex,
   tableName: string,
@@ -383,9 +386,6 @@ export async function shouldSeed(
 // VALIDATION
 // ============================================================================
 
-/**
- * Validate required fields
- */
 export function validateRequired(
   record: any,
   requiredFields: string[]
@@ -398,9 +398,6 @@ export function validateRequired(
   return null;
 }
 
-/**
- * Validate enum value
- */
 export function validateEnum(
   value: any,
   allowedValues: any[],

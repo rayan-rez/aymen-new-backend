@@ -2,6 +2,7 @@
 import dotenv from "dotenv";
 import path from "path";
 import { registerKnexExtensions } from "./src/database/knex-extensions";
+import { Knex } from "knex";
 
 dotenv.config();
 
@@ -39,6 +40,132 @@ function convertTimestamps(row: any): any {
   return converted;
 }
 
+// Base configuration shared across environments
+const baseConfig: Partial<Knex.Config> = {
+  client: "mysql2",
+  migrations: {
+    directory: "./src/database/migrations",
+    extension: "ts",
+    tableName: "knex_migrations",
+    loadExtensions: [".ts"],
+  },
+  seeds: {
+    directory: "./src/database/seeds",
+    extension: "ts",
+    loadExtensions: [".ts"],
+  },
+  pool: {
+    min: 2,
+    max: 10,
+    // Add connection validation
+    afterCreate: (conn: any, done: any) => {
+      conn.query("SELECT 1", (err: any) => {
+        if (err) {
+          console.error("❌ Database connection failed:", err.message);
+        }
+        done(err, conn);
+      });
+    },
+  },
+};
+
+// =================================================================
+// PRODUCTION ENVIRONMENT
+// =================================================================
+const production: Knex.Config = {
+  ...baseConfig,
+  connection: {
+    host: process.env.DB_HOST || "127.0.0.1",
+    port: Number(process.env.DB_PORT) || 3306,
+    user: process.env.DB_USER || "root",
+    password: process.env.DB_PASSWORD || "",
+    database: process.env.DB_NAME || "aymen_db",
+    charset: "utf8mb4",
+    timezone: "UTC+1",
+    // SSL configuration for production
+    ssl:
+      process.env.DB_SSL === "true"
+        ? {
+            rejectUnauthorized: false,
+          }
+        : false,
+  },
+  pool: {
+    min: 2,
+    max: 20,
+  },
+  debug: false,
+};
+
+// =================================================================
+// DEVELOPMENT ENVIRONMENT
+// =================================================================
+const development: Knex.Config = {
+  ...baseConfig,
+  connection: {
+    host: process.env.DB_HOST || "127.0.0.1",
+    port: Number(process.env.DB_PORT) || 3306,
+    user: process.env.DB_USER || "root",
+    password: process.env.DB_PASSWORD || "",
+    database: process.env.DB_NAME || "aymen_db",
+    charset: "utf8mb4",
+    timezone: "UTC+1",
+  },
+  debug: true, // Enable query logging in development
+  // Convert MySQL datetime/timestamp to JavaScript Date objects
+  wrapIdentifier: (value: string, origImpl: any) => origImpl(value),
+  postProcessResponse: (result: any) => {
+    // Handle timestamp conversion for datetime fields
+    if (Array.isArray(result)) {
+      return result.map(convertTimestamps);
+    } else if (result && typeof result === "object") {
+      return convertTimestamps(result);
+    }
+    return result;
+  },
+};
+
+// =================================================================
+// TEST ENVIRONMENT
+// =================================================================
+const test: Knex.Config = {
+  ...baseConfig,
+  connection: {
+    host: process.env.TEST_DB_HOST || "127.0.0.1",
+    port: Number(process.env.TEST_DB_PORT) || 3306,
+    user: process.env.TEST_DB_USER || "root",
+    password: process.env.TEST_DB_PASSWORD || "",
+    database: process.env.TEST_DB_NAME || "aymen_test_db",
+    charset: "utf8mb4",
+    timezone: "UTC+1",
+  },
+  pool: {
+    min: 1,
+    max: 5,
+  },
+};
+
+// =================================================================
+// STAGING ENVIRONMENT
+// =================================================================
+const staging: Knex.Config = {
+  ...baseConfig,
+  connection: {
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT || 3306),
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    charset: "utf8mb4",
+
+    timezone: "UTC+1",
+    ssl: {
+      rejectUnauthorized: false,
+    },
+  },
+  debug: false,
+};
+
 /**
  * Knex Database Configuration
  *
@@ -51,159 +178,11 @@ function convertTimestamps(row: any): any {
  * - Debug logging in development
  * - SSL support for production
  */
-module.exports = {
-  // =================================================================
-  // DEVELOPMENT ENVIRONMENT
-  // =================================================================
-  development: {
-    client: "mysql2",
-    connection: {
-      host: process.env.DB_HOST || "127.0.0.1",
-      port: Number(process.env.DB_PORT) || 3306,
-      user: process.env.DB_USER || "root",
-      password: process.env.DB_PASSWORD || "",
-      database: process.env.DB_NAME || "aymen_db",
-      charset: "utf8mb4",
-      collate: "utf8mb4_unicode_ci",
-      timezone: "UTC+1",
-    },
-    pool: {
-      min: 2,
-      max: 10,
-      // Test connection on checkout from pool
-      afterCreate: (conn: any, done: any) => {
-        conn.query('SET sql_mode="TRADITIONAL"', (err: any) => {
-          done(err, conn);
-        });
-      },
-    },
-    migrations: {
-      directory: path.join(__dirname, "src", "database", "migrations"),
-      tableName: "knex_migrations",
-      extension: "ts",
-      loadExtensions: [".ts"],
-    },
-    seeds: {
-      directory: path.join(__dirname, "src", "database", "seeds"),
-      extension: "ts",
-      loadExtensions: [".ts"],
-    },
-    debug: true, // Enable query logging in development
-    // Convert MySQL datetime/timestamp to JavaScript Date objects
-    wrapIdentifier: (value: string, origImpl: any) => origImpl(value),
-    postProcessResponse: (result: any) => {
-      // Handle timestamp conversion for datetime fields
-      if (Array.isArray(result)) {
-        return result.map(convertTimestamps);
-      } else if (result && typeof result === "object") {
-        return convertTimestamps(result);
-      }
-      return result;
-    },
-  },
-
-  // =================================================================
-  // STAGING ENVIRONMENT
-  // =================================================================
-  staging: {
-    client: "mysql2",
-    connection: {
-      host: process.env.DB_HOST,
-      port: Number(process.env.DB_PORT || 3306),
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
-      charset: "utf8mb4",
-      collate: "utf8mb4_unicode_ci",
-      timezone: "UTC+1",
-      ssl: {
-        rejectUnauthorized: false,
-      },
-    },
-    pool: {
-      min: 2,
-      max: 20,
-      acquireTimeoutMillis: 30000,
-      idleTimeoutMillis: 600000,
-    },
-    migrations: {
-      directory: "./src/database/migrations",
-      tableName: "knex_migrations",
-    },
-    seeds: {
-      directory: "./src/database/seeds",
-    },
-    debug: false,
-  },
-
-  // =================================================================
-  // PRODUCTION ENVIRONMENT
-  // =================================================================
-  production: {
-    client: "mysql2",
-    connection: {
-      host: process.env.DB_HOST,
-      port: Number(process.env.DB_PORT) || 3306,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
-      charset: "utf8mb4",
-      collate: "utf8mb4_unicode_ci",
-      timezone: "UTC+1",
-      ssl: {
-        rejectUnauthorized: true,
-        ca: process.env.DB_SSL_CA, // SSL certificate
-      },
-    },
-    pool: {
-      min: 5,
-      max: 50,
-      acquireTimeoutMillis: 30000,
-      idleTimeoutMillis: 600000,
-      // Production-specific pool settings
-      propagateCreateError: false,
-    },
-    migrations: {
-      directory: path.join(__dirname, "dist", "database", "migrations"),
-      extension: "js",
-      tableName: "knex_migrations",
-    },
-    seeds: {
-      directory: path.join(__dirname, "dist", "database", "seeds"),
-      extension: "js",
-    },
-    // No seeds in production for safety
-    debug: false,
-    // Additional production settings
-    acquireConnectionTimeout: 60000,
-  },
-
-  // =================================================================
-  // TEST ENVIRONMENT
-  // =================================================================
-  test: {
-    client: "mysql2",
-    connection: {
-      host: process.env.DB_HOST || "localhost",
-      port: parseInt(process.env.DB_PORT || "3306"),
-      user: process.env.DB_USER || "root",
-      password: process.env.DB_PASSWORD || "",
-      database: process.env.DB_NAME || "real_estate_test",
-      charset: "utf8mb4",
-      collate: "utf8mb4_unicode_ci",
-      timezone: "UTC+1",
-    },
-    pool: {
-      min: 1,
-      max: 5,
-    },
-    migrations: {
-      directory: "./src/database/migrations",
-      tableName: "knex_migrations",
-    },
-    seeds: {
-      directory: "./src/database/seeds/test",
-    },
-    debug: false,
-  },
+const config: { [key: string]: Knex.Config } = {
+  development,
+  production,
+  staging,
+  test,
 };
+
+export default config;
