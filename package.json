@@ -7,13 +7,11 @@
     "dev": "nodemon",
     "build": "tsc && babel src --out-dir dist --extensions \".ts\" --copy-files",
     "start": "node dist/index.js",
-    
     "migrate:make": "ts-node -r tsconfig-paths/register ./node_modules/.bin/knex migrate:make --knexfile knexfile.ts -x ts",
     "migrate:latest": "ts-node -r tsconfig-paths/register ./node_modules/.bin/knex migrate:latest --knexfile knexfile.ts",
     "migrate:rollback": "ts-node -r tsconfig-paths/register ./node_modules/.bin/knex migrate:rollback --knexfile knexfile.ts",
     "migrate:rollback:all": "ts-node -r tsconfig-paths/register ./node_modules/.bin/knex migrate:rollback --all --knexfile knexfile.ts",
     "migrate:status": "ts-node -r tsconfig-paths/register ./node_modules/.bin/knex migrate:status --knexfile knexfile.ts",
-    
     "seed:make": "ts-node -r tsconfig-paths/register ./node_modules/.bin/knex seed:make --knexfile knexfile.ts -x ts",
     "seed:run": "ts-node -r tsconfig-paths/register ./node_modules/.bin/knex seed:run --knexfile knexfile.ts --specific=main.ts",
     "seed:run:locations": "ts-node -r tsconfig-paths/register ./node_modules/.bin/knex seed:run --knexfile knexfile.ts --specific=locations.ts",
@@ -21,39 +19,32 @@
     "seed:run:projects": "ts-node -r tsconfig-paths/register ./node_modules/.bin/knex seed:run --knexfile knexfile.ts --specific=projects.ts",
     "seed:run:apartments": "ts-node -r tsconfig-paths/register ./node_modules/.bin/knex seed:run --knexfile knexfile.ts --specific=apartments.ts",
     "seed:run:blog": "ts-node -r tsconfig-paths/register ./node_modules/.bin/knex seed:run --knexfile knexfile.ts --specific=blog_posts.ts",
-    
     "db:reset": "npm run migrate:rollback:all && npm run migrate:latest",
     "db:setup": "npm run migrate:latest && npm run seed:run",
     "db:fresh": "npm run db:reset && npm run seed:run",
     "db:verify": "ts-node -r tsconfig-paths/register scripts/verify-migration.ts",
-    
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "type-check": "tsc --noEmit",
-    
     "test": "jest --verbose --runInBand --logHeapUsage",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage --verbose",
     "test:ci": "jest --ci --coverage --maxWorkers=2",
     "test:unit": "jest --testPathPattern=unit",
     "test:integration": "jest --testPathPattern=integration",
-    
     "archive:all": "ts-node scripts/archive-data.ts all",
     "archive:table": "ts-node scripts/archive-data.ts table",
     "archive:purge": "ts-node scripts/archive-data.ts purge",
     "archive:verify": "ts-node scripts/archive-data.ts verify",
     "archive:stats": "ts-node scripts/archive-data.ts stats",
-    
     "partition:create": "ts-node scripts/manage-partitions.ts create",
     "partition:drop": "ts-node scripts/manage-partitions.ts drop",
     "partition:stats": "ts-node scripts/manage-partitions.ts stats",
     "partition:health": "ts-node scripts/manage-partitions.ts health",
     "partition:optimize": "ts-node scripts/manage-partitions.ts optimize",
     "partition:auto": "ts-node scripts/manage-partitions.ts auto-maintain",
-    
     "maintain:monthly": "npm run partition:auto && npm run archive:all && npm run archive:verify",
     "maintain:weekly": "npm run partition:health && npm run partition:stats",
-    
     "pm2:start": "pm2 start ecosystem.config.js --env production",
     "pm2:start:dev": "pm2 start ecosystem.config.js --env development",
     "pm2:start:staging": "pm2 start ecosystem.config.js --env staging",
@@ -66,14 +57,15 @@
     "pm2:monit": "pm2 monit",
     "pm2:save": "pm2 save",
     "pm2:flush": "pm2 flush",
-    
     "deploy:production": "bash scripts/deploy-production.sh",
     "deploy:staging": "bash scripts/deploy-staging.sh",
     "deploy:setup": "bash scripts/pm2-setup.sh",
     "deploy:monitor": "bash scripts/pm2-monitor.sh",
     "deploy:health": "bash scripts/health-check.sh",
     "deploy:backup": "bash scripts/backup-db.sh",
-    "deploy:rollback": "bash scripts/rollback.sh"
+    "deploy:rollback": "bash scripts/rollback.sh",
+    "docs": "node -e \"require('./dist/config/swagger').default\" > swagger.json",
+    "docs:serve": "npx swagger-ui-serve swagger.json"
   },
   "keywords": [
     "real-estate",
@@ -97,7 +89,10 @@
     "knex": "^3.1.0",
     "mysql2": "^3.15.2",
     "nodemailer": "^6.10.1",
-    "sharp": "^0.33.5"
+    "redoc-express": "^2.1.3",
+    "sharp": "^0.33.5",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "@babel/cli": "^7.28.3",
@@ -116,6 +111,8 @@
     "@types/nodemailer": "^6.4.20",
     "@types/sharp": "^0.32.0",
     "@types/supertest": "^6.0.2",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.8",
     "@typescript-eslint/eslint-plugin": "^8.46.2",
     "@typescript-eslint/parser": "^8.46.2",
     "babel-jest": "^30.2.0",

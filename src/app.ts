@@ -12,6 +12,9 @@ import {
 } from "@middlewares/error-handler.middleware";
 import { ApiResponse } from "@utils/response.util";
 import routes from "@/routes";
+import swaggerUi from "swagger-ui-express";
+import swaggerSpec from "@/config/swagger";
+import redoc from "redoc-express";
 
 /**
  * Creates and configures the Express application
@@ -39,6 +42,35 @@ export const createApp = (): Express => {
   // Middleware: CORS configuration
   // ============================================
   app.use(corsMiddleware);
+
+  // ============================================
+  // Swagger Documentation
+  // ============================================
+
+  // Serve Swagger JSON
+  app.get("/api/docs/swagger.json", (req, res) => {
+    res.setHeader("Content-Type", "application/json");
+    res.send(swaggerSpec);
+  });
+
+  // Serve Swagger UI
+  app.use(
+    "/api/docs",
+    swaggerUi.serve,
+    swaggerUi.setup(swaggerSpec, {
+      customCss: ".swagger-ui .topbar { display: none }",
+      customSiteTitle: "Aymen API Documentation",
+      customfavIcon: "/favicon.ico",
+    })
+  );
+
+  app.get(
+    "/api/redoc",
+    redoc({
+      title: "Aymen API Docs",
+      specUrl: "/api/docs/swagger.json",
+    })
+  );
 
   // ============================================
   // Routes: Health check and root endpoint
