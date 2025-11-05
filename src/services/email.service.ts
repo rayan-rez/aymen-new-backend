@@ -2,13 +2,325 @@
  * Email Service
  * Handles all email sending operations using Nodemailer
  * Supports various email templates and scenarios
+ *
+ * @module services/email
+ *
+ * @swagger
+ * components:
+ *   schemas:
+ *     EmailOptions:
+ *       type: object
+ *       required:
+ *         - to
+ *         - subject
+ *         - html
+ *       properties:
+ *         to:
+ *           oneOf:
+ *             - type: string
+ *               format: email
+ *             - type: array
+ *               items:
+ *                 type: string
+ *                 format: email
+ *           description: Recipient email address(es)
+ *           example: "user@example.com"
+ *         subject:
+ *           type: string
+ *           maxLength: 255
+ *           description: Email subject line
+ *           example: "Welcome to Aymen Real Estate"
+ *         html:
+ *           type: string
+ *           description: HTML body content
+ *           example: "<h1>Welcome!</h1><p>Thank you for joining us.</p>"
+ *         text:
+ *           type: string
+ *           description: Plain text body content (optional)
+ *           example: "Welcome! Thank you for joining us."
+ *         from:
+ *           type: string
+ *           format: email
+ *           description: Sender email address (optional, uses default)
+ *           example: "noreply@aymen.com"
+ *         replyTo:
+ *           type: string
+ *           format: email
+ *           description: Reply-to email address (optional)
+ *           example: "support@aymen.com"
+ *
+ *     ContactFormData:
+ *       type: object
+ *       required:
+ *         - name
+ *         - email
+ *         - phone
+ *         - message
+ *       properties:
+ *         name:
+ *           type: string
+ *           minLength: 2
+ *           maxLength: 255
+ *           description: Full name of the person submitting the form
+ *           example: "John Doe"
+ *         email:
+ *           type: string
+ *           format: email
+ *           description: Email address for follow-up
+ *           example: "john.doe@example.com"
+ *         phone:
+ *           type: string
+ *           pattern: '^\+?[\d\s\-\(\)]+$'
+ *           description: Contact phone number
+ *           example: "+213555123456"
+ *         message:
+ *           type: string
+ *           minLength: 10
+ *           maxLength: 2000
+ *           description: Message or inquiry content
+ *           example: "I'm interested in learning more about your properties."
+ *
+ *     EmailSendRequest:
+ *       type: object
+ *       required:
+ *         - to
+ *         - subject
+ *         - content
+ *       properties:
+ *         to:
+ *           type: string
+ *           format: email
+ *           description: Recipient email address
+ *           example: "user@example.com"
+ *         subject:
+ *           type: string
+ *           description: Email subject
+ *           example: "Welcome to our platform"
+ *         content:
+ *           type: string
+ *           description: Email content (HTML or plain text)
+ *           example: "<h1>Welcome!</h1>"
+ *         replyTo:
+ *           type: string
+ *           format: email
+ *           description: Reply-to address
+ *           example: "support@aymen.com"
+ *
+ *     EmailSendResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: true
+ *         message:
+ *           type: string
+ *           example: "Email sent successfully"
+ *         data:
+ *           type: object
+ *           properties:
+ *             messageId:
+ *               type: string
+ *               description: Unique message identifier from email server
+ *               example: "<abc123@mail.example.com>"
+ *             recipients:
+ *               type: array
+ *               items:
+ *                 type: string
+ *               description: List of recipient email addresses
+ *               example: ["user@example.com"]
+ *             timestamp:
+ *               type: string
+ *               format: date-time
+ *               description: When the email was sent
+ *               example: "2025-11-05T10:30:00.000Z"
+ *         timestamp:
+ *           type: string
+ *           format: date-time
+ *
+ *     EmailSendError:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: false
+ *         message:
+ *           type: string
+ *           example: "Failed to send email"
+ *         errors:
+ *           type: object
+ *           properties:
+ *             code:
+ *               type: string
+ *               example: "SMTP_CONNECTION_ERROR"
+ *             details:
+ *               type: string
+ *               example: "Could not connect to SMTP server"
+ *         timestamp:
+ *           type: string
+ *           format: date-time
+ *
+ *     SMTPConfiguration:
+ *       type: object
+ *       required:
+ *         - host
+ *         - port
+ *         - user
+ *         - pass
+ *       properties:
+ *         host:
+ *           type: string
+ *           description: SMTP server hostname
+ *           example: "smtp.gmail.com"
+ *         port:
+ *           type: integer
+ *           description: SMTP server port
+ *           example: 587
+ *         secure:
+ *           type: boolean
+ *           default: false
+ *           description: Use SSL/TLS
+ *           example: false
+ *         user:
+ *           type: string
+ *           description: SMTP authentication username
+ *           example: "user@example.com"
+ *         pass:
+ *           type: string
+ *           format: password
+ *           description: SMTP authentication password
+ *           example: "your-password"
+ *
+ *     ConnectionVerificationResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: true
+ *         message:
+ *           type: string
+ *           example: "SMTP connection verified"
+ *         data:
+ *           type: object
+ *           properties:
+ *             connected:
+ *               type: boolean
+ *               example: true
+ *             server:
+ *               type: string
+ *               example: "smtp.gmail.com"
+ *             port:
+ *               type: integer
+ *               example: 587
+ *         timestamp:
+ *           type: string
+ *           format: date-time
+ *
+ *   examples:
+ *     BasicEmailExample:
+ *       summary: Basic email with HTML content
+ *       value:
+ *         to: "user@example.com"
+ *         subject: "Welcome to Aymen Real Estate"
+ *         html: "<h1>Welcome!</h1><p>Thank you for joining us.</p>"
+ *         text: "Welcome! Thank you for joining us."
+ *
+ *     MultipleRecipientsExample:
+ *       summary: Email to multiple recipients
+ *       value:
+ *         to: ["user1@example.com", "user2@example.com", "user3@example.com"]
+ *         subject: "Team Announcement"
+ *         html: "<h1>Important Update</h1><p>Please review the attached information.</p>"
+ *
+ *     EmailWithReplyToExample:
+ *       summary: Email with custom reply-to address
+ *       value:
+ *         to: "customer@example.com"
+ *         subject: "Your Inquiry Response"
+ *         html: "<p>Thank you for your inquiry. We will respond within 24 hours.</p>"
+ *         replyTo: "support@aymen.com"
+ *
+ *     ContactFormSubmissionExample:
+ *       summary: Contact form submission
+ *       value:
+ *         name: "John Doe"
+ *         email: "john.doe@example.com"
+ *         phone: "+213555123456"
+ *         message: "I'm interested in learning more about Green Heights Residence. Could you provide more information about availability and pricing?"
+ *
+ *     EmailSentSuccessExample:
+ *       summary: Successful email send response
+ *       value:
+ *         success: true
+ *         message: "Email sent successfully"
+ *         data:
+ *           messageId: "<abc123@mail.example.com>"
+ *           recipients: ["user@example.com"]
+ *           timestamp: "2025-11-05T10:30:00.000Z"
+ *         timestamp: "2025-11-05T10:30:00.000Z"
+ *
+ *     EmailSendFailureExample:
+ *       summary: Failed email send response
+ *       value:
+ *         success: false
+ *         message: "Failed to send email"
+ *         errors:
+ *           code: "SMTP_CONNECTION_ERROR"
+ *           details: "Could not connect to SMTP server"
+ *         timestamp: "2025-11-05T10:30:00.000Z"
+ *
+ * Features:
+ * - SMTP email delivery via Nodemailer
+ * - HTML and plain text email support
+ * - Multiple recipient support
+ * - Custom reply-to addresses
+ * - Email template generation
+ * - Contact form notifications
+ * - Auto-confirmation emails
+ * - HTML injection prevention
+ * - Connection verification
+ * - Error handling and logging
+ * - Environment-based configuration
+ *
+ * Configuration (Environment Variables):
+ * - **SMTP_HOST**: SMTP server hostname (default: smtp.gmail.com)
+ * - **SMTP_PORT**: SMTP server port (default: 587)
+ * - **SMTP_USER**: SMTP authentication username
+ * - **SMTP_PASS**: SMTP authentication password
+ * - **EMAIL_FROM**: Sender email address (default: noreply@aymen.com)
+ * - **EMAIL_FROM_NAME**: Display name for sender (default: Aymen Real Estate)
+ * - **CONTACT_EMAIL**: Admin email for contact forms (default: contact@aymen.com)
+ *
+ * @example
+ * ```typescript
+ * // Send basic email
+ * await emailService.sendEmail({
+ *   to: "user@example.com",
+ *   subject: "Welcome",
+ *   html: "<h1>Welcome!</h1>",
+ *   text: "Welcome"
+ * });
+ *
+ * // Send contact form notification
+ * await emailService.sendContactForm({
+ *   name: "John Doe",
+ *   email: "john@example.com",
+ *   phone: "+213555123456",
+ *   message: "I'm interested in your properties"
+ * });
+ *
+ * // Verify SMTP connection
+ * const isConnected = await emailService.verifyConnection();
+ * ```
  */
 
 import nodemailer, { Transporter } from "nodemailer";
 
 /**
+ * @openapi
  * Email configuration interface
  * Defines structure for email sending options
+ *
+ * @interface EmailOptions
  */
 interface EmailOptions {
   to: string | string[];
@@ -20,7 +332,10 @@ interface EmailOptions {
 }
 
 /**
+ * @openapi
  * Contact form data interface
+ *
+ * @interface ContactFormData
  */
 interface ContactFormData {
   name: string;
@@ -30,46 +345,64 @@ interface ContactFormData {
 }
 
 /**
+ * @openapi
  * Email Service class
  * Manages email operations with Nodemailer
+ *
+ * @class EmailService
  */
 class EmailService {
   /**
+   * @openapi
    * Nodemailer transporter instance
    * Configured from environment variables
+   *
+   * @private
    */
   private transporter: Transporter;
 
   /**
+   * @openapi
    * Email from address
    * Sender email for outgoing messages
+   *
+   * @private
    */
   private emailFrom: string;
 
   /**
+   * @openapi
    * Email from name
    * Display name for sender
+   *
+   * @private
    */
   private emailFromName: string;
 
   /**
+   * @openapi
    * Admin contact email
    * Where contact forms are sent
+   *
+   * @private
    */
   private adminEmail: string;
 
   /**
+   * @openapi
    * Initializes the Email Service
    * Sets up Nodemailer transporter with SMTP configuration
    *
    * Environment variables required:
-   * - SMTP_HOST: SMTP server hostname
-   * - SMTP_PORT: SMTP server port
-   * - SMTP_USER: SMTP authentication username
-   * - SMTP_PASS: SMTP authentication password
-   * - EMAIL_FROM: Sender email address
-   * - EMAIL_FROM_NAME: Display name for sender
-   * - CONTACT_EMAIL: Admin email for contact forms
+   * - **SMTP_HOST**: SMTP server hostname
+   * - **SMTP_PORT**: SMTP server port
+   * - **SMTP_USER**: SMTP authentication username
+   * - **SMTP_PASS**: SMTP authentication password
+   * - **EMAIL_FROM**: Sender email address
+   * - **EMAIL_FROM_NAME**: Display name for sender
+   * - **CONTACT_EMAIL**: Admin email for contact forms
+   *
+   * @constructor
    */
   constructor() {
     // Initialize email configuration from environment
@@ -90,19 +423,38 @@ class EmailService {
   }
 
   /**
+   * @openapi
    * Sends a generic email
    * Base method for all email operations
    *
-   * @param options - Email configuration
-   * @returns Promise<boolean> - Success status
+   * @param {EmailOptions} options - Email configuration
+   * @returns {Promise<boolean>} Success status
    *
    * @example
+   * ```typescript
+   * // Simple email
    * const sent = await emailService.sendEmail({
    *   to: "user@example.com",
    *   subject: "Welcome",
    *   html: "<h1>Welcome!</h1>",
    *   text: "Welcome"
    * });
+   *
+   * // Email with reply-to
+   * await emailService.sendEmail({
+   *   to: "customer@example.com",
+   *   subject: "Your Inquiry",
+   *   html: "<p>Thank you for your inquiry.</p>",
+   *   replyTo: "support@aymen.com"
+   * });
+   *
+   * // Multiple recipients
+   * await emailService.sendEmail({
+   *   to: ["user1@example.com", "user2@example.com"],
+   *   subject: "Team Update",
+   *   html: "<p>Important announcement</p>"
+   * });
+   * ```
    */
   async sendEmail(options: EmailOptions): Promise<boolean> {
     try {
@@ -126,19 +478,27 @@ class EmailService {
   }
 
   /**
+   * @openapi
    * Sends a contact form notification email
-   * Notifies admin of new contact form submission
+   * Notifies admin of new contact form submission and sends confirmation to user
    *
-   * @param data - Contact form data
-   * @returns Promise<boolean> - Success status
+   * @param {ContactFormData} data - Contact form data
+   * @returns {Promise<boolean>} Success status
    *
    * @example
-   * await emailService.sendContactForm({
+   * ```typescript
+   * // Send contact form notification
+   * const sent = await emailService.sendContactForm({
    *   name: "John Doe",
    *   email: "john@example.com",
    *   phone: "+213555123456",
-   *   message: "I'm interested in..."
+   *   message: "I'm interested in your properties in Algiers."
    * });
+   *
+   * if (sent) {
+   *   console.log("Contact form email sent successfully");
+   * }
+   * ```
    */
   async sendContactForm(data: ContactFormData): Promise<boolean> {
     // Generate HTML email template
@@ -266,13 +626,26 @@ Received at: ${new Date().toLocaleString()}
   }
 
   /**
+   * @openapi
    * Verifies SMTP connection
-   * Useful for testing email configuration
+   * Useful for testing email configuration on startup or health checks
    *
-   * @returns Promise<boolean> - Connection status
+   * @returns {Promise<boolean>} Connection status
    *
    * @example
+   * ```typescript
+   * // Check SMTP connection on startup
    * const isConnected = await emailService.verifyConnection();
+   * if (!isConnected) {
+   *   console.error("SMTP configuration error!");
+   * }
+   *
+   * // Health check endpoint
+   * app.get('/health/email', async (req, res) => {
+   *   const healthy = await emailService.verifyConnection();
+   *   res.json({ email: healthy ? 'ok' : 'error' });
+   * });
+   * ```
    */
   async verifyConnection(): Promise<boolean> {
     try {
@@ -286,13 +659,21 @@ Received at: ${new Date().toLocaleString()}
   }
 
   /**
+   * @openapi
    * Escapes HTML special characters
    * Prevents HTML injection in email templates
    *
-   * @param text - Text to escape
-   * @returns Escaped text safe for HTML
+   * @param {string} text - Text to escape
+   * @returns {string} Escaped text safe for HTML
    *
    * @private
+   *
+   * @example
+   * ```typescript
+   * // Internal usage only
+   * const safe = this.escapeHtml("<script>alert('xss')</script>");
+   * // Returns: "&lt;script&gt;alert(&#039;xss&#039;)&lt;/script&gt;"
+   * ```
    */
   private escapeHtml(text: string): string {
     const map: Record<string, string> = {

@@ -6,6 +6,781 @@
  * Price changes automatically update project price range (via database trigger)
  *
  * @module models/apartment.model
+ * @class ApartmentModel
+ *
+ * @swagger
+ * components:
+ *   schemas:
+ *     ApartmentStatus:
+ *       type: string
+ *       enum: [available, reserved, sold]
+ *       description: Apartment status in the sales pipeline
+ *       example: "available"
+ *       x-enum-descriptions:
+ *         available: Unit is available for sale
+ *         reserved: Unit is reserved by a potential buyer
+ *         sold: Unit has been sold
+ *
+ *     Apartment:
+ *       type: object
+ *       required:
+ *         - id
+ *         - projectId
+ *         - name
+ *         - areaSqm
+ *         - price
+ *         - status
+ *         - isModelUnit
+ *         - isPublished
+ *         - createdAt
+ *         - updatedAt
+ *       properties:
+ *         id:
+ *           type: integer
+ *           description: Unique apartment identifier
+ *           example: 1
+ *         projectId:
+ *           type: integer
+ *           description: ID of the parent project
+ *           example: 5
+ *         name:
+ *           type: string
+ *           description: Apartment name or title
+ *           example: "Luxury 3-Bedroom Suite"
+ *         unitNumber:
+ *           type: string
+ *           nullable: true
+ *           description: Unit number within the building
+ *           example: "12A"
+ *         floorNumber:
+ *           type: integer
+ *           nullable: true
+ *           description: Floor number where apartment is located
+ *           example: 12
+ *         title:
+ *           type: string
+ *           nullable: true
+ *           description: Marketing title for the apartment
+ *           example: "Executive Suite with City View"
+ *         subtitle:
+ *           type: string
+ *           nullable: true
+ *           description: Marketing subtitle
+ *           example: "Premium location with modern amenities"
+ *         description:
+ *           type: string
+ *           nullable: true
+ *           description: Detailed description of the apartment
+ *           example: "Spacious 3-bedroom apartment with panoramic city views..."
+ *         areaSqm:
+ *           type: number
+ *           minimum: 0
+ *           description: Total area in square meters
+ *           example: 120.5
+ *         bedrooms:
+ *           type: integer
+ *           nullable: true
+ *           minimum: 0
+ *           description: Number of bedrooms
+ *           example: 3
+ *         bathrooms:
+ *           type: integer
+ *           nullable: true
+ *           minimum: 0
+ *           description: Number of bathrooms
+ *           example: 2
+ *         price:
+ *           type: number
+ *           minimum: 0
+ *           description: Price in the project's currency
+ *           example: 850000
+ *         livingRooms:
+ *           type: integer
+ *           nullable: true
+ *           minimum: 0
+ *           description: Number of living rooms
+ *           example: 1
+ *         kitchens:
+ *           type: integer
+ *           nullable: true
+ *           minimum: 0
+ *           description: Number of kitchens
+ *           example: 1
+ *         balconies:
+ *           type: integer
+ *           nullable: true
+ *           minimum: 0
+ *           description: Number of balconies
+ *           example: 2
+ *         status:
+ *           $ref: '#/components/schemas/ApartmentStatus'
+ *         isModelUnit:
+ *           type: boolean
+ *           description: Whether this is a model/show unit
+ *           example: false
+ *         isPublished:
+ *           type: boolean
+ *           description: Whether the apartment is published and visible
+ *           example: true
+ *         virtualTourUrl:
+ *           type: string
+ *           nullable: true
+ *           format: uri
+ *           description: URL to virtual tour
+ *           example: "https://tour.example.com/apartment/12a"
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           description: Creation timestamp
+ *           example: "2024-01-15T10:30:00Z"
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           description: Last update timestamp
+ *           example: "2024-01-20T14:45:00Z"
+ *         deletedAt:
+ *           type: string
+ *           format: date-time
+ *           nullable: true
+ *           description: Deletion timestamp (soft delete)
+ *           example: null
+ *         project:
+ *           $ref: '#/components/schemas/Project'
+ *         photos:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/Photo'
+ *           description: Associated photos
+ *         floorPlans:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/FloorPlan'
+ *           description: Associated floor plans
+ *
+ *     CreateApartmentDto:
+ *       type: object
+ *       required:
+ *         - projectId
+ *         - name
+ *         - areaSqm
+ *         - price
+ *       properties:
+ *         projectId:
+ *           type: integer
+ *           description: ID of the parent project
+ *           example: 5
+ *         name:
+ *           type: string
+ *           description: Apartment name or title
+ *           example: "Luxury 3-Bedroom Suite"
+ *         unitNumber:
+ *           type: string
+ *           description: Unit number within the building
+ *           example: "12A"
+ *         floorNumber:
+ *           type: integer
+ *           description: Floor number where apartment is located
+ *           example: 12
+ *         title:
+ *           type: string
+ *           description: Marketing title for the apartment
+ *           example: "Executive Suite with City View"
+ *         subtitle:
+ *           type: string
+ *           description: Marketing subtitle
+ *           example: "Premium location with modern amenities"
+ *         description:
+ *           type: string
+ *           description: Detailed description of the apartment
+ *           example: "Spacious 3-bedroom apartment with panoramic city views..."
+ *         areaSqm:
+ *           type: number
+ *           minimum: 0
+ *           description: Total area in square meters
+ *           example: 120.5
+ *         bedrooms:
+ *           type: integer
+ *           minimum: 0
+ *           description: Number of bedrooms
+ *           example: 3
+ *         bathrooms:
+ *           type: integer
+ *           minimum: 0
+ *           description: Number of bathrooms
+ *           example: 2
+ *         price:
+ *           type: number
+ *           minimum: 0
+ *           description: Price in the project's currency
+ *           example: 850000
+ *         livingRooms:
+ *           type: integer
+ *           minimum: 0
+ *           description: Number of living rooms
+ *           example: 1
+ *         kitchens:
+ *           type: integer
+ *           minimum: 0
+ *           description: Number of kitchens
+ *           example: 1
+ *         balconies:
+ *           type: integer
+ *           minimum: 0
+ *           description: Number of balconies
+ *           example: 2
+ *         status:
+ *           $ref: '#/components/schemas/ApartmentStatus'
+ *         isModelUnit:
+ *           type: boolean
+ *           description: Whether this is a model/show unit
+ *           example: false
+ *         isPublished:
+ *           type: boolean
+ *           description: Whether the apartment is published and visible
+ *           example: true
+ *         virtualTourUrl:
+ *           type: string
+ *           format: uri
+ *           description: URL to virtual tour
+ *           example: "https://tour.example.com/apartment/12a"
+ *
+ *     UpdateApartmentDto:
+ *       allOf:
+ *         - $ref: '#/components/schemas/CreateApartmentDto'
+ *         - type: object
+ *           description: All fields from CreateApartmentDto are optional for updates
+ *
+ *     ApartmentQueryOptions:
+ *       allOf:
+ *         - $ref: '#/components/schemas/AdvancedQueryOptions'
+ *         - type: object
+ *           properties:
+ *             projectId:
+ *               type: integer
+ *               description: Filter by project ID
+ *               example: 5
+ *             status:
+ *               $ref: '#/components/schemas/ApartmentStatus'
+ *             isModelUnit:
+ *               type: boolean
+ *               description: Filter by model unit status
+ *               example: false
+ *             isPublished:
+ *               type: boolean
+ *               description: Filter by published status
+ *               example: true
+ *             minPrice:
+ *               type: number
+ *               minimum: 0
+ *               description: Minimum price filter
+ *               example: 500000
+ *             maxPrice:
+ *               type: number
+ *               minimum: 0
+ *               description: Maximum price filter
+ *               example: 1000000
+ *             bedrooms:
+ *               oneOf:
+ *                 - type: integer
+ *                   description: Exact number of bedrooms
+ *                   example: 3
+ *                 - type: array
+ *                   items:
+ *                     type: integer
+ *                   description: Multiple bedroom options
+ *                   example: [2, 3, 4]
+ *             minBedrooms:
+ *               type: integer
+ *               minimum: 0
+ *               description: Minimum number of bedrooms
+ *               example: 2
+ *             maxBedrooms:
+ *               type: integer
+ *               minimum: 0
+ *               description: Maximum number of bedrooms
+ *               example: 4
+ *             bathrooms:
+ *               oneOf:
+ *                 - type: integer
+ *                   description: Exact number of bathrooms
+ *                   example: 2
+ *                 - type: array
+ *                   items:
+ *                     type: integer
+ *                   description: Multiple bathroom options
+ *                   example: [1, 2]
+ *             minArea:
+ *               type: number
+ *               minimum: 0
+ *               description: Minimum area in square meters
+ *               example: 80
+ *             maxArea:
+ *               type: number
+ *               minimum: 0
+ *               description: Maximum area in square meters
+ *               example: 200
+ *             floorNumber:
+ *               oneOf:
+ *                 - type: integer
+ *                   description: Exact floor number
+ *                   example: 12
+ *                 - type: array
+ *                   items:
+ *                     type: integer
+ *                   description: Multiple floor options
+ *                   example: [10, 11, 12, 13]
+ *             minFloor:
+ *               type: integer
+ *               description: Minimum floor number
+ *               example: 5
+ *             maxFloor:
+ *               type: integer
+ *               description: Maximum floor number
+ *               example: 20
+ *             hasVirtualTour:
+ *               type: boolean
+ *               description: Filter apartments with virtual tours
+ *               example: true
+ *             includePhotos:
+ *               type: boolean
+ *               description: Include associated photos in response
+ *               example: true
+ *             includeFloorPlans:
+ *               type: boolean
+ *               description: Include associated floor plans in response
+ *               example: true
+ *
+ *     ApartmentWithStats:
+ *       allOf:
+ *         - $ref: '#/components/schemas/Apartment'
+ *         - type: object
+ *           required:
+ *             - stats
+ *           properties:
+ *             stats:
+ *               type: object
+ *               required:
+ *                 - viewCount
+ *                 - inquiryCount
+ *                 - favoriteCount
+ *                 - lastViewedAt
+ *               properties:
+ *                 viewCount:
+ *                   type: integer
+ *                   description: Total number of views
+ *                   example: 1250
+ *                 inquiryCount:
+ *                   type: integer
+ *                   description: Number of inquiries received
+ *                   example: 45
+ *                 favoriteCount:
+ *                   type: integer
+ *                   description: Number of times added to favorites
+ *                   example: 23
+ *                 lastViewedAt:
+ *                   type: string
+ *                   format: date-time
+ *                   nullable: true
+ *                   description: Timestamp of last view
+ *                   example: "2024-01-20T16:30:00Z"
+ *
+ *     ApartmentAvailabilitySummary:
+ *       type: object
+ *       required:
+ *         - total
+ *         - available
+ *         - reserved
+ *         - sold
+ *         - availabilityRate
+ *         - soldRate
+ *       properties:
+ *         total:
+ *           type: integer
+ *           description: Total number of apartments in project
+ *           example: 150
+ *         available:
+ *           type: integer
+ *           description: Number of available apartments
+ *           example: 75
+ *         reserved:
+ *           type: integer
+ *           description: Number of reserved apartments
+ *           example: 25
+ *         sold:
+ *           type: integer
+ *           description: Number of sold apartments
+ *           example: 50
+ *         availabilityRate:
+ *           type: number
+ *           format: float
+ *           minimum: 0
+ *           maximum: 100
+ *           description: Percentage of available units
+ *           example: 50.0
+ *         soldRate:
+ *           type: number
+ *           format: float
+ *           minimum: 0
+ *           maximum: 100
+ *           description: Percentage of sold units
+ *           example: 33.33
+ *
+ *     MediaValidationResult:
+ *       type: object
+ *       required:
+ *         - valid
+ *         - errors
+ *       properties:
+ *         valid:
+ *           type: boolean
+ *           description: Whether media requirements are met
+ *           example: false
+ *         errors:
+ *           type: array
+ *           items:
+ *             type: string
+ *           description: List of validation errors
+ *           example: ["At least one photo is required", "Cover photo is required"]
+ *
+ *     ApartmentMedia:
+ *       type: object
+ *       required:
+ *         - photos
+ *         - floorPlans
+ *       properties:
+ *         photos:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/Photo'
+ *           description: Associated photos
+ *         floorPlans:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/FloorPlan'
+ *           description: Associated floor plans
+ *
+ *     ProjectStatistics:
+ *       type: object
+ *       properties:
+ *         total:
+ *           type: integer
+ *           description: Total number of apartments
+ *           example: 150
+ *         available:
+ *           type: integer
+ *           description: Number of available apartments
+ *           example: 75
+ *         reserved:
+ *           type: integer
+ *           description: Number of reserved apartments
+ *           example: 25
+ *         sold:
+ *           type: integer
+ *           description: Number of sold apartments
+ *           example: 50
+ *         published:
+ *           type: integer
+ *           description: Number of published apartments
+ *           example: 120
+ *         modelUnits:
+ *           type: integer
+ *           description: Number of model units
+ *           example: 3
+ *         pricing:
+ *           type: object
+ *           properties:
+ *             min:
+ *               type: number
+ *               nullable: true
+ *               description: Minimum price
+ *               example: 500000
+ *             max:
+ *               type: number
+ *               nullable: true
+ *               description: Maximum price
+ *               example: 1500000
+ *             avg:
+ *               type: number
+ *               nullable: true
+ *               description: Average price
+ *               example: 875000
+ *         area:
+ *           type: object
+ *           properties:
+ *             min:
+ *               type: number
+ *               nullable: true
+ *               description: Minimum area in sqm
+ *               example: 80
+ *             max:
+ *               type: number
+ *               nullable: true
+ *               description: Maximum area in sqm
+ *               example: 200
+ *             avg:
+ *               type: number
+ *               nullable: true
+ *               description: Average area in sqm
+ *               example: 125
+ *         floors:
+ *           type: object
+ *           properties:
+ *             min:
+ *               type: integer
+ *               nullable: true
+ *               description: Lowest floor number
+ *               example: 1
+ *             max:
+ *               type: integer
+ *               nullable: true
+ *               description: Highest floor number
+ *               example: 25
+ *
+ *     FloorDistribution:
+ *       type: object
+ *       required:
+ *         - floor_number
+ *         - count
+ *       properties:
+ *         floor_number:
+ *           type: integer
+ *           description: Floor number
+ *           example: 12
+ *         count:
+ *           type: integer
+ *           description: Number of apartments on this floor
+ *           example: 8
+ *
+ *     BedroomDistribution:
+ *       type: object
+ *       required:
+ *         - bedrooms
+ *         - count
+ *       properties:
+ *         bedrooms:
+ *           type: integer
+ *           nullable: true
+ *           description: Number of bedrooms (null for unspecified)
+ *           example: 3
+ *         count:
+ *           type: integer
+ *           description: Number of apartments with this bedroom count
+ *           example: 25
+ *
+ *     PriceDistribution:
+ *       type: object
+ *       required:
+ *         - range
+ *         - count
+ *       properties:
+ *         range:
+ *           type: string
+ *           description: Price range label
+ *           example: "$500,000 - $600,000"
+ *         count:
+ *           type: integer
+ *           description: Number of apartments in this price range
+ *           example: 15
+ *         minPrice:
+ *           type: number
+ *           description: Minimum price in range
+ *           example: 500000
+ *         maxPrice:
+ *           type: number
+ *           description: Maximum price in range
+ *           example: 600000
+ *
+ *   responses:
+ *     ApartmentResponse:
+ *       description: Apartment data response
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Apartment'
+ *
+ *     ApartmentListResponse:
+ *       description: Paginated apartment list response
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/PaginatedResult'
+ *           example:
+ *             items:
+ *               - id: 1
+ *                 name: "Luxury 3-Bedroom Suite"
+ *                 unitNumber: "12A"
+ *                 floorNumber: 12
+ *                 areaSqm: 120.5
+ *                 bedrooms: 3
+ *                 bathrooms: 2
+ *                 price: 850000
+ *                 status: "available"
+ *                 isPublished: true
+ *             pagination:
+ *               total: 150
+ *               page: 1
+ *               limit: 10
+ *               totalPages: 15
+ *               hasNextPage: true
+ *               hasPrevPage: false
+ *
+ *     ApartmentAvailabilityResponse:
+ *       description: Apartment availability summary response
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ApartmentAvailabilitySummary'
+ *
+ *     ProjectStatisticsResponse:
+ *       description: Project statistics response
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ProjectStatistics'
+ *
+ *   parameters:
+ *     ApartmentIdParam:
+ *       name: id
+ *       in: path
+ *       description: Apartment ID
+ *       required: true
+ *       schema:
+ *         type: integer
+ *         minimum: 1
+ *       example: 1
+ *
+ *     ProjectIdParam:
+ *       name: projectId
+ *       in: path
+ *       description: Project ID
+ *       required: true
+ *       schema:
+ *         type: integer
+ *         minimum: 1
+ *       example: 5
+ *
+ *     StatusParam:
+ *       name: status
+ *       in: query
+ *       description: Apartment status filter
+ *       required: false
+ *       schema:
+ *         $ref: '#/components/schemas/ApartmentStatus'
+ *
+ *     PriceRangeParams:
+ *       name: minPrice
+ *       in: query
+ *       description: Minimum price filter
+ *       required: false
+ *       schema:
+ *         type: number
+ *         minimum: 0
+ *       example: 500000
+ *     MaxPriceParam:
+ *       name: maxPrice
+ *       in: query
+ *       description: Maximum price filter
+ *       required: false
+ *       schema:
+ *         type: number
+ *         minimum: 0
+ *       example: 1000000
+ *
+ *     BedroomParams:
+ *       name: bedrooms
+ *       in: query
+ *       description: Number of bedrooms filter
+ *       required: false
+ *       schema:
+ *         oneOf:
+ *           - type: integer
+ *             minimum: 0
+ *             example: 3
+ *           - type: array
+ *             items:
+ *               type: integer
+ *             example: [2, 3, 4]
+ *
+ *     AreaRangeParams:
+ *       name: minArea
+ *       in: query
+ *       description: Minimum area filter (sqm)
+ *       required: false
+ *       schema:
+ *         type: number
+ *         minimum: 0
+ *         example: 80
+ *     MaxAreaParam:
+ *       name: maxArea
+ *       in: query
+ *       description: Maximum area filter (sqm)
+ *       required: false
+ *       schema:
+ *         type: number
+ *         minimum: 0
+ *         example: 200
+ *
+ *     FloorParams:
+ *       name: floorNumber
+ *       in: query
+ *       description: Floor number filter
+ *       required: false
+ *       schema:
+ *         oneOf:
+ *           - type: integer
+ *             example: 12
+ *           - type: array
+ *             items:
+ *               type: integer
+ *             example: [10, 11, 12, 13]
+ *
+ *     VirtualTourParam:
+ *       name: hasVirtualTour
+ *       in: query
+ *       description: Filter apartments with virtual tours
+ *       required: false
+ *       schema:
+ *         type: boolean
+ *         example: true
+ *
+ *     IncludeMediaParams:
+ *       name: includePhotos
+ *       in: query
+ *       description: Include photos in response
+ *       required: false
+ *       schema:
+ *         type: boolean
+ *         example: true
+ *       IncludeFloorPlansParam:
+ *         name: includeFloorPlans
+ *         in: query
+ *         description: Include floor plans in response
+ *         required: false
+ *         schema:
+ *           type: boolean
+ *           example: true
+ *
+ * tags:
+ *   - name: Apartments
+ *     description: Apartment management operations
+ *     x-traitTag: true
+ *
+ * Features:
+ * - Advanced apartment filtering and search capabilities
+ * - Media management (photos and floor plans)
+ * - Status workflow management (available → reserved → sold)
+ * - Project-level statistics and analytics
+ * - Price range calculations with automatic project updates
+ * - Virtual tour URL support
+ * - Model unit designation
+ * - Publishing workflow with media validation
+ * - Floor and unit number validation
+ * - Area and price validation
+ * - Comprehensive availability tracking
+ * - Distribution analytics (price, floor, bedroom)
+ * - Batch status updates
+ * - Optimized media loading for multiple apartments
+ * - Integration with project price range triggers
  */
 
 import {
@@ -23,7 +798,8 @@ import { Knex } from "knex";
 // ============================================================================
 
 /**
- * Apartment status enumeration (sales pipeline)
+ * @openapi
+ * Apartment status enumeration for sales pipeline tracking
  */
 export enum ApartmentStatus {
   AVAILABLE = "available",
@@ -32,7 +808,32 @@ export enum ApartmentStatus {
 }
 
 /**
- * Apartment entity interface
+ * @openapi
+ * Apartment entity representing a residential unit within a project
+ *
+ * @interface Apartment
+ * @property {number} id - Unique apartment identifier
+ * @property {number} projectId - ID of the parent project
+ * @property {string} name - Apartment name or title
+ * @property {string|null} unitNumber - Unit number within the building
+ * @property {number|null} floorNumber - Floor number where apartment is located
+ * @property {string|null} title - Marketing title for the apartment
+ * @property {string|null} subtitle - Marketing subtitle
+ * @property {string|null} description - Detailed description
+ * @property {number} areaSqm - Total area in square meters
+ * @property {number|null} bedrooms - Number of bedrooms
+ * @property {number|null} bathrooms - Number of bathrooms
+ * @property {number} price - Price in project's currency
+ * @property {number|null} livingRooms - Number of living rooms
+ * @property {number|null} kitchens - Number of kitchens
+ * @property {number|null} balconies - Number of balconies
+ * @property {ApartmentStatus} status - Current sales status
+ * @property {boolean} isModelUnit - Whether this is a model/show unit
+ * @property {boolean} isPublished - Whether published and visible
+ * @property {string|null} virtualTourUrl - URL to virtual tour
+ * @property {Date} createdAt - Creation timestamp
+ * @property {Date} updatedAt - Last update timestamp
+ * @property {Date|null} deletedAt - Deletion timestamp (soft delete)
  */
 export interface Apartment {
   id: number;
@@ -73,7 +874,28 @@ export interface Apartment {
 }
 
 /**
- * Create apartment DTO
+ * @openapi
+ * Data transfer object for creating a new apartment
+ *
+ * @interface CreateApartmentDto
+ * @property {number} projectId - ID of the parent project (required)
+ * @property {string} name - Apartment name or title (required)
+ * @property {string} unitNumber - Unit number within the building
+ * @property {number} floorNumber - Floor number where apartment is located
+ * @property {string} title - Marketing title for the apartment
+ * @property {string} subtitle - Marketing subtitle
+ * @property {string} description - Detailed description
+ * @property {number} areaSqm - Total area in square meters (required)
+ * @property {number} bedrooms - Number of bedrooms
+ * @property {number} bathrooms - Number of bathrooms
+ * @property {number} price - Price in project's currency (required)
+ * @property {number} livingRooms - Number of living rooms
+ * @property {number} kitchens - Number of kitchens
+ * @property {number} balconies - Number of balconies
+ * @property {ApartmentStatus} status - Current sales status
+ * @property {boolean} isModelUnit - Whether this is a model/show unit
+ * @property {boolean} isPublished - Whether published and visible
+ * @property {string} virtualTourUrl - URL to virtual tour
  */
 export interface CreateApartmentDto {
   projectId: number;
@@ -97,12 +919,39 @@ export interface CreateApartmentDto {
 }
 
 /**
- * Update apartment DTO
+ * @openapi
+ * Data transfer object for updating an existing apartment
+ * All fields are optional - only provided fields will be updated
+ *
+ * @interface UpdateApartmentDto
+ * @extends Partial<CreateApartmentDto>
  */
 export interface UpdateApartmentDto extends Partial<CreateApartmentDto> {}
 
 /**
- * Apartment query options
+ * @openapi
+ * Extended query options for apartment-specific filtering
+ *
+ * @interface ApartmentQueryOptions
+ * @extends AdvancedQueryOptions
+ * @property {number|number[]} projectId - Filter by project ID(s)
+ * @property {ApartmentStatus|ApartmentStatus[]} status - Filter by status
+ * @property {boolean} isModelUnit - Filter by model unit status
+ * @property {boolean} isPublished - Filter by published status
+ * @property {number} minPrice - Minimum price filter
+ * @property {number} maxPrice - Maximum price filter
+ * @property {number|number[]} bedrooms - Filter by bedroom count
+ * @property {number} minBedrooms - Minimum bedroom count
+ * @property {number} maxBedrooms - Maximum bedroom count
+ * @property {number|number[]} bathrooms - Filter by bathroom count
+ * @property {number} minArea - Minimum area filter (sqm)
+ * @property {number} maxArea - Maximum area filter (sqm)
+ * @property {number|number[]} floorNumber - Filter by floor number
+ * @property {number} minFloor - Minimum floor number
+ * @property {number} maxFloor - Maximum floor number
+ * @property {boolean} hasVirtualTour - Filter apartments with virtual tours
+ * @property {boolean} includePhotos - Include associated photos
+ * @property {boolean} includeFloorPlans - Include associated floor plans
  */
 export interface ApartmentQueryOptions extends AdvancedQueryOptions {
   projectId?: number | number[];
@@ -127,7 +976,16 @@ export interface ApartmentQueryOptions extends AdvancedQueryOptions {
 }
 
 /**
- * Apartment with statistics
+ * @openapi
+ * Apartment entity with additional statistics for analytics
+ *
+ * @interface ApartmentWithStats
+ * @extends Apartment
+ * @property {object} stats - Statistics object
+ * @property {number} stats.viewCount - Total number of views
+ * @property {number} stats.inquiryCount - Number of inquiries received
+ * @property {number} stats.favoriteCount - Number of times added to favorites
+ * @property {Date|null} stats.lastViewedAt - Timestamp of last view
  */
 export interface ApartmentWithStats extends Apartment {
   stats: {
@@ -139,7 +997,16 @@ export interface ApartmentWithStats extends Apartment {
 }
 
 /**
- * Apartment availability summary
+ * @openapi
+ * Summary of apartment availability for a project
+ *
+ * @interface ApartmentAvailabilitySummary
+ * @property {number} total - Total number of apartments
+ * @property {number} available - Number of available apartments
+ * @property {number} reserved - Number of reserved apartments
+ * @property {number} sold - Number of sold apartments
+ * @property {number} availabilityRate - Percentage of available units (0-100)
+ * @property {number} soldRate - Percentage of sold units (0-100)
  */
 export interface ApartmentAvailabilitySummary {
   total: number;
@@ -154,6 +1021,44 @@ export interface ApartmentAvailabilitySummary {
 // APARTMENT MODEL CLASS
 // ============================================================================
 
+/**
+ * @openapi
+ * Apartment Model Class
+ *
+ * Manages apartment entities with comprehensive CRUD operations, advanced filtering,
+ * media management, and project-level analytics.
+ *
+ * @class ApartmentModel
+ * @extends BaseModel<Apartment, CreateApartmentDto, UpdateApartmentDto>
+ *
+ * @example
+ * ```typescript
+ * // Create a new apartment
+ * const apartment = await apartmentModel.create({
+ *   projectId: 5,
+ *   name: "Luxury 3-Bedroom Suite",
+ *   unitNumber: "12A",
+ *   floorNumber: 12,
+ *   areaSqm: 120.5,
+ *   bedrooms: 3,
+ *   bathrooms: 2,
+ *   price: 850000,
+ *   status: ApartmentStatus.AVAILABLE,
+ *   isPublished: true
+ * });
+ *
+ * // Find available apartments in a project
+ * const availableApartments = await apartmentModel.findAvailable(5, {
+ *   minPrice: 500000,
+ *   maxPrice: 1000000,
+ *   includePhotos: true
+ * });
+ *
+ * // Get project availability summary
+ * const summary = await apartmentModel.getAvailabilitySummary(5);
+ * console.log(`Availability rate: ${summary.availabilityRate}%`);
+ * ```
+ */
 export class ApartmentModel extends BaseModel<
   Apartment,
   CreateApartmentDto,
@@ -207,7 +1112,18 @@ export class ApartmentModel extends BaseModel<
   // ============================================================================
 
   /**
-   * Loads photos for an apartment
+   * @openapi
+   * Loads photos for a specific apartment
+   *
+   * @param {number} apartmentId - The apartment ID
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Photo[]>} Array of photos associated with the apartment
+   *
+   * @example
+   * ```typescript
+   * const photos = await apartmentModel.loadPhotos(123);
+   * console.log(`Found ${photos.length} photos`);
+   * ```
    */
   async loadPhotos(
     apartmentId: number,
@@ -222,7 +1138,18 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
-   * Loads floor plans for an apartment
+   * @openapi
+   * Loads floor plans for a specific apartment
+   *
+   * @param {number} apartmentId - The apartment ID
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<FloorPlan[]>} Array of floor plans associated with the apartment
+   *
+   * @example
+   * ```typescript
+   * const floorPlans = await apartmentModel.loadFloorPlans(123);
+   * console.log(`Found ${floorPlans.length} floor plans`);
+   * ```
    */
   async loadFloorPlans(
     apartmentId: number,
@@ -237,7 +1164,20 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
+   * @openapi
    * Loads both photos and floor plans for an apartment
+   *
+   * @param {number} apartmentId - The apartment ID
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Object>} Object containing photos and floor plans
+   * @property {Photo[]} photos - Array of photos
+   * @property {FloorPlan[]} floorPlans - Array of floor plans
+   *
+   * @example
+   * ```typescript
+   * const media = await apartmentModel.loadMedia(123);
+   * console.log(`Photos: ${media.photos.length}, Floor Plans: ${media.floorPlans.length}`);
+   * ```
    */
   async loadMedia(
     apartmentId: number,
@@ -252,7 +1192,19 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
-   * Loads photos for multiple apartments (optimized)
+   * @openapi
+   * Loads photos for multiple apartments (optimized batch loading)
+   *
+   * @param {number[]} apartmentIds - Array of apartment IDs
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Map<number, Photo[]>>} Map of apartment ID to photos array
+   *
+   * @private
+   * @example
+   * ```typescript
+   * const photosByApartment = await apartmentModel.loadPhotosForMany([1, 2, 3]);
+   * const photosForApartment1 = photosByApartment.get(1);
+   * ```
    */
   private async loadPhotosForMany(
     apartmentIds: number[],
@@ -280,7 +1232,19 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
-   * Loads floor plans for multiple apartments (optimized)
+   * @openapi
+   * Loads floor plans for multiple apartments (optimized batch loading)
+   *
+   * @param {number[]} apartmentIds - Array of apartment IDs
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Map<number, FloorPlan[]>>} Map of apartment ID to floor plans array
+   *
+   * @private
+   * @example
+   * ```typescript
+   * const plansByApartment = await apartmentModel.loadFloorPlansForMany([1, 2, 3]);
+   * const plansForApartment1 = plansByApartment.get(1);
+   * ```
    */
   private async loadFloorPlansForMany(
     apartmentIds: number[],
@@ -308,8 +1272,28 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
-   * Finds apartment by ID with optional media
-   * NEW METHOD - Add this
+   * @openapi
+   * Finds apartment by ID with optional media loading
+   *
+   * @param {number} id - The apartment ID
+   * @param {Object} [options] - Options for media loading
+   * @param {boolean} [options.includePhotos=false] - Whether to include photos
+   * @param {boolean} [options.includeFloorPlans=false] - Whether to include floor plans
+   * @param {string[]} [options.includeRelations=[]] - Relations to load
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Apartment|null>} Apartment with loaded media or null if not found
+   *
+   * @example
+   * ```typescript
+   * const apartment = await apartmentModel.findByIdWithMedia(123, {
+   *   includePhotos: true,
+   *   includeFloorPlans: true
+   * });
+   * if (apartment) {
+   *   console.log(`Photos: ${apartment.photos?.length}`);
+   *   console.log(`Floor Plans: ${apartment.floorPlans?.length}`);
+   * }
+   * ```
    */
   async findByIdWithMedia(
     id: number,
@@ -343,8 +1327,22 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
-   * Validates required media before publishing
-   * NEW METHOD - Add this
+   * @openapi
+   * Validates required media before publishing an apartment
+   *
+   * @param {number} apartmentId - The apartment ID to validate
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Object>} Validation result
+   * @property {boolean} valid - Whether all media requirements are met
+   * @property {string[]} errors - Array of validation error messages
+   *
+   * @example
+   * ```typescript
+   * const validation = await apartmentModel.validateMediaForPublishing(123);
+   * if (!validation.valid) {
+   *   console.log("Validation errors:", validation.errors);
+   * }
+   * ```
    */
   async validateMediaForPublishing(
     apartmentId: number,
@@ -397,7 +1395,15 @@ export class ApartmentModel extends BaseModel<
   // ============================================================================
 
   /**
-   * Before create hook - validate specifications
+   * @openapi
+   * Before create hook - validates apartment specifications and project existence
+   *
+   * @param {CreateApartmentDto} data - Apartment creation data
+   * @returns {Promise<CreateApartmentDto>} Validated and processed data
+   * @throws {Error} When validation fails
+   *
+   * @private
+   * @lifecycle
    */
   protected async beforeCreate(
     data: CreateApartmentDto
@@ -451,7 +1457,14 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
-   * After create hook - project price range is auto-updated by trigger
+   * @openapi
+   * After create hook - logs apartment creation
+   *
+   * @param {Apartment} entity - Created apartment entity
+   * @returns {Promise<void>}
+   *
+   * @private
+   * @lifecycle
    */
   protected async afterCreate(entity: Apartment): Promise<void> {
     console.log(
@@ -460,7 +1473,16 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
-   * Before update hook - validate changes
+   * @openapi
+   * Before update hook - validates changes and media requirements for publishing
+   *
+   * @param {number} id - Apartment ID being updated
+   * @param {UpdateApartmentDto} data - Update data
+   * @returns {Promise<UpdateApartmentDto>} Validated update data
+   * @throws {Error} When validation fails
+   *
+   * @private
+   * @lifecycle
    */
   protected async beforeUpdate(
     id: number,
@@ -528,7 +1550,14 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
-   * After update hook - price trigger handles project price range update
+   * @openapi
+   * After update hook - logs apartment update
+   *
+   * @param {Apartment} entity - Updated apartment entity
+   * @returns {Promise<void>}
+   *
+   * @private
+   * @lifecycle
    */
   protected async afterUpdate(entity: Apartment): Promise<void> {
     console.log(`✅ Apartment updated: ${entity.name} (ID: ${entity.id})`);
@@ -539,7 +1568,25 @@ export class ApartmentModel extends BaseModel<
   // ============================================================================
 
   /**
+   * @openapi
    * Finds apartments with custom filters and optional media loading
+   *
+   * @param {ApartmentQueryOptions} [options={}] - Query options for filtering and media loading
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Apartment[]>} Array of apartments matching the criteria
+   *
+   * @example
+   * ```typescript
+   * // Find available apartments with photos
+   * const apartments = await apartmentModel.findApartments({
+   *   status: ApartmentStatus.AVAILABLE,
+   *   minPrice: 500000,
+   *   maxPrice: 1000000,
+   *   includePhotos: true,
+   *   sortBy: 'price',
+   *   sortOrder: 'asc'
+   * });
+   * ```
    */
   async findApartments(
     options: ApartmentQueryOptions = {},
@@ -592,7 +1639,24 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
-   * Gets paginated apartments
+   * @openapi
+   * Gets paginated apartments with comprehensive filtering
+   *
+   * @param {ApartmentQueryOptions & {page: number, limit: number}} options - Query options with pagination
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<PaginatedResult<Apartment>>} Paginated result with apartments and metadata
+   *
+   * @example
+   * ```typescript
+   * const result = await apartmentModel.paginateApartments({
+   *   page: 1,
+   *   limit: 10,
+   *   status: ApartmentStatus.AVAILABLE,
+   *   projectId: 5,
+   *   includePhotos: true
+   * });
+   * console.log(`Page ${result.pagination.page} of ${result.pagination.totalPages}`);
+   * ```
    */
   async paginateApartments(
     options: ApartmentQueryOptions & { page: number; limit: number },
@@ -621,7 +1685,22 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
-   * Counts apartments with filters
+   * @openapi
+   * Counts apartments matching the specified filters
+   *
+   * @param {ApartmentQueryOptions} [options={}] - Query options for filtering
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<number>} Count of matching apartments
+   *
+   * @example
+   * ```typescript
+   * const count = await apartmentModel.countApartments({
+   *   status: ApartmentStatus.AVAILABLE,
+   *   projectId: 5,
+   *   minPrice: 500000
+   * });
+   * console.log(`Found ${count} available apartments`);
+   * ```
    */
   async countApartments(
     options: ApartmentQueryOptions = {},
@@ -641,7 +1720,21 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
-   * Finds apartments by project
+   * @openapi
+   * Finds apartments by project ID
+   *
+   * @param {number} projectId - The project ID
+   * @param {ApartmentQueryOptions} [options={}] - Additional query options
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Apartment[]>} Array of apartments in the project
+   *
+   * @example
+   * ```typescript
+   * const projectApartments = await apartmentModel.findByProject(5, {
+   *   status: ApartmentStatus.AVAILABLE,
+   *   includePhotos: true
+   * });
+   * ```
    */
   async findByProject(
     projectId: number,
@@ -652,7 +1745,22 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
-   * Finds available apartments with media
+   * @openapi
+   * Finds available apartments with optional project filter
+   *
+   * @param {number} [projectId] - Optional project ID filter
+   * @param {ApartmentQueryOptions} [options={}] - Additional query options
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Apartment[]>} Array of available and published apartments
+   *
+   * @example
+   * ```typescript
+   * // Find all available apartments
+   * const available = await apartmentModel.findAvailable();
+   *
+   * // Find available apartments in specific project
+   * const projectAvailable = await apartmentModel.findAvailable(5);
+   * ```
    */
   async findAvailable(
     projectId?: number,
@@ -673,7 +1781,18 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
-   * Finds sold apartments
+   * @openapi
+   * Finds sold apartments with optional project filter
+   *
+   * @param {number} [projectId] - Optional project ID filter
+   * @param {ApartmentQueryOptions} [options={}] - Additional query options
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Apartment[]>} Array of sold apartments
+   *
+   * @example
+   * ```typescript
+   * const soldApartments = await apartmentModel.findSold(5);
+   * ```
    */
   async findSold(
     projectId?: number,
@@ -693,7 +1812,18 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
-   * Finds reserved apartments
+   * @openapi
+   * Finds reserved apartments with optional project filter
+   *
+   * @param {number} [projectId] - Optional project ID filter
+   * @param {ApartmentQueryOptions} [options={}] - Additional query options
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Apartment[]>} Array of reserved apartments
+   *
+   * @example
+   * ```typescript
+   * const reservedApartments = await apartmentModel.findReserved(5);
+   * ```
    */
   async findReserved(
     projectId?: number,
@@ -713,7 +1843,17 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
-   * Finds model units
+   * @openapi
+   * Finds model units with optional project filter
+   *
+   * @param {number} [projectId] - Optional project ID filter
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Apartment[]>} Array of published model units
+   *
+   * @example
+   * ```typescript
+   * const modelUnits = await apartmentModel.findModelUnits(5);
+   * ```
    */
   async findModelUnits(
     projectId?: number,
@@ -732,7 +1872,18 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
-   * Finds apartments by floor
+   * @openapi
+   * Finds apartments on a specific floor in a project
+   *
+   * @param {number} projectId - The project ID
+   * @param {number} floorNumber - The floor number
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Apartment[]>} Array of apartments on the specified floor
+   *
+   * @example
+   * ```typescript
+   * const floor12Apartments = await apartmentModel.findByFloor(5, 12);
+   * ```
    */
   async findByFloor(
     projectId: number,
@@ -743,7 +1894,18 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
-   * Finds apartments by unit number
+   * @openapi
+   * Finds apartments by unit number with optional project filter
+   *
+   * @param {string} unitNumber - The unit number to search for
+   * @param {number} [projectId] - Optional project ID filter
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Apartment[]>} Array of apartments with matching unit number
+   *
+   * @example
+   * ```typescript
+   * const unit12A = await apartmentModel.findByUnitNumber("12A", 5);
+   * ```
    */
   async findByUnitNumber(
     unitNumber: string,
@@ -768,7 +1930,18 @@ export class ApartmentModel extends BaseModel<
   // ============================================================================
 
   /**
+   * @openapi
    * Updates apartment status
+   *
+   * @param {number} id - Apartment ID
+   * @param {ApartmentStatus} status - New status
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Apartment|null>} Updated apartment or null if not found
+   *
+   * @example
+   * ```typescript
+   * const updated = await apartmentModel.updateStatus(123, ApartmentStatus.RESERVED);
+   * ```
    */
   async updateStatus(
     id: number,
@@ -779,7 +1952,17 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
+   * @openapi
    * Marks apartment as sold
+   *
+   * @param {number} id - Apartment ID
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Apartment|null>} Updated apartment or null if not found
+   *
+   * @example
+   * ```typescript
+   * const sold = await apartmentModel.markAsSold(123);
+   * ```
    */
   async markAsSold(
     id: number,
@@ -789,7 +1972,17 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
+   * @openapi
    * Marks apartment as reserved
+   *
+   * @param {number} id - Apartment ID
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Apartment|null>} Updated apartment or null if not found
+   *
+   * @example
+   * ```typescript
+   * const reserved = await apartmentModel.markAsReserved(123);
+   * ```
    */
   async markAsReserved(
     id: number,
@@ -799,7 +1992,17 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
+   * @openapi
    * Marks apartment as available
+   *
+   * @param {number} id - Apartment ID
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Apartment|null>} Updated apartment or null if not found
+   *
+   * @example
+   * ```typescript
+   * const available = await apartmentModel.markAsAvailable(123);
+   * ```
    */
   async markAsAvailable(
     id: number,
@@ -809,7 +2012,22 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
-   * Bulk status update
+   * @openapi
+   * Bulk status update for multiple apartments
+   *
+   * @param {number[]} ids - Array of apartment IDs to update
+   * @param {ApartmentStatus} status - New status for all apartments
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<number>} Number of apartments updated
+   *
+   * @example
+   * ```typescript
+   * const updatedCount = await apartmentModel.bulkUpdateStatus(
+   *   [1, 2, 3, 4, 5],
+   *   ApartmentStatus.RESERVED
+   * );
+   * console.log(`Updated ${updatedCount} apartments`);
+   * ```
    */
   async bulkUpdateStatus(
     ids: number[],
@@ -834,7 +2052,19 @@ export class ApartmentModel extends BaseModel<
   // ============================================================================
 
   /**
+   * @openapi
    * Gets availability summary for a project
+   *
+   * @param {number} projectId - The project ID
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<ApartmentAvailabilitySummary>} Availability summary with counts and rates
+   *
+   * @example
+   * ```typescript
+   * const summary = await apartmentModel.getAvailabilitySummary(5);
+   * console.log(`Availability: ${summary.availabilityRate}%`);
+   * console.log(`Sold: ${summary.soldRate}%`);
+   * ```
    */
   async getAvailabilitySummary(
     projectId: number,
@@ -871,7 +2101,19 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
-   * Gets apartment statistics by project
+   * @openapi
+   * Gets comprehensive statistics for a project
+   *
+   * @param {number} projectId - The project ID
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Object>} Project statistics including counts, pricing, and area metrics
+   *
+   * @example
+   * ```typescript
+   * const stats = await apartmentModel.getProjectStatistics(5);
+   * console.log(`Price range: $${stats.pricing.min} - $${stats.pricing.max}`);
+   * console.log(`Average area: ${stats.area.avg} sqm`);
+   * ```
    */
   async getProjectStatistics(
     projectId: number,
@@ -932,7 +2174,20 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
+   * @openapi
    * Gets floor distribution for a project
+   *
+   * @param {number} projectId - The project ID
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Object[]>} Array of floor distribution objects
+   *
+   * @example
+   * ```typescript
+   * const floorDist = await apartmentModel.getFloorDistribution(5);
+   * floorDist.forEach(floor => {
+   *   console.log(`Floor ${floor.floor_number}: ${floor.count} apartments`);
+   * });
+   * ```
    */
   async getFloorDistribution(
     projectId: number,
@@ -950,7 +2205,20 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
+   * @openapi
    * Gets bedroom distribution for a project
+   *
+   * @param {number} projectId - The project ID
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Object[]>} Array of bedroom distribution objects
+   *
+   * @example
+   * ```typescript
+   * const bedroomDist = await apartmentModel.getBedroomDistribution(5);
+   * bedroomDist.forEach(dist => {
+   *   console.log(`${dist.bedrooms || 'Studio'} bedrooms: ${dist.count} apartments`);
+   * });
+   * ```
    */
   async getBedroomDistribution(
     projectId: number,
@@ -968,7 +2236,21 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
-   * Gets price distribution for a project
+   * @openapi
+   * Gets price distribution for a project in buckets
+   *
+   * @param {number} projectId - The project ID
+   * @param {number} [bucketCount=5] - Number of price buckets to create
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Object[]>} Array of price distribution objects
+   *
+   * @example
+   * ```typescript
+   * const priceDist = await apartmentModel.getPriceDistribution(5, 5);
+   * priceDist.forEach(bucket => {
+   *   console.log(`${bucket.range}: ${bucket.count} apartments`);
+   * });
+   * ```
    */
   async getPriceDistribution(
     projectId: number,
@@ -1000,15 +2282,15 @@ export class ApartmentModel extends BaseModel<
 
       const [count] = await connection(this.tableName)
         .where("project_id", projectId)
-        .where("price", ">=", bucketMin)
-        .where("price", "<=", bucketMax)
         .whereNull("deleted_at")
+        .whereBetween("price", [bucketMin, bucketMax])
         .count("* as count");
 
       buckets.push({
-        min: Math.round(bucketMin),
-        max: Math.round(bucketMax),
+        range: `$${bucketMin.toLocaleString()} - $${bucketMax.toLocaleString()}`,
         count: Number(count.count),
+        minPrice: bucketMin,
+        maxPrice: bucketMax,
       });
     }
 
@@ -1019,8 +2301,14 @@ export class ApartmentModel extends BaseModel<
   // HELPER METHODS
   // ============================================================================
 
-  /**
-   * Validates room counts are non-negative
+    /**
+   * @openapi
+   * Validates room counts to ensure they are non-negative
+   *
+   * @param {CreateApartmentDto|UpdateApartmentDto} data - Apartment data to validate
+   * @throws {Error} When any room count is negative
+   *
+   * @private
    */
   private validateRoomCounts(data: Partial<CreateApartmentDto>): void {
     const fields = [
@@ -1047,9 +2335,16 @@ export class ApartmentModel extends BaseModel<
       throw new Error("Floor number cannot be less than -5 (basement levels)");
     }
   }
-
+  
   /**
-   * Applies apartment-specific filters to query
+   * @openapi
+   * Applies apartment-specific filters to a query
+   *
+   * @param {Knex.QueryBuilder} query - The query builder to modify
+   * @param {ApartmentQueryOptions} options - Apartment query options
+   * @returns {Knex.QueryBuilder} Modified query builder with filters applied
+   *
+   * @private
    */
   private applyApartmentFilters(
     query: Knex.QueryBuilder,
@@ -1092,7 +2387,7 @@ export class ApartmentModel extends BaseModel<
     }
 
     // Bedroom filters
-    if (options.bedrooms) {
+    if (options.bedrooms !== undefined) {
       if (Array.isArray(options.bedrooms)) {
         query = query.whereIn("bedrooms", options.bedrooms);
       } else {
@@ -1107,7 +2402,7 @@ export class ApartmentModel extends BaseModel<
     }
 
     // Bathroom filters
-    if (options.bathrooms) {
+    if (options.bathrooms !== undefined) {
       if (Array.isArray(options.bathrooms)) {
         query = query.whereIn("bathrooms", options.bathrooms);
       } else {
@@ -1115,7 +2410,7 @@ export class ApartmentModel extends BaseModel<
       }
     }
 
-    // Area filters
+    // Area range filters
     if (options.minArea !== undefined) {
       query = query.where("area_sqm", ">=", options.minArea);
     }
@@ -1123,8 +2418,8 @@ export class ApartmentModel extends BaseModel<
       query = query.where("area_sqm", "<=", options.maxArea);
     }
 
-    // Floor filters
-    if (options.floorNumber) {
+    // Floor number filters
+    if (options.floorNumber !== undefined) {
       if (Array.isArray(options.floorNumber)) {
         query = query.whereIn("floor_number", options.floorNumber);
       } else {
@@ -1151,7 +2446,14 @@ export class ApartmentModel extends BaseModel<
   }
 
   /**
+   * @openapi
    * Maps database record to Apartment entity
+   *
+   * @param {DatabaseRecord} record - Database record
+   * @returns {Apartment} Mapped apartment entity
+   *
+   * @override
+   * @protected
    */
   protected mapToEntity(record: DatabaseRecord): Apartment {
     return {

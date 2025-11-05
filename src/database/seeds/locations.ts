@@ -9,7 +9,7 @@ import {
   printMigrationStats,
   clearTable,
   TransformResult,
-} from "../seed-helpers";
+} from "../helpers";
 
 // ============================================================================
 // TYPE DEFINITIONS

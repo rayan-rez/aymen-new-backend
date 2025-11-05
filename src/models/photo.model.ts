@@ -1,9 +1,9 @@
 /**
- * Photo Model (Polymorphic) - FIXED
- *
- * Handles photos for multiple entity types
- * Uses polymorphic relationship pattern
- *
+ * Photo Model (Polymorphic)
+ * 
+ * Handles photos for multiple entity types with cover photo management
+ * Uses polymorphic relationship pattern for flexible photo attachment
+ * 
  * @module models/photo.model
  */
 
@@ -19,6 +19,168 @@ import { DatabaseRecord } from "./base";
 // TYPE DEFINITIONS
 // ============================================================================
 
+/**
+ * @openapi
+ * components:
+ *   schemas:
+ *     
+ *     PhotoableType:
+ *       type: string
+ *       enum:
+ *         - project
+ *         - apartment
+ *         - commercial_property
+ *         - blog_post
+ *         - event
+ *       description: Type of entity that can have photos attached
+ *       example: project
+ *     
+ *     Photo:
+ *       type: object
+ *       required:
+ *         - id
+ *         - photoableType
+ *         - photoableId
+ *         - url
+ *         - displayOrder
+ *         - isCover
+ *         - createdAt
+ *         - updatedAt
+ *       properties:
+ *         id:
+ *           type: integer
+ *           description: Unique identifier for the photo
+ *           example: 1
+ *         photoableType:
+ *           $ref: '#/components/schemas/PhotoableType'
+ *         photoableId:
+ *           type: integer
+ *           description: ID of the entity this photo belongs to
+ *           example: 5
+ *         url:
+ *           type: string
+ *           description: URL to the photo file
+ *           example: "https://cdn.example.com/photos/project-5-main.jpg"
+ *         externalUrl:
+ *           type: string
+ *           nullable: true
+ *           description: External URL if photo is hosted elsewhere
+ *           example: "https://external-cdn.com/photos/project-5.jpg"
+ *         caption:
+ *           type: string
+ *           nullable: true
+ *           description: Photo caption or description
+ *           example: "Luxury apartment living room with city view"
+ *         displayOrder:
+ *           type: integer
+ *           description: Display order for sorting photos
+ *           example: 0
+ *         isCover:
+ *           type: boolean
+ *           description: Whether this is the cover photo for the entity
+ *           example: true
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           description: Creation timestamp
+ *           example: "2024-01-15T10:30:00Z"
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           description: Last update timestamp
+ *           example: "2024-01-25T16:20:00Z"
+ *         deletedAt:
+ *           type: string
+ *           format: date-time
+ *           nullable: true
+ *           description: Soft delete timestamp
+ *           example: null
+ *     
+ *     CreatePhotoDto:
+ *       type: object
+ *       required:
+ *         - photoableType
+ *         - photoableId
+ *         - url
+ *       properties:
+ *         photoableType:
+ *           $ref: '#/components/schemas/PhotoableType'
+ *         photoableId:
+ *           type: integer
+ *           description: ID of the entity this photo belongs to
+ *           example: 5
+ *         url:
+ *           type: string
+ *           description: URL to the photo file
+ *           example: "https://cdn.example.com/photos/project-5-main.jpg"
+ *         externalUrl:
+ *           type: string
+ *           nullable: true
+ *           description: External URL if photo is hosted elsewhere
+ *           example: "https://external-cdn.com/photos/project-5.jpg"
+ *         caption:
+ *           type: string
+ *           nullable: true
+ *           description: Photo caption or description
+ *           example: "Luxury apartment living room with city view"
+ *         displayOrder:
+ *           type: integer
+ *           description: Display order for sorting photos
+ *           example: 0
+ *         isCover:
+ *           type: boolean
+ *           description: Whether this should be the cover photo
+ *           example: true
+ *     
+ *     UpdatePhotoDto:
+ *       type: object
+ *       properties:
+ *         url:
+ *           type: string
+ *           description: URL to the photo file
+ *           example: "https://cdn.example.com/photos/project-5-updated.jpg"
+ *         externalUrl:
+ *           type: string
+ *           nullable: true
+ *           description: External URL if photo is hosted elsewhere
+ *           example: "https://external-cdn.com/photos/project-5.jpg"
+ *         caption:
+ *           type: string
+ *           nullable: true
+ *           description: Photo caption or description
+ *           example: "Updated luxury apartment living room"
+ *         displayOrder:
+ *           type: integer
+ *           description: Display order for sorting photos
+ *           example: 1
+ *         isCover:
+ *           type: boolean
+ *           description: Whether this should be the cover photo
+ *           example: true
+ *     
+ *     PhotoQueryOptions:
+ *       allOf:
+ *         - $ref: '#/components/schemas/PolymorphicQueryOptions'
+ *         - type: object
+ *           properties:
+ *             isCover:
+ *               type: boolean
+ *               description: Filter by cover photo status
+ *               example: true
+ *             hasCaption:
+ *               type: boolean
+ *               description: Filter photos that have captions
+ *               example: true
+ *             hasExternalUrl:
+ *               type: boolean
+ *               description: Filter photos that have external URLs
+ *               example: false
+ */
+
+/**
+ * @openapi
+ * Photoable type enumeration
+ */
 export enum PhotoableType {
   PROJECT = "project",
   APARTMENT = "apartment",
@@ -27,6 +189,10 @@ export enum PhotoableType {
   EVENT = "event",
 }
 
+/**
+ * @openapi
+ * Photo entity interface
+ */
 export interface Photo extends PolymorphicEntity {
   id: number;
   photoableType: PhotoableType;
@@ -41,6 +207,10 @@ export interface Photo extends PolymorphicEntity {
   deletedAt: Date | null;
 }
 
+/**
+ * @openapi
+ * Create photo DTO
+ */
 export interface CreatePhotoDto {
   photoableType: PhotoableType;
   photoableId: number;
@@ -51,9 +221,17 @@ export interface CreatePhotoDto {
   isCover?: boolean;
 }
 
+/**
+ * @openapi
+ * Update photo DTO
+ */
 export interface UpdatePhotoDto
   extends Partial<Omit<CreatePhotoDto, "photoableType" | "photoableId">> {}
 
+/**
+ * @openapi
+ * Photo query options
+ */
 export interface PhotoQueryOptions extends PolymorphicQueryOptions {
   isCover?: boolean;
   hasCaption?: boolean;
@@ -64,6 +242,16 @@ export interface PhotoQueryOptions extends PolymorphicQueryOptions {
 // PHOTO MODEL CLASS
 // ============================================================================
 
+/**
+ * @openapi
+ * Photo Model Class
+ * 
+ * Handles photos for multiple entity types with cover photo management
+ * Uses polymorphic relationship pattern for flexible photo attachment
+ * 
+ * @class PhotoModel
+ * @extends BasePolymorphicModel<Photo, CreatePhotoDto, UpdatePhotoDto>
+ */
 export class PhotoModel extends BasePolymorphicModel<
   Photo,
   CreatePhotoDto,
@@ -99,7 +287,23 @@ export class PhotoModel extends BasePolymorphicModel<
   // LIFECYCLE HOOKS
   // ============================================================================
 
-  protected async beforeCreate(data: CreatePhotoDto): Promise<CreatePhotoDto> {
+  /**
+   * @openapi
+   * beforeCreate lifecycle hook
+   * 
+   * Validates and processes photo data before creation:
+   * - Runs polymorphic validation
+   * - Validates required URL field
+   * - Manages cover photo logic (unsets other covers if this is cover)
+   * - Sets default display order if not provided
+   * 
+   * @param {CreatePhotoDto} data - Photo creation data
+   * @returns {Promise<CreatePhotoDto>} Processed data
+   * @throws {Error} If validation fails
+   */
+  protected async beforeCreate(
+    data: CreatePhotoDto
+  ): Promise<CreatePhotoDto> {
     // Run polymorphic validation
     await this.beforePolymorphicCreate(data);
 
@@ -125,12 +329,34 @@ export class PhotoModel extends BasePolymorphicModel<
     return data;
   }
 
+  /**
+   * @openapi
+   * afterCreate lifecycle hook
+   * 
+   * Logs photo creation event
+   * 
+   * @param {Photo} entity - Created photo entity
+   * @returns {Promise<void>}
+   */
   protected async afterCreate(entity: Photo): Promise<void> {
     console.log(
       `✅ Photo created for ${entity.photoableType} ID ${entity.photoableId}`
     );
   }
 
+  /**
+   * @openapi
+   * beforeUpdate lifecycle hook
+   * 
+   * Validates and processes photo data before update:
+   * - Manages cover photo logic when setting as cover
+   * - Unsets other cover photos when this becomes cover
+   * 
+   * @param {number} id - Photo ID
+   * @param {UpdatePhotoDto} data - Photo update data
+   * @returns {Promise<UpdatePhotoDto>} Processed data
+   * @throws {Error} If photo not found
+   */
   protected async beforeUpdate(
     id: number,
     data: UpdatePhotoDto
@@ -149,11 +375,17 @@ export class PhotoModel extends BasePolymorphicModel<
   }
 
   // ============================================================================
-  // PHOTO-SPECIFIC METHODS (RENAMED TO AVOID CONFLICT)
+  // PHOTO-SPECIFIC METHODS
   // ============================================================================
 
   /**
+   * @openapi
    * Gets cover photo for an entity
+   * 
+   * @param {PhotoableType} entityType - Type of entity
+   * @param {number} entityId - Entity ID
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Photo | null>} Cover photo or null
    */
   async getCoverPhoto(
     entityType: PhotoableType,
@@ -177,7 +409,13 @@ export class PhotoModel extends BasePolymorphicModel<
   }
 
   /**
+   * @openapi
    * Sets a photo as cover (unsets others)
+   * 
+   * @param {number} photoId - Photo ID
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Photo | null>} Updated photo or null
+   * @throws {Error} If photo not found
    */
   async setCover(
     photoId: number,
@@ -199,7 +437,14 @@ export class PhotoModel extends BasePolymorphicModel<
   }
 
   /**
+   * @openapi
    * Unsets all cover photos except the specified one
+   * 
+   * @param {PhotoableType} entityType - Type of entity
+   * @param {number} entityId - Entity ID
+   * @param {number} [exceptId] - Optional photo ID to exclude
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<void>}
    */
   private async unsetOtherCovers(
     entityType: PhotoableType,
@@ -225,8 +470,19 @@ export class PhotoModel extends BasePolymorphicModel<
   }
 
   /**
+   * @openapi
    * Bulk creates photos for an entity
-   * RENAMED from bulkCreate to avoid conflict with base class
+   * 
+   * @param {PhotoableType} entityType - Type of entity
+   * @param {number} entityId - Entity ID
+   * @param {object[]} photosData - Array of photo data
+   * @param {string} photosData[].url - Photo URL
+   * @param {string} [photosData[].externalUrl] - External URL
+   * @param {string} [photosData[].caption] - Photo caption
+   * @param {number} [photosData[].displayOrder] - Display order
+   * @param {boolean} [photosData[].isCover] - Cover photo flag
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Photo[]>} Array of created photos
    */
   async createManyForEntity(
     entityType: PhotoableType,
@@ -250,7 +506,14 @@ export class PhotoModel extends BasePolymorphicModel<
   }
 
   /**
+   * @openapi
    * Reorders photos for an entity
+   * 
+   * @param {PhotoableType} entityType - Type of entity
+   * @param {number} entityId - Entity ID
+   * @param {number[]} photoIds - Array of photo IDs in desired order
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<boolean>} Success status
    */
   async reorder(
     entityType: PhotoableType,
@@ -262,7 +525,12 @@ export class PhotoModel extends BasePolymorphicModel<
   }
 
   /**
+   * @openapi
    * Finds photos with custom filters
+   * 
+   * @param {PhotoQueryOptions} [options={}] - Query options
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Photo[]>} Array of photos
    */
   async findPhotos(
     options: PhotoQueryOptions = {},
@@ -282,7 +550,13 @@ export class PhotoModel extends BasePolymorphicModel<
   }
 
   /**
+   * @openapi
    * Gets photos with external URLs only
+   * 
+   * @param {PhotoableType} entityType - Type of entity
+   * @param {number} entityId - Entity ID
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Photo[]>} Array of photos with external URLs
    */
   async getPhotosWithExternalUrls(
     entityType: PhotoableType,
@@ -300,7 +574,13 @@ export class PhotoModel extends BasePolymorphicModel<
   }
 
   /**
+   * @openapi
    * Gets photos with captions only
+   * 
+   * @param {PhotoableType} entityType - Type of entity
+   * @param {number} entityId - Entity ID
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Photo[]>} Array of photos with captions
    */
   async getPhotosWithCaptions(
     entityType: PhotoableType,
@@ -318,7 +598,15 @@ export class PhotoModel extends BasePolymorphicModel<
   }
 
   /**
+   * @openapi
    * Duplicates photos from one entity to another
+   * 
+   * @param {PhotoableType} sourceType - Source entity type
+   * @param {number} sourceId - Source entity ID
+   * @param {PhotoableType} targetType - Target entity type
+   * @param {number} targetId - Target entity ID
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<Photo[]>} Array of duplicated photos
    */
   async duplicatePhotos(
     sourceType: PhotoableType,
@@ -346,6 +634,14 @@ export class PhotoModel extends BasePolymorphicModel<
   // HELPER METHODS
   // ============================================================================
 
+  /**
+   * @openapi
+   * Applies photo-specific filters to query
+   * 
+   * @param {Knex.QueryBuilder} query - Database query builder
+   * @param {PhotoQueryOptions} options - Query options
+   * @returns {Knex.QueryBuilder} Modified query builder
+   */
   private applyPhotoFilters(
     query: Knex.QueryBuilder,
     options: PhotoQueryOptions
@@ -382,6 +678,13 @@ export class PhotoModel extends BasePolymorphicModel<
     return query;
   }
 
+  /**
+   * @openapi
+   * Maps database record to Photo entity
+   * 
+   * @param {DatabaseRecord} record - Database record
+   * @returns {Photo} Photo entity
+   */
   protected mapToEntity(record: DatabaseRecord): Photo {
     return {
       id: record.id,
@@ -400,6 +703,10 @@ export class PhotoModel extends BasePolymorphicModel<
     };
   }
 
+  /**
+   * @openapi
+   * Initializes column mapping for database operations
+   */
   protected initializeColumnMap(): void {
     this.columnMap.set("photoableType", "photoable_type");
     this.columnMap.set("photoableId", "photoable_id");

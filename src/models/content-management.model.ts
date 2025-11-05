@@ -11,7 +11,7 @@ import {
   PaginatedResult,
   DatabaseRecord,
 } from "./base";
-import { generateSlug } from "./base/helpers";
+import { generateSlug } from "@/database/helpers";
 import PhotoModel, { PhotoableType, Photo } from "./photo.model";
 import { Knex } from "knex";
 

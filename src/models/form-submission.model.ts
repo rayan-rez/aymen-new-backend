@@ -1,9 +1,9 @@
 /**
  * Form Submission Model
- *
+ * 
  * Central table for ALL form submissions on the website.
  * Handles validation, Odoo sync queue management, and spam detection.
- *
+ * 
  * @module models/form-submission.model
  */
 
@@ -20,6 +20,500 @@ import { Knex } from "knex";
 // ============================================================================
 
 /**
+ * @openapi
+ * components:
+ *   schemas:
+ *     
+ *     FormType:
+ *       type: string
+ *       enum:
+ *         - contact_form
+ *         - project_inquiry
+ *         - appointment_request
+ *         - catalog_download
+ *         - land_submission
+ *         - job_application
+ *         - event_registration
+ *       description: Type of form submitted
+ *       example: contact_form
+ *     
+ *     ProcessingStatus:
+ *       type: string
+ *       enum:
+ *         - pending
+ *         - processing
+ *         - completed
+ *         - failed
+ *         - spam
+ *       description: Processing status of the form submission
+ *       example: pending
+ *     
+ *     FormSubmission:
+ *       type: object
+ *       required:
+ *         - id
+ *         - formType
+ *         - submittedAt
+ *         - requiresOdooSync
+ *         - validationErrors
+ *         - isSpam
+ *         - createdAt
+ *         - updatedAt
+ *       properties:
+ *         id:
+ *           type: integer
+ *           description: Unique identifier for the form submission
+ *           example: 1
+ *         visitorId:
+ *           type: string
+ *           nullable: true
+ *           description: Visitor tracking identifier
+ *           example: "abc123def456"
+ *         sessionId:
+ *           type: string
+ *           nullable: true
+ *           description: Session identifier
+ *           example: "session_789xyz"
+ *         formType:
+ *           $ref: '#/components/schemas/FormType'
+ *         formId:
+ *           type: string
+ *           nullable: true
+ *           description: Specific form identifier
+ *           example: "contact_form_main"
+ *         projectId:
+ *           type: integer
+ *           nullable: true
+ *           description: Associated project ID if applicable
+ *           example: 5
+ *         email:
+ *           type: string
+ *           format: email
+ *           nullable: true
+ *           description: Email address from form
+ *           example: "john.doe@example.com"
+ *         phone:
+ *           type: string
+ *           nullable: true
+ *           description: Phone number from form
+ *           example: "+1-555-0123"
+ *         firstName:
+ *           type: string
+ *           nullable: true
+ *           description: First name from form
+ *           example: "John"
+ *         lastName:
+ *           type: string
+ *           nullable: true
+ *           description: Last name from form
+ *           example: "Doe"
+ *         submittedAt:
+ *           type: string
+ *           format: date-time
+ *           description: Timestamp when form was submitted
+ *           example: "2024-01-15T10:30:00Z"
+ *         pageUrl:
+ *           type: string
+ *           nullable: true
+ *           description: URL where form was submitted
+ *           example: "https://example.com/contact"
+ *         referrerUrl:
+ *           type: string
+ *           nullable: true
+ *           description: Referrer URL
+ *           example: "https://google.com"
+ *         ipAddress:
+ *           type: string
+ *           nullable: true
+ *           description: IP address of submitter
+ *           example: "192.168.1.1"
+ *         userAgent:
+ *           type: string
+ *           nullable: true
+ *           description: User agent string
+ *           example: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)..."
+ *         utmSource:
+ *           type: string
+ *           nullable: true
+ *           description: UTM source for marketing attribution
+ *           example: "google"
+ *         utmMedium:
+ *           type: string
+ *           nullable: true
+ *           description: UTM medium for marketing attribution
+ *           example: "cpc"
+ *         utmCampaign:
+ *           type: string
+ *           nullable: true
+ *           description: UTM campaign for marketing attribution
+ *           example: "spring_campaign_2024"
+ *         utmTerm:
+ *           type: string
+ *           nullable: true
+ *           description: UTM term for marketing attribution
+ *           example: "real estate"
+ *         utmContent:
+ *           type: string
+ *           nullable: true
+ *           description: UTM content for marketing attribution
+ *           example: "banner_ad_1"
+ *         referrer:
+ *           type: string
+ *           nullable: true
+ *           description: Referrer for tracking
+ *           example: "facebook"
+ *         sourcePage:
+ *           type: string
+ *           nullable: true
+ *           description: Source page for tracking
+ *           example: "/projects/luxury-villas"
+ *         status:
+ *           $ref: '#/components/schemas/ProcessingStatus'
+ *         completionTimeSeconds:
+ *           type: integer
+ *           nullable: true
+ *           description: Time taken to complete form in seconds
+ *           example: 45
+ *         requiresOdooSync:
+ *           type: boolean
+ *           description: Whether submission needs to be synced to Odoo CRM
+ *           example: true
+ *         odooSyncAttemptedAt:
+ *           type: string
+ *           format: date-time
+ *           nullable: true
+ *           description: Last Odoo sync attempt timestamp
+ *           example: "2024-01-16T14:20:00Z"
+ *         odooSyncRetries:
+ *           type: integer
+ *           description: Number of Odoo sync retry attempts
+ *           example: 2
+ *         odooSyncError:
+ *           type: string
+ *           nullable: true
+ *           description: Odoo sync error message
+ *           example: "Connection timeout"
+ *         validationErrors:
+ *           type: integer
+ *           description: Number of validation errors found
+ *           example: 0
+ *         isSpam:
+ *           type: boolean
+ *           description: Whether submission was detected as spam
+ *           example: false
+ *         spamScore:
+ *           type: number
+ *           format: float
+ *           nullable: true
+ *           description: Spam detection score (0-1)
+ *           example: 0.15
+ *         formData:
+ *           type: object
+ *           nullable: true
+ *           description: Complete form data as JSON object
+ *           example:
+ *             message: "Interested in property details"
+ *             budget: "500000-750000"
+ *             preferred_contact: "email"
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           description: Creation timestamp
+ *           example: "2024-01-15T10:30:00Z"
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           description: Last update timestamp
+ *           example: "2024-01-15T10:30:00Z"
+ *         project:
+ *           type: object
+ *           description: Virtual relation - associated project data
+ *         leadMirror:
+ *           type: object
+ *           description: Virtual relation - associated lead mirror data
+ *     
+ *     CreateFormSubmissionDto:
+ *       type: object
+ *       required:
+ *         - formType
+ *       properties:
+ *         visitorId:
+ *           type: string
+ *           description: Visitor tracking identifier
+ *           example: "abc123def456"
+ *         sessionId:
+ *           type: string
+ *           description: Session identifier
+ *           example: "session_789xyz"
+ *         formType:
+ *           $ref: '#/components/schemas/FormType'
+ *         formId:
+ *           type: string
+ *           description: Specific form identifier
+ *           example: "contact_form_main"
+ *         projectId:
+ *           type: integer
+ *           description: Associated project ID if applicable
+ *           example: 5
+ *         email:
+ *           type: string
+ *           format: email
+ *           description: Email address from form
+ *           example: "john.doe@example.com"
+ *         phone:
+ *           type: string
+ *           description: Phone number from form
+ *           example: "+1-555-0123"
+ *         firstName:
+ *           type: string
+ *           description: First name from form
+ *           example: "John"
+ *         lastName:
+ *           type: string
+ *           description: Last name from form
+ *           example: "Doe"
+ *         submittedAt:
+ *           type: string
+ *           format: date-time
+ *           description: Timestamp when form was submitted
+ *           example: "2024-01-15T10:30:00Z"
+ *         pageUrl:
+ *           type: string
+ *           description: URL where form was submitted
+ *           example: "https://example.com/contact"
+ *         referrerUrl:
+ *           type: string
+ *           description: Referrer URL
+ *           example: "https://google.com"
+ *         ipAddress:
+ *           type: string
+ *           description: IP address of submitter
+ *           example: "192.168.1.1"
+ *         userAgent:
+ *           type: string
+ *           description: User agent string
+ *           example: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)..."
+ *         utmSource:
+ *           type: string
+ *           description: UTM source for marketing attribution
+ *           example: "google"
+ *         utmMedium:
+ *           type: string
+ *           description: UTM medium for marketing attribution
+ *           example: "cpc"
+ *         utmCampaign:
+ *           type: string
+ *           description: UTM campaign for marketing attribution
+ *           example: "spring_campaign_2024"
+ *         utmTerm:
+ *           type: string
+ *           description: UTM term for marketing attribution
+ *           example: "real estate"
+ *         utmContent:
+ *           type: string
+ *           description: UTM content for marketing attribution
+ *           example: "banner_ad_1"
+ *         referrer:
+ *           type: string
+ *           description: Referrer for tracking
+ *           example: "facebook"
+ *         sourcePage:
+ *           type: string
+ *           description: Source page for tracking
+ *           example: "/projects/luxury-villas"
+ *         status:
+ *           $ref: '#/components/schemas/ProcessingStatus'
+ *         completionTimeSeconds:
+ *           type: integer
+ *           description: Time taken to complete form in seconds
+ *           example: 45
+ *         requiresOdooSync:
+ *           type: boolean
+ *           description: Whether submission needs to be synced to Odoo CRM
+ *           example: true
+ *         validationErrors:
+ *           type: integer
+ *           description: Number of validation errors found
+ *           example: 0
+ *         isSpam:
+ *           type: boolean
+ *           description: Whether submission was detected as spam
+ *           example: false
+ *         spamScore:
+ *           type: number
+ *           format: float
+ *           description: Spam detection score (0-1)
+ *           example: 0.15
+ *         formData:
+ *           type: object
+ *           description: Complete form data as JSON object
+ *           example:
+ *             message: "Interested in property details"
+ *             budget: "500000-750000"
+ *             preferred_contact: "email"
+ *     
+ *     UpdateFormSubmissionDto:
+ *       allOf:
+ *         - $ref: '#/components/schemas/CreateFormSubmissionDto'
+ *         - type: object
+ *           properties:
+ *             odooSyncAttemptedAt:
+ *               type: string
+ *               format: date-time
+ *               nullable: true
+ *               description: Last Odoo sync attempt timestamp
+ *               example: "2024-01-16T14:20:00Z"
+ *             odooSyncRetries:
+ *               type: integer
+ *               nullable: true
+ *               description: Number of Odoo sync retry attempts
+ *               example: 2
+ *             odooSyncError:
+ *               type: string
+ *               nullable: true
+ *               description: Odoo sync error message
+ *               example: "Connection timeout"
+ *     
+ *     FormSubmissionQueryOptions:
+ *       allOf:
+ *         - $ref: '#/components/schemas/AdvancedQueryOptions'
+ *         - type: object
+ *           properties:
+ *             formType:
+ *               $ref: '#/components/schemas/FormType'
+ *             status:
+ *               $ref: '#/components/schemas/ProcessingStatus'
+ *             projectId:
+ *               type: integer
+ *               description: Filter by project ID
+ *               example: 5
+ *             isSpam:
+ *               type: boolean
+ *               description: Filter by spam status
+ *               example: false
+ *             requiresOdooSync:
+ *               type: boolean
+ *               description: Filter by Odoo sync requirement
+ *               example: true
+ *             visitorId:
+ *               type: string
+ *               description: Filter by visitor ID
+ *               example: "abc123def456"
+ *             sessionId:
+ *               type: string
+ *               description: Filter by session ID
+ *               example: "session_789xyz"
+ *             email:
+ *               type: string
+ *               description: Filter by email (partial match)
+ *               example: "john@"
+ *             phone:
+ *               type: string
+ *               description: Filter by phone (partial match)
+ *               example: "555"
+ *             dateFrom:
+ *               type: string
+ *               format: date-time
+ *               description: Filter submissions from this date
+ *               example: "2024-01-01T00:00:00Z"
+ *             dateTo:
+ *               type: string
+ *               format: date-time
+ *               description: Filter submissions to this date
+ *               example: "2024-12-31T23:59:59Z"
+ *             hasProject:
+ *               type: boolean
+ *               description: Filter by project association
+ *               example: true
+ *             hasSyncError:
+ *               type: boolean
+ *               description: Filter by sync error presence
+ *               example: false
+ *     
+ *     SpamDetectionResult:
+ *       type: object
+ *       required:
+ *         - isSpam
+ *         - score
+ *         - reasons
+ *       properties:
+ *         isSpam:
+ *           type: boolean
+ *           description: Whether submission was detected as spam
+ *           example: false
+ *         score:
+ *           type: number
+ *           format: float
+ *           description: Spam detection score (0-1)
+ *           example: 0.15
+ *         reasons:
+ *           type: array
+ *           items:
+ *             type: string
+ *           description: Array of reasons for spam detection
+ *           example: ["Contains spam keyword: casino", "Too many submissions from IP"]
+ *     
+ *     FormSubmissionStatistics:
+ *       type: object
+ *       properties:
+ *         total:
+ *           type: integer
+ *           description: Total number of submissions
+ *           example: 1250
+ *         completed:
+ *           type: integer
+ *           description: Number of completed submissions
+ *           example: 1150
+ *         pending:
+ *           type: integer
+ *           description: Number of pending submissions
+ *           example: 50
+ *         failed:
+ *           type: integer
+ *           description: Number of failed submissions
+ *           example: 25
+ *         spam:
+ *           type: integer
+ *           description: Number of spam submissions
+ *           example: 25
+ *         needsSync:
+ *           type: integer
+ *           description: Number of submissions requiring Odoo sync
+ *           example: 200
+ *         avgCompletionTime:
+ *           type: number
+ *           format: float
+ *           description: Average completion time in seconds
+ *           example: 42.5
+ *         avgSpamScore:
+ *           type: number
+ *           format: float
+ *           description: Average spam score
+ *           example: 0.12
+ *     
+ *     UtmSourceStatistics:
+ *       type: object
+ *       properties:
+ *         utmSource:
+ *           type: string
+ *           description: UTM source
+ *           example: "google"
+ *         utmMedium:
+ *           type: string
+ *           description: UTM medium
+ *           example: "cpc"
+ *         utmCampaign:
+ *           type: string
+ *           description: UTM campaign
+ *           example: "spring_campaign_2024"
+ *         submissions:
+ *           type: integer
+ *           description: Number of submissions from this source
+ *           example: 45
+ */
+
+/**
+ * @openapi
  * Form type enumeration
  */
 export enum FormType {
@@ -33,6 +527,7 @@ export enum FormType {
 }
 
 /**
+ * @openapi
  * Processing status enumeration
  */
 export enum ProcessingStatus {
@@ -44,6 +539,7 @@ export enum ProcessingStatus {
 }
 
 /**
+ * @openapi
  * Form submission entity interface
  */
 export interface FormSubmission {
@@ -104,6 +600,7 @@ export interface FormSubmission {
 }
 
 /**
+ * @openapi
  * Create form submission DTO
  */
 export interface CreateFormSubmissionDto {
@@ -145,6 +642,7 @@ export interface CreateFormSubmissionDto {
 }
 
 /**
+ * @openapi
  * Update form submission DTO
  */
 export interface UpdateFormSubmissionDto
@@ -155,6 +653,7 @@ export interface UpdateFormSubmissionDto
 }
 
 /**
+ * @openapi
  * Form submission query options
  */
 export interface FormSubmissionQueryOptions extends AdvancedQueryOptions {
@@ -174,6 +673,7 @@ export interface FormSubmissionQueryOptions extends AdvancedQueryOptions {
 }
 
 /**
+ * @openapi
  * Spam detection result
  */
 export interface SpamDetectionResult {
@@ -186,6 +686,16 @@ export interface SpamDetectionResult {
 // FORM SUBMISSION MODEL CLASS
 // ============================================================================
 
+/**
+ * @openapi
+ * Form Submission Model Class
+ * 
+ * Central table for ALL form submissions on the website with comprehensive
+ * validation, Odoo CRM sync queue management, and intelligent spam detection
+ * 
+ * @class FormSubmissionModel
+ * @extends BaseModel<FormSubmission, CreateFormSubmissionDto, UpdateFormSubmissionDto>
+ */
 export class FormSubmissionModel extends BaseModel<
   FormSubmission,
   CreateFormSubmissionDto,
@@ -258,7 +768,20 @@ export class FormSubmissionModel extends BaseModel<
   // ============================================================================
 
   /**
-   * Before create hook - validate and detect spam
+   * @openapi
+   * beforeCreate lifecycle hook
+   * 
+   * Validates and processes form submission data before creation:
+   * - Sets default submission timestamp
+   * - Sets default processing status
+   * - Extracts contact information from form data if not provided
+   * - Performs comprehensive spam detection
+   * - Validates email domains against blocklist
+   * - Updates status and sync requirements based on spam detection
+   * 
+   * @param {CreateFormSubmissionDto} data - Form submission creation data
+   * @returns {Promise<CreateFormSubmissionDto>} Processed data
+   * @throws {Error} If validation fails
    */
   protected async beforeCreate(
     data: CreateFormSubmissionDto
@@ -310,7 +833,13 @@ export class FormSubmissionModel extends BaseModel<
   }
 
   /**
-   * After create hook - trigger async processing
+   * @openapi
+   * afterCreate lifecycle hook
+   * 
+   * Logs form submission creation and triggers async processing pipeline
+   * 
+   * @param {FormSubmission} entity - Created form submission entity
+   * @returns {Promise<void>}
    */
   protected async afterCreate(entity: FormSubmission): Promise<void> {
     console.log(
@@ -328,7 +857,12 @@ export class FormSubmissionModel extends BaseModel<
   // ============================================================================
 
   /**
+   * @openapi
    * Finds form submissions with custom filters
+   * 
+   * @param {FormSubmissionQueryOptions} [options={}] - Query options
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<FormSubmission[]>} Array of form submissions
    */
   async findSubmissions(
     options: FormSubmissionQueryOptions = {},
@@ -356,7 +890,12 @@ export class FormSubmissionModel extends BaseModel<
   }
 
   /**
+   * @openapi
    * Gets paginated submissions
+   * 
+   * @param {FormSubmissionQueryOptions & { page: number; limit: number }} options - Query and pagination options
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<PaginatedResult<FormSubmission>>} Paginated result
    */
   async paginateSubmissions(
     options: FormSubmissionQueryOptions & { page: number; limit: number },
@@ -385,7 +924,12 @@ export class FormSubmissionModel extends BaseModel<
   }
 
   /**
+   * @openapi
    * Counts submissions with filters
+   * 
+   * @param {FormSubmissionQueryOptions} [options={}] - Query options
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<number>} Count of submissions
    */
   async countSubmissions(
     options: FormSubmissionQueryOptions = {},
@@ -402,7 +946,13 @@ export class FormSubmissionModel extends BaseModel<
   }
 
   /**
+   * @openapi
    * Finds submissions by visitor ID
+   * 
+   * @param {string} visitorId - Visitor identifier
+   * @param {FormSubmissionQueryOptions} [options={}] - Additional query options
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<FormSubmission[]>} Array of submissions from the visitor
    */
   async findByVisitor(
     visitorId: string,
@@ -413,7 +963,13 @@ export class FormSubmissionModel extends BaseModel<
   }
 
   /**
+   * @openapi
    * Finds submissions by session ID
+   * 
+   * @param {string} sessionId - Session identifier
+   * @param {FormSubmissionQueryOptions} [options={}] - Additional query options
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<FormSubmission[]>} Array of submissions from the session
    */
   async findBySession(
     sessionId: string,
@@ -424,7 +980,13 @@ export class FormSubmissionModel extends BaseModel<
   }
 
   /**
+   * @openapi
    * Finds submissions by email
+   * 
+   * @param {string} email - Email address
+   * @param {FormSubmissionQueryOptions} [options={}] - Additional query options
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<FormSubmission[]>} Array of submissions from the email
    */
   async findByEmail(
     email: string,
@@ -435,7 +997,13 @@ export class FormSubmissionModel extends BaseModel<
   }
 
   /**
+   * @openapi
    * Finds submissions by form type
+   * 
+   * @param {FormType} formType - Form type
+   * @param {FormSubmissionQueryOptions} [options={}] - Additional query options
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<FormSubmission[]>} Array of submissions of the specified type
    */
   async findByFormType(
     formType: FormType,
@@ -446,7 +1014,13 @@ export class FormSubmissionModel extends BaseModel<
   }
 
   /**
+   * @openapi
    * Finds submissions by project
+   * 
+   * @param {number} projectId - Project identifier
+   * @param {FormSubmissionQueryOptions} [options={}] - Additional query options
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<FormSubmission[]>} Array of submissions related to the project
    */
   async findByProject(
     projectId: number,
@@ -457,7 +1031,12 @@ export class FormSubmissionModel extends BaseModel<
   }
 
   /**
+   * @openapi
    * Gets submissions pending Odoo sync
+   * 
+   * @param {number} [limit=100] - Maximum number of results
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<FormSubmission[]>} Array of submissions pending sync
    */
   async getPendingOdooSync(
     limit: number = 100,
@@ -476,7 +1055,12 @@ export class FormSubmissionModel extends BaseModel<
   }
 
   /**
+   * @openapi
    * Gets spam submissions
+   * 
+   * @param {FormSubmissionQueryOptions} [options={}] - Additional query options
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<FormSubmission[]>} Array of spam submissions
    */
   async getSpamSubmissions(
     options: FormSubmissionQueryOptions = {},
@@ -490,7 +1074,13 @@ export class FormSubmissionModel extends BaseModel<
   // ============================================================================
 
   /**
+   * @openapi
    * Marks submission as sync attempted
+   * 
+   * @param {number} id - Submission ID
+   * @param {string} [error] - Optional error message
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<FormSubmission | null>} Updated submission or null
    */
   async markSyncAttempted(
     id: number,
@@ -518,7 +1108,12 @@ export class FormSubmissionModel extends BaseModel<
   }
 
   /**
+   * @openapi
    * Marks submission as synced successfully
+   * 
+   * @param {number} id - Submission ID
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<FormSubmission | null>} Updated submission or null
    */
   async markSyncCompleted(
     id: number,
@@ -536,7 +1131,12 @@ export class FormSubmissionModel extends BaseModel<
   }
 
   /**
+   * @openapi
    * Resets sync status for retry
+   * 
+   * @param {number} id - Submission ID
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<FormSubmission | null>} Updated submission or null
    */
   async resetSyncStatus(
     id: number,
@@ -559,7 +1159,11 @@ export class FormSubmissionModel extends BaseModel<
   // ============================================================================
 
   /**
-   * Detects spam in submission
+   * @openapi
+   * Detects spam in submission using multiple detection methods
+   * 
+   * @param {CreateFormSubmissionDto} data - Form submission data
+   * @returns {Promise<SpamDetectionResult>} Spam detection result with score and reasons
    */
   private async detectSpam(
     data: CreateFormSubmissionDto
@@ -651,7 +1255,11 @@ export class FormSubmissionModel extends BaseModel<
   }
 
   /**
+   * @openapi
    * Validates email domain against blocklist
+   * 
+   * @param {string} email - Email address to validate
+   * @returns {boolean} True if domain is valid, false if blocked
    */
   private isValidEmailDomain(email: string): boolean {
     const BLOCKED_DOMAINS = [
@@ -675,7 +1283,13 @@ export class FormSubmissionModel extends BaseModel<
   // ============================================================================
 
   /**
+   * @openapi
    * Gets submission statistics
+   * 
+   * @param {Date} [dateFrom] - Optional start date filter
+   * @param {Date} [dateTo] - Optional end date filter
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<FormSubmissionStatistics>} Comprehensive statistics object
    */
   async getStatistics(
     dateFrom?: Date,
@@ -724,7 +1338,13 @@ export class FormSubmissionModel extends BaseModel<
   }
 
   /**
+   * @openapi
    * Gets submission breakdown by form type
+   * 
+   * @param {Date} [dateFrom] - Optional start date filter
+   * @param {Date} [dateTo] - Optional end date filter
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<any[]>} Array of form type statistics
    */
   async getBreakdownByFormType(
     dateFrom?: Date,
@@ -749,7 +1369,12 @@ export class FormSubmissionModel extends BaseModel<
   }
 
   /**
+   * @openapi
    * Gets top UTM sources
+   * 
+   * @param {number} [limit=10] - Maximum number of results
+   * @param {Knex.Transaction} [trx] - Optional transaction
+   * @returns {Promise<UtmSourceStatistics[]>} Array of UTM source statistics
    */
   async getTopUtmSources(
     limit: number = 10,
@@ -771,7 +1396,12 @@ export class FormSubmissionModel extends BaseModel<
   // ============================================================================
 
   /**
+   * @openapi
    * Applies submission-specific filters to query
+   * 
+   * @param {Knex.QueryBuilder} query - Database query builder
+   * @param {FormSubmissionQueryOptions} options - Query options
+   * @returns {Knex.QueryBuilder} Modified query builder
    */
   private applySubmissionFilters(
     query: Knex.QueryBuilder,
@@ -864,7 +1494,11 @@ export class FormSubmissionModel extends BaseModel<
   }
 
   /**
+   * @openapi
    * Maps database record to FormSubmission entity
+   * 
+   * @param {DatabaseRecord} record - Database record
+   * @returns {FormSubmission} FormSubmission entity
    */
   protected mapToEntity(record: DatabaseRecord): FormSubmission {
     return {
