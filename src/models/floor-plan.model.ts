@@ -1,9 +1,9 @@
 /**
  * Floor Plan Model (Polymorphic) - FIXED
- * 
+ *
  * Handles floor plans for projects and apartments
  * Uses polymorphic relationship pattern
- * 
+ *
  * @module models/floor-plan.model
  */
 
@@ -20,160 +20,6 @@ import { DatabaseRecord } from "./base";
 // ============================================================================
 
 /**
- * @openapi
- * components:
- *   schemas:
- *     
- *     PlannableType:
- *       type: string
- *       enum:
- *         - project
- *         - apartment
- *       description: Type of entity that can have floor plans
- *       example: project
- *     
- *     FloorPlan:
- *       type: object
- *       required:
- *         - id
- *         - plannableType
- *         - plannableId
- *         - name
- *         - imageUrl
- *         - displayOrder
- *         - createdAt
- *         - updatedAt
- *       properties:
- *         id:
- *           type: integer
- *           description: Unique identifier for the floor plan
- *           example: 1
- *         plannableType:
- *           $ref: '#/components/schemas/PlannableType'
- *         plannableId:
- *           type: integer
- *           description: ID of the entity this floor plan belongs to
- *           example: 5
- *         name:
- *           type: string
- *           description: Name or title of the floor plan
- *           example: "Ground Floor Layout"
- *         imageUrl:
- *           type: string
- *           description: URL to the floor plan image
- *           example: "https://cdn.example.com/floor-plans/project-5-ground-floor.jpg"
- *         pdfUrl:
- *           type: string
- *           nullable: true
- *           description: URL to the floor plan PDF (optional)
- *           example: "https://cdn.example.com/floor-plans/project-5-ground-floor.pdf"
- *         displayOrder:
- *           type: integer
- *           description: Display order for sorting floor plans
- *           example: 0
- *         createdAt:
- *           type: string
- *           format: date-time
- *           description: Creation timestamp
- *           example: "2024-01-15T10:30:00Z"
- *         updatedAt:
- *           type: string
- *           format: date-time
- *           description: Last update timestamp
- *           example: "2024-01-25T16:20:00Z"
- *         deletedAt:
- *           type: string
- *           format: date-time
- *           nullable: true
- *           description: Soft delete timestamp
- *           example: null
- *     
- *     CreateFloorPlanDto:
- *       type: object
- *       required:
- *         - plannableType
- *         - plannableId
- *         - name
- *         - imageUrl
- *       properties:
- *         plannableType:
- *           $ref: '#/components/schemas/PlannableType'
- *         plannableId:
- *           type: integer
- *           description: ID of the entity this floor plan belongs to
- *           example: 5
- *         name:
- *           type: string
- *           description: Name or title of the floor plan
- *           example: "Ground Floor Layout"
- *         imageUrl:
- *           type: string
- *           description: URL to the floor plan image
- *           example: "https://cdn.example.com/floor-plans/project-5-ground-floor.jpg"
- *         pdfUrl:
- *           type: string
- *           nullable: true
- *           description: URL to the floor plan PDF (optional)
- *           example: "https://cdn.example.com/floor-plans/project-5-ground-floor.pdf"
- *         displayOrder:
- *           type: integer
- *           description: Display order for sorting floor plans
- *           example: 0
- *     
- *     UpdateFloorPlanDto:
- *       type: object
- *       properties:
- *         name:
- *           type: string
- *           description: Name or title of the floor plan
- *           example: "Ground Floor Layout (Updated)"
- *         imageUrl:
- *           type: string
- *           description: URL to the floor plan image
- *           example: "https://cdn.example.com/floor-plans/project-5-ground-floor-v2.jpg"
- *         pdfUrl:
- *           type: string
- *           nullable: true
- *           description: URL to the floor plan PDF
- *           example: "https://cdn.example.com/floor-plans/project-5-ground-floor-v2.pdf"
- *         displayOrder:
- *           type: integer
- *           description: Display order for sorting floor plans
- *           example: 1
- *     
- *     FloorPlanQueryOptions:
- *       allOf:
- *         - $ref: '#/components/schemas/PolymorphicQueryOptions'
- *         - type: object
- *           properties:
- *             hasPdf:
- *               type: boolean
- *               description: Filter floor plans that have PDF files
- *               example: true
- *             searchName:
- *               type: string
- *               description: Search floor plans by name (partial match)
- *               example: "ground floor"
- *     
- *     FloorPlanStatistics:
- *       type: object
- *       properties:
- *         total:
- *           type: integer
- *           description: Total number of floor plans for the entity
- *           example: 5
- *         withPdf:
- *           type: integer
- *           description: Number of floor plans with PDF files
- *           example: 3
- *         withoutPdf:
- *           type: integer
- *           description: Number of floor plans without PDF files
- *           example: 2
- */
-
-/**
- * @openapi
  * Plannable type enumeration
  */
 export enum PlannableType {
@@ -182,7 +28,6 @@ export enum PlannableType {
 }
 
 /**
- * @openapi
  * Floor plan entity interface
  */
 export interface FloorPlan extends PolymorphicEntity {
@@ -199,7 +44,6 @@ export interface FloorPlan extends PolymorphicEntity {
 }
 
 /**
- * @openapi
  * Create floor plan DTO
  */
 export interface CreateFloorPlanDto {
@@ -212,14 +56,12 @@ export interface CreateFloorPlanDto {
 }
 
 /**
- * @openapi
  * Update floor plan DTO
  */
 export interface UpdateFloorPlanDto
   extends Partial<Omit<CreateFloorPlanDto, "plannableType" | "plannableId">> {}
 
 /**
- * @openapi
  * Floor plan query options
  */
 export interface FloorPlanQueryOptions extends PolymorphicQueryOptions {
@@ -231,16 +73,6 @@ export interface FloorPlanQueryOptions extends PolymorphicQueryOptions {
 // FLOOR PLAN MODEL CLASS
 // ============================================================================
 
-/**
- * @openapi
- * Floor Plan Model Class
- * 
- * Handles floor plans for projects and apartments using polymorphic relationships
- * Supports both image and PDF formats with ordering and search capabilities
- * 
- * @class FloorPlanModel
- * @extends BasePolymorphicModel<FloorPlan, CreateFloorPlanDto, UpdateFloorPlanDto>
- */
 export class FloorPlanModel extends BasePolymorphicModel<
   FloorPlan,
   CreateFloorPlanDto,
@@ -275,20 +107,6 @@ export class FloorPlanModel extends BasePolymorphicModel<
   // LIFECYCLE HOOKS
   // ============================================================================
 
-  /**
-   * @openapi
-   * beforeCreate lifecycle hook
-   * 
-   * Validates and processes floor plan data before creation:
-   * - Runs polymorphic validation
-   * - Validates required fields (name and imageUrl)
-   * - Prevents duplicate names within the same entity
-   * - Sets default display order if not provided
-   * 
-   * @param {CreateFloorPlanDto} data - Floor plan creation data
-   * @returns {Promise<CreateFloorPlanDto>} Processed data
-   * @throws {Error} If validation fails
-   */
   protected async beforeCreate(
     data: CreateFloorPlanDto
   ): Promise<CreateFloorPlanDto> {
@@ -329,33 +147,12 @@ export class FloorPlanModel extends BasePolymorphicModel<
     return data;
   }
 
-  /**
-   * @openapi
-   * afterCreate lifecycle hook
-   * 
-   * Logs floor plan creation event
-   * 
-   * @param {FloorPlan} entity - Created floor plan entity
-   * @returns {Promise<void>}
-   */
   protected async afterCreate(entity: FloorPlan): Promise<void> {
     console.log(
       `✅ Floor plan "${entity.name}" created for ${entity.plannableType} ID ${entity.plannableId}`
     );
   }
 
-  /**
-   * @openapi
-   * beforeUpdate lifecycle hook
-   * 
-   * Validates and processes floor plan data before update:
-   * - Prevents duplicate names if name is being changed
-   * 
-   * @param {number} id - Floor plan ID
-   * @param {UpdateFloorPlanDto} data - Floor plan update data
-   * @returns {Promise<UpdateFloorPlanDto>} Processed data
-   * @throws {Error} If validation fails
-   */
   protected async beforeUpdate(
     id: number,
     data: UpdateFloorPlanDto
@@ -388,14 +185,7 @@ export class FloorPlanModel extends BasePolymorphicModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Finds floor plan by name within an entity
-   * 
-   * @param {PlannableType} entityType - Type of entity
-   * @param {number} entityId - Entity ID
-   * @param {string} name - Floor plan name
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<FloorPlan | null>} Floor plan or null
    */
   async findByName(
     entityType: PlannableType,
@@ -420,18 +210,8 @@ export class FloorPlanModel extends BasePolymorphicModel<
   }
 
   /**
-   * @openapi
    * Bulk creates floor plans for an entity
-   * 
-   * @param {PlannableType} entityType - Type of entity
-   * @param {number} entityId - Entity ID
-   * @param {object[]} plansData - Array of floor plan data
-   * @param {string} plansData[].name - Floor plan name
-   * @param {string} plansData[].imageUrl - Floor plan image URL
-   * @param {string} [plansData[].pdfUrl] - Floor plan PDF URL
-   * @param {number} [plansData[].displayOrder] - Display order
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<FloorPlan[]>} Array of created floor plans
+   * RENAMED from bulkCreate to avoid conflict with base class
    */
   async createManyForEntity(
     entityType: PlannableType,
@@ -454,14 +234,7 @@ export class FloorPlanModel extends BasePolymorphicModel<
   }
 
   /**
-   * @openapi
    * Reorders floor plans for an entity
-   * 
-   * @param {PlannableType} entityType - Type of entity
-   * @param {number} entityId - Entity ID
-   * @param {number[]} planIds - Array of floor plan IDs in desired order
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<boolean>} Success status
    */
   async reorder(
     entityType: PlannableType,
@@ -473,12 +246,7 @@ export class FloorPlanModel extends BasePolymorphicModel<
   }
 
   /**
-   * @openapi
    * Finds floor plans with custom filters
-   * 
-   * @param {FloorPlanQueryOptions} [options={}] - Query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<FloorPlan[]>} Array of floor plans
    */
   async findFloorPlans(
     options: FloorPlanQueryOptions = {},
@@ -498,13 +266,7 @@ export class FloorPlanModel extends BasePolymorphicModel<
   }
 
   /**
-   * @openapi
    * Gets floor plans with PDF only
-   * 
-   * @param {PlannableType} entityType - Type of entity
-   * @param {number} entityId - Entity ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<FloorPlan[]>} Array of floor plans with PDFs
    */
   async getFloorPlansWithPdf(
     entityType: PlannableType,
@@ -522,14 +284,7 @@ export class FloorPlanModel extends BasePolymorphicModel<
   }
 
   /**
-   * @openapi
    * Searches floor plans by name
-   * 
-   * @param {PlannableType} entityType - Type of entity
-   * @param {number} entityId - Entity ID
-   * @param {string} searchTerm - Search term
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<FloorPlan[]>} Array of matching floor plans
    */
   async searchByName(
     entityType: PlannableType,
@@ -548,15 +303,7 @@ export class FloorPlanModel extends BasePolymorphicModel<
   }
 
   /**
-   * @openapi
    * Duplicates floor plans from one entity to another
-   * 
-   * @param {PlannableType} sourceType - Source entity type
-   * @param {number} sourceId - Source entity ID
-   * @param {PlannableType} targetType - Target entity type
-   * @param {number} targetId - Target entity ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<FloorPlan[]>} Array of duplicated floor plans
    */
   async duplicateFloorPlans(
     sourceType: PlannableType,
@@ -580,15 +327,7 @@ export class FloorPlanModel extends BasePolymorphicModel<
   }
 
   /**
-   * @openapi
    * Updates floor plan files (image and/or PDF)
-   * 
-   * @param {number} id - Floor plan ID
-   * @param {object} files - Files to update
-   * @param {string} [files.imageUrl] - New image URL
-   * @param {string} [files.pdfUrl] - New PDF URL
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<FloorPlan | null>} Updated floor plan or null
    */
   async updateFiles(
     id: number,
@@ -599,12 +338,7 @@ export class FloorPlanModel extends BasePolymorphicModel<
   }
 
   /**
-   * @openapi
    * Removes PDF from a floor plan
-   * 
-   * @param {number} id - Floor plan ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<FloorPlan | null>} Updated floor plan or null
    */
   async removePdf(
     id: number,
@@ -617,15 +351,6 @@ export class FloorPlanModel extends BasePolymorphicModel<
   // STATISTICS METHODS
   // ============================================================================
 
-  /**
-   * @openapi
-   * Gets floor plan statistics for an entity
-   * 
-   * @param {PlannableType} entityType - Type of entity
-   * @param {number} entityId - Entity ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<FloorPlanStatistics>} Statistics object
-   */
   async getStatistics(
     entityType: PlannableType,
     entityId: number,
@@ -662,14 +387,6 @@ export class FloorPlanModel extends BasePolymorphicModel<
   // HELPER METHODS
   // ============================================================================
 
-  /**
-   * @openapi
-   * Applies floor plan-specific filters to query
-   * 
-   * @param {Knex.QueryBuilder} query - Database query builder
-   * @param {FloorPlanQueryOptions} options - Query options
-   * @returns {Knex.QueryBuilder} Modified query builder
-   */
   private applyFloorPlanFilters(
     query: Knex.QueryBuilder,
     options: FloorPlanQueryOptions
@@ -693,13 +410,6 @@ export class FloorPlanModel extends BasePolymorphicModel<
     return query;
   }
 
-  /**
-   * @openapi
-   * Maps database record to FloorPlan entity
-   * 
-   * @param {DatabaseRecord} record - Database record
-   * @returns {FloorPlan} FloorPlan entity
-   */
   protected mapToEntity(record: DatabaseRecord): FloorPlan {
     return {
       id: record.id,
@@ -717,10 +427,6 @@ export class FloorPlanModel extends BasePolymorphicModel<
     };
   }
 
-  /**
-   * @openapi
-   * Initializes column mapping for database operations
-   */
   protected initializeColumnMap(): void {
     this.columnMap.set("plannableType", "plannable_type");
     this.columnMap.set("plannableId", "plannable_id");

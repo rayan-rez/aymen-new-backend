@@ -2,9 +2,7 @@
  * Image Service
  * Handles image processing, conversion, and optimization
  * Uses Sharp library for high-performance image manipulation
- *
- * @module services/image
- *
+ * 
  * @swagger
  * components:
  *   schemas:
@@ -36,13 +34,22 @@
  *           default: cover
  *           description: |
  *             How the image should be resized to fit dimensions:
- *             - **cover**: Crop to cover both dimensions (default)
- *             - **contain**: Contain within both dimensions (letterbox)
- *             - **fill**: Ignore aspect ratio, stretch to fill
- *             - **inside**: Resize to fit inside dimensions
- *             - **outside**: Resize to fit outside dimensions
+ *             - cover: Crop to cover both dimensions (default)
+ *             - contain: Contain within both dimensions (letterbox)
+ *             - fill: Ignore aspect ratio, stretch to fill
+ *             - inside: Resize to fit inside dimensions
+ *             - outside: Resize to fit outside dimensions
  *           example: "cover"
- *
+ *       description: |
+ *         Options for image processing and resizing
+ *         
+ *         **Fit modes explained:**
+ *         - `cover`: Best for thumbnails and cards (crops to fill space)
+ *         - `contain`: Best for galleries (shows entire image with padding)
+ *         - `fill`: Distorts image to exact dimensions (rarely recommended)
+ *         - `inside`: Ensures image fits within bounds (maintains aspect ratio)
+ *         - `outside`: Ensures image covers bounds (maintains aspect ratio)
+ * 
  *     ImageUploadRequest:
  *       type: object
  *       required:
@@ -73,7 +80,8 @@
  *           default: cover
  *           description: Resize fit mode
  *           example: "cover"
- *
+ *       description: Multipart form data for image upload
+ * 
  *     ImageUploadResponse:
  *       type: object
  *       properties:
@@ -123,7 +131,7 @@
  *         timestamp:
  *           type: string
  *           format: date-time
- *
+ * 
  *     ImageDeleteResponse:
  *       type: object
  *       properties:
@@ -145,7 +153,7 @@
  *         timestamp:
  *           type: string
  *           format: date-time
- *
+ * 
  *     ImageProcessingError:
  *       type: object
  *       properties:
@@ -169,49 +177,45 @@
  *         timestamp:
  *           type: string
  *           format: date-time
- *
+ * 
  *   examples:
  *     StandardImageProcessing:
  *       summary: Standard image processing with quality optimization
- *       description: Convert and resize image to 1920x1080 WebP with 80% quality
  *       value:
  *         width: 1920
  *         height: 1080
  *         quality: 80
  *         fit: "cover"
- *
+ *       description: Convert and resize image to 1920x1080 WebP with 80% quality
+ * 
  *     ThumbnailGeneration:
  *       summary: Generate thumbnail
- *       description: Create a thumbnail that fills 300x200 dimensions
  *       value:
  *         width: 300
  *         height: 200
  *         quality: 70
  *         fit: "cover"
- *
+ *       description: Create a thumbnail that fills 300x200 dimensions
+ * 
  *     HighQualityPreservation:
  *       summary: High quality with minimal compression
- *       description: Preserve high quality for 4K displays
  *       value:
  *         width: 3840
  *         height: 2160
  *         quality: 95
  *         fit: "inside"
- *
+ *       description: Preserve high quality for 4K displays
+ * 
  *     ResponsiveImageSet:
  *       summary: Multiple sizes for responsive design
- *       description: Generate multiple image sizes for srcset
  *       value:
  *         sizes:
- *           - width: 320
- *             quality: 70
- *           - width: 640
- *             quality: 75
- *           - width: 1024
- *             quality: 80
- *           - width: 1920
- *             quality: 85
- *
+ *           - { width: 320, quality: 70 }
+ *           - { width: 640, quality: 75 }
+ *           - { width: 1024, quality: 80 }
+ *           - { width: 1920, quality: 85 }
+ *       description: Generate multiple image sizes for srcset
+ * 
  *     ImageUploadSuccess:
  *       summary: Successful image upload and processing
  *       value:
@@ -226,7 +230,7 @@
  *             width: 1920
  *             height: 1080
  *         timestamp: "2025-11-05T10:30:00.000Z"
- *
+ * 
  *   requestBodies:
  *     ImageUpload:
  *       required: true
@@ -239,62 +243,12 @@
  *               $ref: '#/components/examples/StandardImageProcessing'
  *             thumbnailUpload:
  *               $ref: '#/components/examples/ThumbnailGeneration'
- *
- * Features:
- * - WebP conversion for optimal web performance
- * - Dynamic resizing with aspect ratio preservation
- * - Quality optimization
- * - Multiple fit modes (cover, contain, fill, inside, outside)
- * - Automatic upload directory management
- * - File cleanup and deletion
- * - In-memory compression for streaming
- * - Support for multiple input formats
- *
- * Supported input formats:
- * - JPEG/JPG
- * - PNG
- * - WebP
- * - GIF
- * - TIFF
- * - SVG
- *
- * Output format: WebP (optimized for web)
- *
- * @example
- * ```typescript
- * // Basic conversion
- * const filename = await imageService.processAndConvertToWebP(
- *   buffer,
- *   "photo.jpg"
- * );
- *
- * // With resizing
- * const filename = await imageService.processAndConvertToWebP(
- *   buffer,
- *   "photo.jpg",
- *   { width: 1920, height: 1080, quality: 85, fit: "cover" }
- * );
- *
- * // Generate thumbnail
- * const thumbnail = await imageService.processAndConvertToWebP(
- *   buffer,
- *   "photo.jpg",
- *   { width: 300, height: 200, quality: 70 }
- * );
- * ```
  */
 
 import sharp from "sharp";
 import path from "path";
 import fs from "fs/promises";
 
-/**
- * @openapi
- * Image processing options interface
- * Defines parameters for image manipulation
- *
- * @interface ImageProcessingOptions
- */
 interface ImageProcessingOptions {
   width?: number;
   height?: number;
@@ -303,11 +257,25 @@ interface ImageProcessingOptions {
 }
 
 /**
- * @openapi
  * Image Service class
  * Provides image processing, conversion, and management functionality
- *
- * @class ImageService
+ * 
+ * Features:
+ * - WebP conversion for optimal web performance
+ * - Dynamic resizing with aspect ratio preservation
+ * - Quality optimization
+ * - Automatic upload directory management
+ * - File cleanup and deletion
+ * 
+ * Supported input formats:
+ * - JPEG/JPG
+ * - PNG
+ * - WebP
+ * - GIF
+ * - TIFF
+ * - SVG
+ * 
+ * Output format: WebP (optimized for web)
  */
 class ImageService {
   private uploadDir = path.join(__dirname, "../../uploads");
@@ -317,14 +285,11 @@ class ImageService {
   }
 
   /**
-   * @openapi
    * Ensures upload directory exists
    * Creates the directory if it doesn't exist
-   *
    * @private
-   * @returns {Promise<void>}
    */
-  private async ensureUploadDir(): Promise<void> {
+  private async ensureUploadDir() {
     try {
       await fs.access(this.uploadDir);
     } catch {
@@ -333,38 +298,37 @@ class ImageService {
   }
 
   /**
-   * @openapi
    * Processes an image and converts it to WebP format
    * Applies resizing and quality optimization
-   *
-   * @param {Buffer} inputBuffer - Raw image buffer from upload
-   * @param {string} filename - Original filename
-   * @param {ImageProcessingOptions} [options={}] - Processing options
-   * @returns {Promise<string>} Generated filename
-   * @throws {Error} If image processing fails
-   *
+   * 
+   * @param inputBuffer - Raw image buffer from upload
+   * @param filename - Original filename
+   * @param options - Processing options (width, height, quality, fit)
+   * @returns Promise<string> - Generated filename
+   * @throws Error - If image processing fails
+   * 
    * @example
-   * ```typescript
    * // Basic conversion
    * const filename = await imageService.processAndConvertToWebP(
    *   buffer,
    *   "photo.jpg"
    * );
-   *
+   * 
+   * @example
    * // With resizing and quality options
    * const filename = await imageService.processAndConvertToWebP(
    *   buffer,
    *   "photo.jpg",
    *   { width: 1920, height: 1080, quality: 85, fit: "cover" }
    * );
-   *
+   * 
+   * @example
    * // Generate thumbnail
    * const thumbnail = await imageService.processAndConvertToWebP(
    *   buffer,
    *   "photo.jpg",
    *   { width: 300, height: 200, quality: 70, fit: "cover" }
    * );
-   * ```
    */
   async processAndConvertToWebP(
     inputBuffer: Buffer,
@@ -391,27 +355,26 @@ class ImageService {
   }
 
   /**
-   * @openapi
    * Compresses an image and returns the buffer
    * Does not save to disk, useful for streaming or temporary processing
-   *
-   * @param {Buffer} inputBuffer - Raw image buffer
-   * @param {string} filename - Original filename (for context)
-   * @param {number} [quality=80] - WebP quality (1-100)
-   * @returns {Promise<Buffer>} Compressed image buffer
-   * @throws {Error} If compression fails
-   *
+   * 
+   * @param inputBuffer - Raw image buffer
+   * @param filename - Original filename (for context)
+   * @param quality - WebP quality (1-100, default: 80)
+   * @returns Promise<Buffer> - Compressed image buffer
+   * @throws Error - If compression fails
+   * 
    * @example
-   * ```typescript
    * // Compress to 80% quality
    * const compressed = await imageService.compressImage(buffer, "photo.jpg");
-   *
+   * 
+   * @example
    * // High compression for thumbnails
    * const thumbnail = await imageService.compressImage(buffer, "photo.jpg", 60);
-   *
+   * 
+   * @example
    * // Minimal compression for quality preservation
    * const highQuality = await imageService.compressImage(buffer, "photo.jpg", 95);
-   * ```
    */
   async compressImage(
     inputBuffer: Buffer,
@@ -422,26 +385,24 @@ class ImageService {
   }
 
   /**
-   * @openapi
    * Deletes an image file from the upload directory
-   *
-   * @param {string} filename - Name of the file to delete
-   * @returns {Promise<boolean>} True if deleted successfully, false otherwise
-   *
+   * 
+   * @param filename - Name of the file to delete
+   * @returns Promise<boolean> - True if deleted successfully, false otherwise
+   * 
    * @example
-   * ```typescript
    * // Delete a processed image
    * const deleted = await imageService.deleteImage("1699876543210_photo.webp");
    * if (deleted) {
    *   console.log("Image deleted successfully");
    * }
-   *
+   * 
+   * @example
    * // Handle deletion in cleanup routine
    * const oldImages = ["image1.webp", "image2.webp", "image3.webp"];
    * for (const img of oldImages) {
    *   await imageService.deleteImage(img);
    * }
-   * ```
    */
   async deleteImage(filename: string): Promise<boolean> {
     try {
@@ -455,24 +416,20 @@ class ImageService {
   }
 
   /**
-   * @openapi
    * Gets the full file system path for an image
-   *
-   * @param {string} filename - Image filename
-   * @returns {string} Full file system path
-   *
+   * 
+   * @param filename - Image filename
+   * @returns string - Full file system path
+   * 
    * @example
-   * ```typescript
    * // Get path for serving files
    * const filePath = imageService.getImagePath("1699876543210_photo.webp");
    * res.sendFile(filePath);
-   *
+   * 
+   * @example
    * // Check if file exists
    * const filePath = imageService.getImagePath("photo.webp");
-   * const exists = await fs.access(filePath)
-   *   .then(() => true)
-   *   .catch(() => false);
-   * ```
+   * const exists = await fs.access(filePath).then(() => true).catch(() => false);
    */
   getImagePath(filename: string): string {
     return path.join(this.uploadDir, filename);

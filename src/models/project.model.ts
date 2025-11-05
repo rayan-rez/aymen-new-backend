@@ -1,8 +1,8 @@
 /**
  * Project Model - WITH MEDIA SUPPORT & UTILITY FUNCTIONS
- * 
+ *
  * Manages real estate development projects with integrated photo and floor plan support
- * 
+ *
  * @module models/project.model
  */
 
@@ -22,494 +22,6 @@ import db from "@/config/database";
 // TYPE DEFINITIONS
 // ============================================================================
 
-/**
- * @openapi
- * components:
- *   schemas:
- *     
- *     ProjectType:
- *       type: string
- *       enum:
- *         - residential
- *         - commercial
- *         - mixed_use
- *         - luxury
- *         - affordable
- *       description: Type of real estate project
- *       example: residential
- *     
- *     ProjectStatus:
- *       type: string
- *       enum:
- *         - planning
- *         - under_construction
- *         - completed
- *         - sold_out
- *       description: Current status of the project
- *       example: under_construction
- *     
- *     Project:
- *       type: object
- *       required:
- *         - id
- *         - name
- *         - slug
- *         - address
- *         - projectType
- *         - status
- *         - completionPercentage
- *         - isFeatured
- *         - isPublished
- *         - createdAt
- *         - updatedAt
- *       properties:
- *         id:
- *           type: integer
- *           description: Unique identifier for the project
- *           example: 1
- *         name:
- *           type: string
- *           description: Project name
- *           example: "Sunrise Residential Complex"
- *         slug:
- *           type: string
- *           description: URL-friendly slug
- *           example: "sunrise-residential-complex"
- *         description:
- *           type: string
- *           nullable: true
- *           description: Primary project description
- *           example: "Luxury residential complex with modern amenities"
- *         descriptionSecondary:
- *           type: string
- *           nullable: true
- *           description: Secondary project description
- *           example: "Located in the heart of downtown with easy access to transportation"
- *         address:
- *           type: string
- *           description: Project physical address
- *           example: "123 Main Street, Downtown District"
- *         latitude:
- *           type: number
- *           format: float
- *           nullable: true
- *           description: Geographic latitude coordinate
- *           minimum: -90
- *           maximum: 90
- *           example: 40.7128
- *         longitude:
- *           type: number
- *           format: float
- *           nullable: true
- *           description: Geographic longitude coordinate
- *           minimum: -180
- *           maximum: 180
- *           example: -74.0060
- *         locationId:
- *           type: integer
- *           nullable: true
- *           description: Associated location identifier
- *           example: 5
- *         projectType:
- *           $ref: '#/components/schemas/ProjectType'
- *         status:
- *           $ref: '#/components/schemas/ProjectStatus'
- *         completionPercentage:
- *           type: integer
- *           description: Project completion percentage (0-100)
- *           minimum: 0
- *           maximum: 100
- *           example: 75
- *         estimatedCompletionDate:
- *           type: string
- *           format: date-time
- *           nullable: true
- *           description: Estimated project completion date
- *           example: "2025-06-30T00:00:00Z"
- *         actualCompletionDate:
- *           type: string
- *           format: date-time
- *           nullable: true
- *           description: Actual project completion date
- *           example: "2024-12-15T00:00:00Z"
- *         totalBlocks:
- *           type: integer
- *           nullable: true
- *           description: Total number of building blocks
- *           example: 3
- *         totalUnits:
- *           type: integer
- *           nullable: true
- *           description: Total number of residential units
- *           example: 150
- *         priceMin:
- *           type: number
- *           format: float
- *           nullable: true
- *           description: Minimum unit price in USD
- *           example: 250000.00
- *         priceMax:
- *           type: number
- *           format: float
- *           nullable: true
- *           description: Maximum unit price in USD
- *           example: 750000.00
- *         mainPhotoUrl:
- *           type: string
- *           nullable: true
- *           description: URL of the main project photo
- *           example: "https://cdn.example.com/projects/main/sunset-view.jpg"
- *         isFeatured:
- *           type: boolean
- *           description: Whether the project is featured on the homepage
- *           example: true
- *         isPublished:
- *           type: boolean
- *           description: Whether the project is published and visible to public
- *           example: true
- *         metaTitle:
- *           type: string
- *           nullable: true
- *           description: SEO meta title
- *           example: "Sunrise Residential Complex - Luxury Living in Downtown"
- *         metaDescription:
- *           type: string
- *           nullable: true
- *           description: SEO meta description
- *           example: "Discover luxury living at Sunrise Residential Complex with modern amenities..."
- *         createdAt:
- *           type: string
- *           format: date-time
- *           description: Creation timestamp
- *           example: "2024-01-15T10:30:00Z"
- *         updatedAt:
- *           type: string
- *           format: date-time
- *           description: Last update timestamp
- *           example: "2024-03-20T14:45:00Z"
- *         deletedAt:
- *           type: string
- *           format: date-time
- *           nullable: true
- *           description: Soft delete timestamp
- *           example: null
- *         location:
- *           type: object
- *           description: Virtual relation - associated location data
- *         apartments:
- *           type: array
- *           description: Virtual relation - associated apartments
- *           items:
- *             type: object
- *         features:
- *           type: array
- *           description: Virtual relation - associated features
- *           items:
- *             type: object
- *         media:
- *           type: array
- *           description: Virtual relation - associated media
- *           items:
- *             type: object
- *         photos:
- *           type: array
- *           description: Polymorphic photos associated with this project
- *           items:
- *             $ref: '#/components/schemas/Photo'
- *         floorPlans:
- *           type: array
- *           description: Polymorphic floor plans associated with this project
- *           items:
- *             $ref: '#/components/schemas/FloorPlan'
- *     
- *     CreateProjectDto:
- *       type: object
- *       required:
- *         - name
- *         - address
- *       properties:
- *         name:
- *           type: string
- *           description: Project name
- *           example: "Sunrise Residential Complex"
- *         slug:
- *           type: string
- *           description: URL-friendly slug (auto-generated if not provided)
- *           example: "sunrise-residential-complex"
- *         description:
- *           type: string
- *           nullable: true
- *           description: Primary project description
- *           example: "Luxury residential complex with modern amenities"
- *         descriptionSecondary:
- *           type: string
- *           nullable: true
- *           description: Secondary project description
- *           example: "Located in the heart of downtown with easy access to transportation"
- *         address:
- *           type: string
- *           description: Project physical address
- *           example: "123 Main Street, Downtown District"
- *         latitude:
- *           type: number
- *           format: float
- *           nullable: true
- *           description: Geographic latitude coordinate
- *           minimum: -90
- *           maximum: 90
- *           example: 40.7128
- *         longitude:
- *           type: number
- *           format: float
- *           nullable: true
- *           description: Geographic longitude coordinate
- *           minimum: -180
- *           maximum: 180
- *           example: -74.0060
- *         locationId:
- *           type: integer
- *           nullable: true
- *           description: Associated location identifier
- *           example: 5
- *         projectType:
- *           $ref: '#/components/schemas/ProjectType'
- *         status:
- *           $ref: '#/components/schemas/ProjectStatus'
- *         completionPercentage:
- *           type: integer
- *           description: Project completion percentage (0-100)
- *           minimum: 0
- *           maximum: 100
- *           example: 75
- *         estimatedCompletionDate:
- *           type: string
- *           format: date-time
- *           nullable: true
- *           description: Estimated project completion date
- *           example: "2025-06-30T00:00:00Z"
- *         actualCompletionDate:
- *           type: string
- *           format: date-time
- *           nullable: true
- *           description: Actual project completion date
- *           example: "2024-12-15T00:00:00Z"
- *         totalBlocks:
- *           type: integer
- *           nullable: true
- *           description: Total number of building blocks
- *           example: 3
- *         totalUnits:
- *           type: integer
- *           nullable: true
- *           description: Total number of residential units
- *           example: 150
- *         priceMin:
- *           type: number
- *           format: float
- *           nullable: true
- *           description: Minimum unit price in USD
- *           example: 250000.00
- *         priceMax:
- *           type: number
- *           format: float
- *           nullable: true
- *           description: Maximum unit price in USD
- *           example: 750000.00
- *         mainPhotoUrl:
- *           type: string
- *           nullable: true
- *           description: URL of the main project photo
- *           example: "https://cdn.example.com/projects/main/sunset-view.jpg"
- *         isFeatured:
- *           type: boolean
- *           description: Whether the project is featured on the homepage
- *           example: true
- *         isPublished:
- *           type: boolean
- *           description: Whether the project is published and visible to public
- *           example: true
- *         metaTitle:
- *           type: string
- *           nullable: true
- *           description: SEO meta title
- *           example: "Sunrise Residential Complex - Luxury Living in Downtown"
- *         metaDescription:
- *           type: string
- *           nullable: true
- *           description: SEO meta description
- *           example: "Discover luxury living at Sunrise Residential Complex with modern amenities..."
- *     
- *     UpdateProjectDto:
- *       allOf:
- *         - $ref: '#/components/schemas/CreateProjectDto'
- *         - type: object
- *           properties:
- *             id:
- *               type: integer
- *               description: Project ID (for update operations)
- *               example: 1
- *     
- *     ProjectQueryOptions:
- *       allOf:
- *         - $ref: '#/components/schemas/AdvancedQueryOptions'
- *         - type: object
- *           properties:
- *             projectType:
- *               $ref: '#/components/schemas/ProjectType'
- *             status:
- *               $ref: '#/components/schemas/ProjectStatus'
- *             isFeatured:
- *               type: boolean
- *               description: Filter by featured status
- *               example: true
- *             isPublished:
- *               type: boolean
- *               description: Filter by published status
- *               example: true
- *             locationId:
- *               type: integer
- *               description: Filter by location ID
- *               example: 5
- *             minPrice:
- *               type: number
- *               format: float
- *               description: Minimum price filter
- *               example: 200000
- *             maxPrice:
- *               type: number
- *               format: float
- *               description: Maximum price filter
- *               example: 1000000
- *             minCompletion:
- *               type: integer
- *               description: Minimum completion percentage filter
- *               example: 50
- *             maxCompletion:
- *               type: integer
- *               description: Maximum completion percentage filter
- *               example: 100
- *             hasCoordinates:
- *               type: boolean
- *               description: Filter projects with valid geographic coordinates
- *               example: true
- *             includePhotos:
- *               type: boolean
- *               description: Include polymorphic photos in results
- *               example: true
- *             includeFloorPlans:
- *               type: boolean
- *               description: Include polymorphic floor plans in results
- *               example: true
- *     
- *     ProjectStats:
- *       type: object
- *       properties:
- *         totalApartments:
- *           type: integer
- *           description: Total number of apartments in the project
- *           example: 150
- *         availableApartments:
- *           type: integer
- *           description: Number of available apartments
- *           example: 45
- *         reservedApartments:
- *           type: integer
- *           description: Number of reserved apartments
- *           example: 30
- *         soldApartments:
- *           type: integer
- *           description: Number of sold apartments
- *           example: 75
- *         soldPercentage:
- *           type: number
- *           format: float
- *           description: Percentage of units sold
- *           example: 50.0
- *         mediaCount:
- *           type: integer
- *           description: Total count of media items
- *           example: 25
- *         featuresCount:
- *           type: integer
- *           description: Number of features associated with the project
- *           example: 15
- *         photoCount:
- *           type: integer
- *           description: Number of photos associated with the project
- *           example: 18
- *         floorPlanCount:
- *           type: integer
- *           description: Number of floor plans associated with the project
- *           example: 7
- *     
- *     ProjectWithStats:
- *       allOf:
- *         - $ref: '#/components/schemas/Project'
- *         - type: object
- *           required:
- *             - stats
- *           properties:
- *             stats:
- *               $ref: '#/components/schemas/ProjectStats'
- *     
- *     ProjectMediaResult:
- *       type: object
- *       properties:
- *         photos:
- *           type: array
- *           items:
- *             $ref: '#/components/schemas/Photo'
- *           description: Array of photos associated with the project
- *         floorPlans:
- *           type: array
- *           items:
- *             $ref: '#/components/schemas/FloorPlan'
- *           description: Array of floor plans associated with the project
- *     
- *     ProjectFeature:
- *       type: object
- *       properties:
- *         id:
- *           type: integer
- *           description: Feature ID
- *           example: 1
- *         name:
- *           type: string
- *           description: Feature name
- *           example: "Swimming Pool"
- *         slug:
- *           type: string
- *           description: URL-friendly feature slug
- *           example: "swimming-pool"
- *         icon:
- *           type: string
- *           nullable: true
- *           description: Feature icon identifier
- *           example: "pool"
- *         translations:
- *           type: object
- *           nullable: true
- *           description: Feature translations object
- *           example: {"en": "Swimming Pool", "es": "Piscina"}
- *         category:
- *           type: string
- *           description: Feature category
- *           example: "recreation"
- *         displayOrder:
- *           type: integer
- *           description: Display order for the feature
- *           example: 1
- *         projectValue:
- *           type: string
- *           nullable: true
- *           description: Project-specific feature value
- *           example: "Olympic Size"
- *         projectDisplayOrder:
- *           type: integer
- *           description: Project-specific display order
- *           example: 2
- */
-
 export enum ProjectType {
   RESIDENTIAL = "residential",
   COMMERCIAL = "commercial",
@@ -526,7 +38,6 @@ export enum ProjectStatus {
 }
 
 /**
- * @openapi
  * Project entity interface WITH MEDIA
  */
 export interface Project {
@@ -584,8 +95,6 @@ export interface CreateProjectDto {
   actualCompletionDate?: Date | null;
   totalBlocks?: number | null;
   totalUnits?: number | null;
-  priceMin?: number | null;
-  priceMax?: number | null;
   mainPhotoUrl?: string | null;
   isFeatured?: boolean;
   isPublished?: boolean;
@@ -630,16 +139,6 @@ export interface ProjectWithStats extends Project {
 // PROJECT MODEL CLASS
 // ============================================================================
 
-/**
- * @openapi
- * Project Model Class
- * 
- * Manages real estate development projects with comprehensive pricing,
- * media management, availability tracking, and detailed analytics
- * 
- * @class ProjectModel
- * @extends BaseModel<Project, CreateProjectDto, UpdateProjectDto>
- */
 export class ProjectModel extends BaseModel<
   Project,
   CreateProjectDto,
@@ -707,20 +206,6 @@ export class ProjectModel extends BaseModel<
   // LIFECYCLE HOOKS
   // ============================================================================
 
-  /**
-   * @openapi
-   * beforeCreate lifecycle hook
-   * 
-   * Validates and processes project data before creation:
-   * - Auto-generates slug if not provided
-   * - Validates geographic coordinates
-   * - Validates completion percentage
-   * - Ensures published projects have required fields
-   * 
-   * @param {CreateProjectDto} data - Project creation data
-   * @returns {Promise<CreateProjectDto>} Processed data
-   * @throws {Error} If validation fails
-   */
   protected async beforeCreate(
     data: CreateProjectDto
   ): Promise<CreateProjectDto> {
@@ -751,33 +236,10 @@ export class ProjectModel extends BaseModel<
     return data;
   }
 
-  /**
-   * @openapi
-   * afterCreate lifecycle hook
-   * 
-   * Logs project creation event
-   * 
-   * @param {Project} entity - Created project entity
-   * @returns {Promise<void>}
-   */
   protected async afterCreate(entity: Project): Promise<void> {
     console.log(`✅ Project created: ${entity.name} (ID: ${entity.id})`);
   }
 
-  /**
-   * @openapi
-   * beforeUpdate lifecycle hook
-   * 
-   * Validates and processes project data before update:
-   * - Validates geographic coordinates if being updated
-   * - Validates completion percentage
-   * - Ensures published projects have required fields
-   * 
-   * @param {number} id - Project ID
-   * @param {UpdateProjectDto} data - Project update data
-   * @returns {Promise<UpdateProjectDto>} Processed data
-   * @throws {Error} If validation fails
-   */
   protected async beforeUpdate(
     id: number,
     data: UpdateProjectDto
@@ -810,15 +272,6 @@ export class ProjectModel extends BaseModel<
     return data;
   }
 
-  /**
-   * @openapi
-   * beforeDelete lifecycle hook
-   * 
-   * Checks if project has associated apartments before deletion
-   * 
-   * @param {number} id - Project ID to delete
-   * @returns {Promise<void>}
-   */
   protected async beforeDelete(id: number): Promise<void> {
     // Check if project has apartments
     const apartmentCount = await this.db("apartments")
@@ -839,12 +292,7 @@ export class ProjectModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Loads photos for a project
-   * 
-   * @param {number} projectId - Project identifier
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Photo[]>} Array of photos
    */
   async loadPhotos(
     projectId: number,
@@ -854,12 +302,7 @@ export class ProjectModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Loads floor plans for a project
-   * 
-   * @param {number} projectId - Project identifier
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<FloorPlan[]>} Array of floor plans
    */
   async loadFloorPlans(
     projectId: number,
@@ -874,12 +317,7 @@ export class ProjectModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Loads both photos and floor plans for a project
-   * 
-   * @param {number} projectId - Project identifier
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<{ photos: Photo[]; floorPlans: FloorPlan[] }>} Media objects
    */
   async loadMedia(
     projectId: number,
@@ -894,12 +332,7 @@ export class ProjectModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Loads photos for multiple projects (optimized)
-   * 
-   * @param {number[]} projectIds - Array of project identifiers
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Map<number, Photo[]>>} Map of project ID to photos
    */
   private async loadPhotosForMany(
     projectIds: number[],
@@ -927,12 +360,7 @@ export class ProjectModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Loads floor plans for multiple projects (optimized)
-   * 
-   * @param {number[]} projectIds - Array of project identifiers
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Map<number, FloorPlan[]>>} Map of project ID to floor plans
    */
   private async loadFloorPlansForMany(
     projectIds: number[],
@@ -964,11 +392,7 @@ export class ProjectModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Load features for a single project
-   * 
-   * @param {any} project - Project object
-   * @returns {Promise<any>} Project with features attached
    */
   async loadFeaturesForProject(project: any): Promise<any> {
     const features = await db("project_features as pf")
@@ -1004,11 +428,7 @@ export class ProjectModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Load features for multiple projects (optimized)
-   * 
-   * @param {any[]} projects - Array of project objects
-   * @returns {Promise<any[]>} Projects with features attached
    */
   async loadFeaturesForProjects(projects: any[]): Promise<any[]> {
     if (projects.length === 0) return projects;
@@ -1066,11 +486,7 @@ export class ProjectModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Load photos and floor plans for apartments
-   * 
-   * @param {any[]} apartments - Array of apartment objects
-   * @returns {Promise<any[]>} Apartments with media attached
    */
   async loadApartmentMedia(apartments: any[]): Promise<any[]> {
     if (!apartments || apartments.length === 0) return apartments;
@@ -1116,11 +532,7 @@ export class ProjectModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Load apartment media for multiple projects (optimized)
-   * 
-   * @param {any[]} projects - Array of project objects
-   * @returns {Promise<any[]>} Projects with apartment media attached
    */
   async loadApartmentMediaForProjects(projects: any[]): Promise<any[]> {
     if (!projects || projects.length === 0) return projects;
@@ -1165,24 +577,14 @@ export class ProjectModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Publishes a project
-   * 
-   * @param {number} id - Project ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Project | null>} Updated project or null
    */
   async publish(id: number, trx?: Knex.Transaction): Promise<Project | null> {
     return this.update(id, { isPublished: true } as UpdateProjectDto, trx);
   }
 
   /**
-   * @openapi
    * Unpublishes a project
-   * 
-   * @param {number} id - Project ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Project | null>} Updated project or null
    */
   async unpublish(id: number, trx?: Knex.Transaction): Promise<Project | null> {
     return this.update(id, { isPublished: false } as UpdateProjectDto, trx);
@@ -1193,12 +595,7 @@ export class ProjectModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Finds projects with custom filters and optional media loading
-   * 
-   * @param {ProjectQueryOptions} [options={}] - Query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Project[]>} Array of projects
    */
   async findProjects(
     options: ProjectQueryOptions = {},
@@ -1248,13 +645,7 @@ export class ProjectModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Finds project by ID with optional media
-   * 
-   * @param {number} id - Project ID
-   * @param {object} [options={}] - Media loading options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Project | null>} Project with media or null
    */
   async findByIdWithMedia(
     id: number,
@@ -1292,11 +683,7 @@ export class ProjectModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Maps database record to Project entity
-   * 
-   * @param {DatabaseRecord} record - Database record
-   * @returns {Project} Project entity
    */
   protected mapToEntity(record: DatabaseRecord): Project {
     return {
@@ -1334,12 +721,7 @@ export class ProjectModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Applies project-specific filters to query
-   * 
-   * @param {Knex.QueryBuilder} query - Database query builder
-   * @param {ProjectQueryOptions} options - Query options
-   * @returns {Knex.QueryBuilder} Modified query builder
    */
   private applyProjectFilters(
     query: Knex.QueryBuilder,
@@ -1402,14 +784,6 @@ export class ProjectModel extends BaseModel<
   // VALIDATION METHODS
   // ============================================================================
 
-  /**
-   * @openapi
-   * Validates geographic coordinates
-   * 
-   * @param {number | null | undefined} latitude - Latitude value
-   * @param {number | null | undefined} longitude - Longitude value
-   * @throws {Error} If coordinates are invalid
-   */
   private validateCoordinates(
     latitude?: number | null,
     longitude?: number | null
@@ -1427,13 +801,6 @@ export class ProjectModel extends BaseModel<
     }
   }
 
-  /**
-   * @openapi
-   * Validates completion percentage
-   * 
-   * @param {number} percentage - Completion percentage
-   * @throws {Error} If percentage is invalid
-   */
   private validateCompletionPercentage(percentage: number): void {
     if (percentage < 0 || percentage > 100) {
       throw new Error("Completion percentage must be between 0 and 100");

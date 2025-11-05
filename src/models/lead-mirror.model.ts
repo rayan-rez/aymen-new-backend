@@ -20,277 +20,6 @@ import { Knex } from "knex";
 // ============================================================================
 
 /**
- * @openapi
- * components:
- *   schemas:
- *     
- *     LeadType:
- *       type: string
- *       enum:
- *         - contact_form
- *         - project_inquiry
- *         - appointment
- *         - catalog_download
- *         - land_submission
- *         - job_application
- *         - event_registration
- *       description: Type of lead (mirrors form types)
- *       example: contact_form
- *     
- *     SyncStatus:
- *       type: string
- *       enum:
- *         - pending
- *         - synced
- *         - failed
- *         - updated
- *       description: Synchronization status with Odoo CRM
- *       example: synced
- *     
- *     LeadMirror:
- *       type: object
- *       required:
- *         - id
- *         - odooLeadId
- *         - formSubmissionId
- *         - leadType
- *         - syncStatus
- *         - createdAt
- *         - updatedAt
- *       properties:
- *         id:
- *           type: integer
- *           description: Unique identifier for the lead mirror
- *           example: 1
- *         odooLeadId:
- *           type: string
- *           description: Corresponding Odoo CRM lead ID
- *           example: "ODOO-12345"
- *         formSubmissionId:
- *           type: integer
- *           description: Associated form submission ID
- *           example: 456
- *         leadType:
- *           $ref: '#/components/schemas/LeadType'
- *         email:
- *           type: string
- *           nullable: true
- *           format: email
- *           description: Cached email address for quick access
- *           example: "john.doe@example.com"
- *         phone:
- *           type: string
- *           nullable: true
- *           description: Cached phone number for quick access
- *           example: "+1-555-0123"
- *         syncStatus:
- *           $ref: '#/components/schemas/SyncStatus'
- *         syncedAt:
- *           type: string
- *           format: date-time
- *           nullable: true
- *           description: When lead was last successfully synced
- *           example: "2024-01-15T10:30:00Z"
- *         lastOdooUpdate:
- *           type: string
- *           format: date-time
- *           nullable: true
- *           description: When lead was last updated in Odoo
- *           example: "2024-01-16T14:20:00Z"
- *         syncError:
- *           type: string
- *           nullable: true
- *           description: Error message if sync failed
- *           example: "Connection timeout to Odoo API"
- *         syncRetryCount:
- *           type: integer
- *           description: Number of sync retry attempts
- *           example: 2
- *         createdAt:
- *           type: string
- *           format: date-time
- *           description: Creation timestamp
- *           example: "2024-01-15T10:30:00Z"
- *         updatedAt:
- *           type: string
- *           format: date-time
- *           description: Last update timestamp
- *           example: "2024-01-15T10:30:00Z"
- *         formSubmission:
- *           type: object
- *           description: Virtual relation - associated form submission data
- *         eventRegistrations:
- *           type: array
- *           items:
- *             type: object
- *           description: Virtual relation - associated event registrations
- *     
- *     CreateLeadMirrorDto:
- *       type: object
- *       required:
- *         - odooLeadId
- *         - formSubmissionId
- *         - leadType
- *       properties:
- *         odooLeadId:
- *           type: string
- *           description: Corresponding Odoo CRM lead ID
- *           example: "ODOO-12345"
- *         formSubmissionId:
- *           type: integer
- *           description: Associated form submission ID
- *           example: 456
- *         leadType:
- *           $ref: '#/components/schemas/LeadType'
- *         email:
- *           type: string
- *           format: email
- *           description: Cached email address for quick access
- *           example: "john.doe@example.com"
- *         phone:
- *           type: string
- *           description: Cached phone number for quick access
- *           example: "+1-555-0123"
- *         syncStatus:
- *           $ref: '#/components/schemas/SyncStatus'
- *         syncedAt:
- *           type: string
- *           format: date-time
- *           description: When lead was last successfully synced
- *           example: "2024-01-15T10:30:00Z"
- *         lastOdooUpdate:
- *           type: string
- *           format: date-time
- *           description: When lead was last updated in Odoo
- *           example: "2024-01-16T14:20:00Z"
- *         syncError:
- *           type: string
- *           nullable: true
- *           description: Error message if sync failed
- *           example: "Connection timeout to Odoo API"
- *         syncRetryCount:
- *           type: integer
- *           description: Number of sync retry attempts
- *           example: 0
- *     
- *     UpdateLeadMirrorDto:
- *       allOf:
- *         - $ref: '#/components/schemas/CreateLeadMirrorDto'
- *         - type: object
- *           properties:
- *             id:
- *               type: integer
- *               description: Lead mirror ID (for update operations)
- *               example: 1
- *     
- *     LeadMirrorQueryOptions:
- *       allOf:
- *         - $ref: '#/components/schemas/AdvancedQueryOptions'
- *         - type: object
- *           properties:
- *             leadType:
- *               $ref: '#/components/schemas/LeadType'
- *             syncStatus:
- *               $ref: '#/components/schemas/SyncStatus'
- *             formSubmissionId:
- *               type: integer
- *               description: Filter by form submission ID
- *               example: 456
- *             odooLeadId:
- *               type: string
- *               description: Filter by Odoo lead ID
- *               example: "ODOO-12345"
- *             email:
- *               type: string
- *               description: Filter by email (partial match)
- *               example: "john@"
- *             phone:
- *               type: string
- *               description: Filter by phone (partial match)
- *               example: "555"
- *             hasSyncError:
- *               type: boolean
- *               description: Filter by sync error presence
- *               example: false
- *             syncedAfter:
- *               type: string
- *               format: date-time
- *               description: Filter leads synced after this date
- *               example: "2024-01-01T00:00:00Z"
- *             syncedBefore:
- *               type: string
- *               format: date-time
- *               description: Filter leads synced before this date
- *               example: "2024-12-31T23:59:59Z"
- *     
- *     LeadMirrorStatistics:
- *       type: object
- *       properties:
- *         total:
- *           type: integer
- *           description: Total number of lead mirrors
- *           example: 1250
- *         synced:
- *           type: integer
- *           description: Number of successfully synced leads
- *           example: 1150
- *         pending:
- *           type: integer
- *           description: Number of pending sync leads
- *           example: 50
- *         failed:
- *           type: integer
- *           description: Number of failed sync leads
- *           example: 25
- *         updated:
- *           type: integer
- *           description: Number of updated leads
- *           example: 25
- *         avgRetryCount:
- *           type: number
- *           format: float
- *           description: Average number of retry attempts
- *           example: 1.2
- *         withErrors:
- *           type: integer
- *           description: Number of leads with sync errors
- *           example: 30
- *         successRate:
- *           type: number
- *           format: float
- *           description: Percentage of successful syncs
- *           example: 92.0
- *     
- *     SyncError:
- *       type: object
- *       properties:
- *         id:
- *           type: integer
- *           description: Lead mirror ID
- *           example: 1
- *         odooLeadId:
- *           type: string
- *           description: Odoo lead ID
- *           example: "ODOO-12345"
- *         leadType:
- *           $ref: '#/components/schemas/LeadType'
- *         syncError:
- *           type: string
- *           description: Error message
- *           example: "Connection timeout to Odoo API"
- *         syncRetryCount:
- *           type: integer
- *           description: Number of retry attempts
- *           example: 3
- *         updatedAt:
- *           type: string
- *           format: date-time
- *           description: Last update timestamp
- *           example: "2024-01-15T10:30:00Z"
- */
-
-/**
- * @openapi
  * Lead type enumeration (mirrors form types)
  */
 export enum LeadType {
@@ -304,7 +33,6 @@ export enum LeadType {
 }
 
 /**
- * @openapi
  * Sync status enumeration
  */
 export enum SyncStatus {
@@ -315,7 +43,6 @@ export enum SyncStatus {
 }
 
 /**
- * @openapi
  * Lead mirror entity interface
  */
 export interface LeadMirror {
@@ -345,7 +72,6 @@ export interface LeadMirror {
 }
 
 /**
- * @openapi
  * Create lead mirror DTO
  */
 export interface CreateLeadMirrorDto {
@@ -362,13 +88,11 @@ export interface CreateLeadMirrorDto {
 }
 
 /**
- * @openapi
  * Update lead mirror DTO
  */
 export interface UpdateLeadMirrorDto extends Partial<CreateLeadMirrorDto> {}
 
 /**
- * @openapi
  * Lead mirror query options
  */
 export interface LeadMirrorQueryOptions extends AdvancedQueryOptions {
@@ -387,17 +111,6 @@ export interface LeadMirrorQueryOptions extends AdvancedQueryOptions {
 // LEAD MIRROR MODEL CLASS
 // ============================================================================
 
-/**
- * @openapi
- * Lead Mirror Model Class
- * 
- * Minimal local table that mirrors leads created in Odoo ERP.
- * Acts as correlation table between local form submissions and external CRM
- * with comprehensive sync tracking and error management.
- * 
- * @class LeadMirrorModel
- * @extends BaseModel<LeadMirror, CreateLeadMirrorDto, UpdateLeadMirrorDto>
- */
 export class LeadMirrorModel extends BaseModel<
   LeadMirror,
   CreateLeadMirrorDto,
@@ -407,7 +120,7 @@ export class LeadMirrorModel extends BaseModel<
   protected primaryKey = "id";
 
   protected config = {
-    softDelete: false, // Lead mirrors are never deleted
+    softDelete: false,
     timestamps: true,
     defaultSortColumn: "created_at",
     defaultSortOrder: "desc" as const,
@@ -449,18 +162,7 @@ export class LeadMirrorModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
-   * beforeCreate lifecycle hook
-   * 
-   * Validates and processes lead mirror data before creation:
-   * - Validates that Odoo lead ID doesn't already exist
-   * - Sets default sync status to SYNCED
-   * - Sets synced timestamp if status is SYNCED
-   * - Validates that associated form submission exists
-   * 
-   * @param {CreateLeadMirrorDto} data - Lead mirror creation data
-   * @returns {Promise<CreateLeadMirrorDto>} Processed data
-   * @throws {Error} If validation fails
+   * Before create hook - validate
    */
   protected async beforeCreate(
     data: CreateLeadMirrorDto
@@ -487,13 +189,7 @@ export class LeadMirrorModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * afterCreate lifecycle hook
-   * 
-   * Logs lead mirror creation and updates associated form submission
-   * 
-   * @param {LeadMirror} entity - Created lead mirror entity
-   * @returns {Promise<void>}
+   * After create hook - update form submission
    */
   protected async afterCreate(entity: LeadMirror): Promise<void> {
     console.log(
@@ -510,12 +206,7 @@ export class LeadMirrorModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Finds lead mirrors with custom filters
-   * 
-   * @param {LeadMirrorQueryOptions} [options={}] - Query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<LeadMirror[]>} Array of lead mirrors
    */
   async findLeads(
     options: LeadMirrorQueryOptions = {},
@@ -543,12 +234,7 @@ export class LeadMirrorModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Gets paginated leads
-   * 
-   * @param {LeadMirrorQueryOptions & { page: number; limit: number }} options - Query and pagination options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<PaginatedResult<LeadMirror>>} Paginated result
    */
   async paginateLeads(
     options: LeadMirrorQueryOptions & { page: number; limit: number },
@@ -577,12 +263,7 @@ export class LeadMirrorModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Counts leads with filters
-   * 
-   * @param {LeadMirrorQueryOptions} [options={}] - Query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<number>} Count of leads
    */
   async countLeads(
     options: LeadMirrorQueryOptions = {},
@@ -599,13 +280,7 @@ export class LeadMirrorModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Finds lead by Odoo lead ID
-   * 
-   * @param {string} odooLeadId - Odoo CRM lead ID
-   * @param {object} [options={}] - Query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<LeadMirror | null>} Lead mirror or null
    */
   async findByOdooLeadId(
     odooLeadId: string,
@@ -616,13 +291,7 @@ export class LeadMirrorModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Finds lead by form submission ID
-   * 
-   * @param {number} formSubmissionId - Form submission ID
-   * @param {object} [options={}] - Query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<LeadMirror | null>} Lead mirror or null
    */
   async findByFormSubmission(
     formSubmissionId: number,
@@ -633,13 +302,7 @@ export class LeadMirrorModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Finds leads by email
-   * 
-   * @param {string} email - Email address
-   * @param {LeadMirrorQueryOptions} [options={}] - Additional query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<LeadMirror[]>} Array of lead mirrors
    */
   async findByEmail(
     email: string,
@@ -650,13 +313,7 @@ export class LeadMirrorModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Finds leads by phone
-   * 
-   * @param {string} phone - Phone number
-   * @param {LeadMirrorQueryOptions} [options={}] - Additional query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<LeadMirror[]>} Array of lead mirrors
    */
   async findByPhone(
     phone: string,
@@ -667,12 +324,7 @@ export class LeadMirrorModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Gets leads pending sync
-   * 
-   * @param {number} [limit=100] - Maximum number of results
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<LeadMirror[]>} Array of leads pending sync
    */
   async getPendingSync(
     limit: number = 100,
@@ -690,12 +342,7 @@ export class LeadMirrorModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Gets failed sync leads
-   * 
-   * @param {LeadMirrorQueryOptions} [options={}] - Additional query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<LeadMirror[]>} Array of failed sync leads
    */
   async getFailedSync(
     options: LeadMirrorQueryOptions = {},
@@ -709,13 +356,7 @@ export class LeadMirrorModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Marks lead as synced
-   * 
-   * @param {number} id - Lead mirror ID
-   * @param {Date} [lastOdooUpdate] - Optional last update timestamp from Odoo
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<LeadMirror | null>} Updated lead mirror or null
    */
   async markSynced(
     id: number,
@@ -735,13 +376,7 @@ export class LeadMirrorModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Marks lead as sync failed
-   * 
-   * @param {number} id - Lead mirror ID
-   * @param {string} error - Error message
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<LeadMirror | null>} Updated lead mirror or null
    */
   async markSyncFailed(
     id: number,
@@ -765,13 +400,7 @@ export class LeadMirrorModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Marks lead as updated
-   * 
-   * @param {number} id - Lead mirror ID
-   * @param {Date} [lastOdooUpdate] - Optional last update timestamp from Odoo
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<LeadMirror | null>} Updated lead mirror or null
    */
   async markUpdated(
     id: number,
@@ -789,12 +418,7 @@ export class LeadMirrorModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Resets sync status for retry
-   * 
-   * @param {number} id - Lead mirror ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<LeadMirror | null>} Updated lead mirror or null
    */
   async resetSyncStatus(
     id: number,
@@ -812,14 +436,7 @@ export class LeadMirrorModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * Updates cached contact information
-   * 
-   * @param {number} id - Lead mirror ID
-   * @param {string} [email] - Optional email address
-   * @param {string} [phone] - Optional phone number
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<LeadMirror | null>} Updated lead mirror or null
+   * Updates cached contact info
    */
   async updateContactInfo(
     id: number,
@@ -843,13 +460,7 @@ export class LeadMirrorModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Gets sync statistics
-   * 
-   * @param {Date} [dateFrom] - Optional start date filter
-   * @param {Date} [dateTo] - Optional end date filter
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<LeadMirrorStatistics>} Comprehensive statistics object
    */
   async getSyncStatistics(
     dateFrom?: Date,
@@ -902,13 +513,7 @@ export class LeadMirrorModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Gets breakdown by lead type
-   * 
-   * @param {Date} [dateFrom] - Optional start date filter
-   * @param {Date} [dateTo] - Optional end date filter
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<any[]>} Array of lead type statistics
    */
   async getBreakdownByLeadType(
     dateFrom?: Date,
@@ -933,12 +538,7 @@ export class LeadMirrorModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Gets recent sync errors
-   * 
-   * @param {number} [limit=20] - Maximum number of results
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<any[]>} Array of sync error information
    */
   async getRecentSyncErrors(
     limit: number = 20,
@@ -965,12 +565,7 @@ export class LeadMirrorModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Applies lead-specific filters to query
-   * 
-   * @param {Knex.QueryBuilder} query - Database query builder
-   * @param {LeadMirrorQueryOptions} options - Query options
-   * @returns {Knex.QueryBuilder} Modified query builder
    */
   private applyLeadFilters(
     query: Knex.QueryBuilder,
@@ -1039,11 +634,7 @@ export class LeadMirrorModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Maps database record to LeadMirror entity
-   * 
-   * @param {DatabaseRecord} record - Database record
-   * @returns {LeadMirror} LeadMirror entity
    */
   protected mapToEntity(record: DatabaseRecord): LeadMirror {
     return {

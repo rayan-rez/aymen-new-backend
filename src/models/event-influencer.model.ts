@@ -1,9 +1,9 @@
 /**
  * Event Influencer Model
- * 
+ *
  * Manages influencer collaborations for events
  * Tracks deliverables, reach, engagement, and compensation
- * 
+ *
  * @module models/event-influencer.model
  */
 
@@ -18,379 +18,6 @@ import { Knex } from "knex";
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
-
-/**
- * @openapi
- * components:
- *   schemas:
- *     
- *     InfluencerTier:
- *       type: string
- *       enum:
- *         - micro
- *         - macro
- *         - mega
- *         - celebrity
- *       description: |
- *         Influencer tier based on follower count:
- *         - micro: <100K followers
- *         - macro: 100K-1M followers  
- *         - mega: >1M followers
- *         - celebrity: Celebrity status
- *       example: macro
- *     
- *     CollaborationStatus:
- *       type: string
- *       enum:
- *         - invited
- *         - confirmed
- *         - declined
- *         - attended
- *         - cancelled
- *       description: Current status of influencer collaboration
- *       example: confirmed
- *     
- *     EventInfluencer:
- *       type: object
- *       required:
- *         - id
- *         - eventId
- *         - influencerName
- *         - tier
- *         - status
- *         - compensationCurrency
- *         - requiredPosts
- *         - completedPosts
- *         - createdAt
- *         - updatedAt
- *       properties:
- *         id:
- *           type: integer
- *           description: Unique identifier for the influencer collaboration
- *           example: 1
- *         eventId:
- *           type: integer
- *           description: Associated event identifier
- *           example: 5
- *         influencerName:
- *           type: string
- *           description: Full name of the influencer
- *           example: "Sarah Johnson"
- *         influencerHandle:
- *           type: string
- *           nullable: true
- *           description: Social media handle/username
- *           example: "@sarah_johnson_official"
- *         influencerEmail:
- *           type: string
- *           nullable: true
- *           description: Contact email address
- *           example: "sarah@influencer.com"
- *         influencerPhone:
- *           type: string
- *           nullable: true
- *           description: Contact phone number
- *           example: "+1-555-0123"
- *         socialLinks:
- *           type: object
- *           nullable: true
- *           description: JSON object containing social media platform links
- *           example: {"instagram": "https://instagram.com/sarah", "tiktok": "https://tiktok.com/@sarah"}
- *         followerCount:
- *           type: integer
- *           nullable: true
- *           description: Total follower count across platforms
- *           example: 250000
- *         tier:
- *           $ref: '#/components/schemas/InfluencerTier'
- *         status:
- *           $ref: '#/components/schemas/CollaborationStatus'
- *         role:
- *           type: string
- *           nullable: true
- *           description: Specific role or title for the event
- *           example: "VIP Guest Speaker"
- *         compensationAmount:
- *           type: number
- *           format: float
- *           nullable: true
- *           description: Compensation amount in specified currency
- *           example: 5000.00
- *         compensationCurrency:
- *           type: string
- *           description: Currency code for compensation
- *           example: "USD"
- *         contractTerms:
- *           type: string
- *           nullable: true
- *           description: Contract terms and conditions
- *           example: "Must post 3 stories and 1 feed post during event"
- *         requiredPosts:
- *           type: integer
- *           description: Number of required social media posts
- *           example: 4
- *         completedPosts:
- *           type: integer
- *           description: Number of completed social media posts
- *           example: 2
- *         reachAchieved:
- *           type: integer
- *           nullable: true
- *           description: Total reach achieved across all posts
- *           example: 50000
- *         engagementCount:
- *           type: integer
- *           nullable: true
- *           description: Total engagement count (likes, comments, shares)
- *           example: 2500
- *         notes:
- *           type: string
- *           nullable: true
- *           description: Public notes about the collaboration
- *           example: "Great engagement with luxury brands"
- *         internalNotes:
- *           type: string
- *           nullable: true
- *           description: Internal team notes (hidden from API responses)
- *           example: "High maintenance but delivers results"
- *         customFields:
- *           type: object
- *           nullable: true
- *           description: Custom fields for additional data
- *           example: {"niche": "luxury_lifestyle", "brand_affinity": "high"}
- *         invitedAt:
- *           type: string
- *           format: date-time
- *           nullable: true
- *           description: Timestamp when influencer was invited
- *           example: "2024-01-15T10:30:00Z"
- *         confirmedAt:
- *           type: string
- *           format: date-time
- *           nullable: true
- *           description: Timestamp when influencer confirmed participation
- *           example: "2024-01-20T14:45:00Z"
- *         attendedAt:
- *           type: string
- *           format: date-time
- *           nullable: true
- *           description: Timestamp when influencer attended the event
- *           example: "2024-02-01T18:00:00Z"
- *         createdAt:
- *           type: string
- *           format: date-time
- *           description: Creation timestamp
- *           example: "2024-01-15T10:30:00Z"
- *         updatedAt:
- *           type: string
- *           format: date-time
- *           description: Last update timestamp
- *           example: "2024-01-25T16:20:00Z"
- *         event:
- *           type: object
- *           description: Virtual relation - associated event data
- *     
- *     CreateInfluencerDto:
- *       type: object
- *       required:
- *         - eventId
- *         - influencerName
- *       properties:
- *         eventId:
- *           type: integer
- *           description: Associated event identifier
- *           example: 5
- *         influencerName:
- *           type: string
- *           description: Full name of the influencer
- *           example: "Sarah Johnson"
- *         influencerHandle:
- *           type: string
- *           description: Social media handle/username
- *           example: "@sarah_johnson_official"
- *         influencerEmail:
- *           type: string
- *           description: Contact email address
- *           example: "sarah@influencer.com"
- *         influencerPhone:
- *           type: string
- *           description: Contact phone number
- *           example: "+1-555-0123"
- *         socialLinks:
- *           type: object
- *           description: JSON object containing social media platform links
- *           example: {"instagram": "https://instagram.com/sarah", "tiktok": "https://tiktok.com/@sarah"}
- *         followerCount:
- *           type: integer
- *           description: Total follower count across platforms
- *           example: 250000
- *         tier:
- *           $ref: '#/components/schemas/InfluencerTier'
- *         status:
- *           $ref: '#/components/schemas/CollaborationStatus'
- *         role:
- *           type: string
- *           description: Specific role or title for the event
- *           example: "VIP Guest Speaker"
- *         compensationAmount:
- *           type: number
- *           format: float
- *           description: Compensation amount in specified currency
- *           example: 5000.00
- *         compensationCurrency:
- *           type: string
- *           description: Currency code for compensation
- *           example: "USD"
- *         contractTerms:
- *           type: string
- *           description: Contract terms and conditions
- *           example: "Must post 3 stories and 1 feed post during event"
- *         requiredPosts:
- *           type: integer
- *           description: Number of required social media posts
- *           example: 4
- *         completedPosts:
- *           type: integer
- *           description: Number of completed social media posts
- *           example: 2
- *         reachAchieved:
- *           type: integer
- *           description: Total reach achieved across all posts
- *           example: 50000
- *         engagementCount:
- *           type: integer
- *           description: Total engagement count (likes, comments, shares)
- *           example: 2500
- *         notes:
- *           type: string
- *           description: Public notes about the collaboration
- *           example: "Great engagement with luxury brands"
- *         internalNotes:
- *           type: string
- *           description: Internal team notes (hidden from API responses)
- *           example: "High maintenance but delivers results"
- *         customFields:
- *           type: object
- *           description: Custom fields for additional data
- *           example: {"niche": "luxury_lifestyle", "brand_affinity": "high"}
- *         invitedAt:
- *           type: string
- *           format: date-time
- *           description: Timestamp when influencer was invited
- *           example: "2024-01-15T10:30:00Z"
- *     
- *     UpdateInfluencerDto:
- *       allOf:
- *         - $ref: '#/components/schemas/CreateInfluencerDto'
- *         - type: object
- *           properties:
- *             confirmedAt:
- *               type: string
- *               format: date-time
- *               nullable: true
- *               description: Timestamp when influencer confirmed participation
- *               example: "2024-01-20T14:45:00Z"
- *             attendedAt:
- *               type: string
- *               format: date-time
- *               nullable: true
- *               description: Timestamp when influencer attended the event
- *               example: "2024-02-01T18:00:00Z"
- *     
- *     InfluencerQueryOptions:
- *       allOf:
- *         - $ref: '#/components/schemas/AdvancedQueryOptions'
- *         - type: object
- *           properties:
- *             eventId:
- *               type: integer
- *               description: Filter by event ID
- *               example: 5
- *             tier:
- *               $ref: '#/components/schemas/InfluencerTier'
- *             status:
- *               $ref: '#/components/schemas/CollaborationStatus'
- *             minFollowers:
- *               type: integer
- *               description: Minimum follower count filter
- *               example: 10000
- *             maxFollowers:
- *               type: integer
- *               description: Maximum follower count filter
- *               example: 1000000
- *             hasAttended:
- *               type: boolean
- *               description: Filter by attendance status
- *               example: true
- *             hasEmail:
- *               type: boolean
- *               description: Filter by email presence
- *               example: true
- *     
- *     InfluencerStatistics:
- *       type: object
- *       properties:
- *         total:
- *           type: integer
- *           description: Total number of influencers
- *           example: 25
- *         confirmed:
- *           type: integer
- *           description: Number of confirmed influencers
- *           example: 18
- *         attended:
- *           type: integer
- *           description: Number of influencers who attended
- *           example: 15
- *         declined:
- *           type: integer
- *           description: Number of declined influencers
- *           example: 5
- *         totalFollowers:
- *           type: integer
- *           description: Combined follower count of all influencers
- *           example: 5000000
- *         totalReach:
- *           type: integer
- *           description: Total reach achieved across all posts
- *           example: 2500000
- *         totalEngagement:
- *           type: integer
- *           description: Total engagement count across all posts
- *           example: 125000
- *         totalRequiredPosts:
- *           type: integer
- *           description: Total number of required posts
- *           example: 100
- *         totalCompletedPosts:
- *           type: integer
- *           description: Total number of completed posts
- *           example: 85
- *         totalCompensation:
- *           type: number
- *           format: float
- *           description: Total compensation amount
- *           example: 50000.00
- *         deliverableCompletionRate:
- *           type: number
- *           format: float
- *           description: Percentage of deliverables completed
- *           example: 85.0
- *     
- *     TierDistribution:
- *       type: object
- *       properties:
- *         tier:
- *           $ref: '#/components/schemas/InfluencerTier'
- *         count:
- *           type: integer
- *           description: Number of influencers in this tier
- *           example: 8
- *         totalFollowers:
- *           type: integer
- *           description: Combined follower count for this tier
- *           example: 1200000
- */
 
 /**
  * Influencer tier enumeration
@@ -414,7 +41,6 @@ export enum CollaborationStatus {
 }
 
 /**
- * @openapi
  * Event influencer entity interface
  */
 export interface EventInfluencer {
@@ -466,7 +92,6 @@ export interface EventInfluencer {
 }
 
 /**
- * @openapi
  * Create influencer DTO
  */
 export interface CreateInfluencerDto {
@@ -494,7 +119,6 @@ export interface CreateInfluencerDto {
 }
 
 /**
- * @openapi
  * Update influencer DTO
  */
 export interface UpdateInfluencerDto extends Partial<CreateInfluencerDto> {
@@ -503,7 +127,6 @@ export interface UpdateInfluencerDto extends Partial<CreateInfluencerDto> {
 }
 
 /**
- * @openapi
  * Influencer query options
  */
 export interface InfluencerQueryOptions extends AdvancedQueryOptions {
@@ -520,16 +143,6 @@ export interface InfluencerQueryOptions extends AdvancedQueryOptions {
 // EVENT INFLUENCER MODEL CLASS
 // ============================================================================
 
-/**
- * @openapi
- * Event Influencer Model Class
- * 
- * Manages influencer collaborations for events with comprehensive tracking
- * of deliverables, reach, engagement metrics, and compensation
- * 
- * @class EventInfluencerModel
- * @extends BaseModel<EventInfluencer, CreateInfluencerDto, UpdateInfluencerDto>
- */
 export class EventInfluencerModel extends BaseModel<
   EventInfluencer,
   CreateInfluencerDto,
@@ -592,19 +205,7 @@ export class EventInfluencerModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
-   * beforeCreate lifecycle hook
-   * 
-   * Validates and processes influencer data before creation:
-   * - Validates that associated event exists
-   * - Prevents duplicate emails for same event
-   * - Auto-calculates tier based on follower count
-   * - Sets default values for status, currency, and post counts
-   * - Sets invitation timestamp
-   * 
-   * @param {CreateInfluencerDto} data - Influencer creation data
-   * @returns {Promise<CreateInfluencerDto>} Processed data
-   * @throws {Error} If validation fails
+   * Before create hook - validate and set defaults
    */
   protected async beforeCreate(
     data: CreateInfluencerDto
@@ -659,13 +260,7 @@ export class EventInfluencerModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * afterCreate lifecycle hook
-   * 
-   * Logs influencer creation event
-   * 
-   * @param {EventInfluencer} entity - Created influencer entity
-   * @returns {Promise<void>}
+   * After create hook
    */
   protected async afterCreate(entity: EventInfluencer): Promise<void> {
     console.log(
@@ -674,19 +269,7 @@ export class EventInfluencerModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * beforeUpdate lifecycle hook
-   * 
-   * Validates and processes influencer data before update:
-   * - Sets confirmation timestamp when status changes to confirmed
-   * - Sets attendance timestamp when marked as attended
-   * - Validates that completed posts don't exceed required posts
-   * - Updates tier if follower count changes
-   * 
-   * @param {number} id - Influencer ID
-   * @param {UpdateInfluencerDto} data - Influencer update data
-   * @returns {Promise<UpdateInfluencerDto>} Processed data
-   * @throws {Error} If validation fails
+   * Before update hook
    */
   protected async beforeUpdate(
     id: number,
@@ -734,12 +317,7 @@ export class EventInfluencerModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Finds influencers with custom filters
-   * 
-   * @param {InfluencerQueryOptions} [options={}] - Query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventInfluencer[]>} Array of influencers
    */
   async findInfluencers(
     options: InfluencerQueryOptions = {},
@@ -767,12 +345,7 @@ export class EventInfluencerModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Gets paginated influencers
-   * 
-   * @param {InfluencerQueryOptions & { page: number; limit: number }} options - Query and pagination options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<PaginatedResult<EventInfluencer>>} Paginated result
    */
   async paginateInfluencers(
     options: InfluencerQueryOptions & { page: number; limit: number },
@@ -801,12 +374,7 @@ export class EventInfluencerModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Counts influencers with filters
-   * 
-   * @param {InfluencerQueryOptions} [options={}] - Query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<number>} Count of influencers
    */
   async countInfluencers(
     options: InfluencerQueryOptions = {},
@@ -822,13 +390,7 @@ export class EventInfluencerModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Finds influencers by event
-   * 
-   * @param {number} eventId - Event identifier
-   * @param {InfluencerQueryOptions} [options={}] - Additional query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventInfluencer[]>} Array of influencers for the event
    */
   async findByEvent(
     eventId: number,
@@ -839,12 +401,7 @@ export class EventInfluencerModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Finds confirmed influencers
-   * 
-   * @param {number} eventId - Event identifier
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventInfluencer[]>} Array of confirmed influencers
    */
   async findConfirmed(
     eventId: number,
@@ -857,12 +414,7 @@ export class EventInfluencerModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Finds attended influencers
-   * 
-   * @param {number} eventId - Event identifier
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventInfluencer[]>} Array of attended influencers
    */
   async findAttended(
     eventId: number,
@@ -875,13 +427,7 @@ export class EventInfluencerModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Finds by tier
-   * 
-   * @param {InfluencerTier} tier - Influencer tier
-   * @param {InfluencerQueryOptions} [options={}] - Additional query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventInfluencer[]>} Array of influencers in the specified tier
    */
   async findByTier(
     tier: InfluencerTier,
@@ -896,13 +442,7 @@ export class EventInfluencerModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Updates status
-   * 
-   * @param {number} id - Influencer ID
-   * @param {CollaborationStatus} status - New status
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventInfluencer | null>} Updated influencer or null
    */
   async updateStatus(
     id: number,
@@ -913,12 +453,7 @@ export class EventInfluencerModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Confirms collaboration
-   * 
-   * @param {number} id - Influencer ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventInfluencer | null>} Updated influencer or null
    */
   async confirm(
     id: number,
@@ -935,12 +470,7 @@ export class EventInfluencerModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Marks as attended
-   * 
-   * @param {number} id - Influencer ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventInfluencer | null>} Updated influencer or null
    */
   async markAttended(
     id: number,
@@ -957,12 +487,7 @@ export class EventInfluencerModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Cancels collaboration
-   * 
-   * @param {number} id - Influencer ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventInfluencer | null>} Updated influencer or null
    */
   async cancel(
     id: number,
@@ -976,13 +501,7 @@ export class EventInfluencerModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Updates post count
-   * 
-   * @param {number} id - Influencer ID
-   * @param {number} completedPosts - New completed post count
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventInfluencer | null>} Updated influencer or null
    */
   async updatePostCount(
     id: number,
@@ -993,12 +512,7 @@ export class EventInfluencerModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Increments completed posts
-   * 
-   * @param {number} id - Influencer ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventInfluencer | null>} Updated influencer or null
    */
   async incrementCompletedPosts(
     id: number,
@@ -1014,15 +528,7 @@ export class EventInfluencerModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * Updates reach and engagement metrics
-   * 
-   * @param {number} id - Influencer ID
-   * @param {object} data - Metrics data
-   * @param {number} [data.reachAchieved] - Total reach achieved
-   * @param {number} [data.engagementCount] - Total engagement count
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventInfluencer | null>} Updated influencer or null
+   * Updates reach and engagement
    */
   async updateMetrics(
     id: number,
@@ -1037,12 +543,7 @@ export class EventInfluencerModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Gets influencer statistics for an event
-   * 
-   * @param {number} eventId - Event identifier
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<InfluencerStatistics>} Comprehensive statistics object
    */
   async getEventStatistics(
     eventId: number,
@@ -1092,12 +593,7 @@ export class EventInfluencerModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Gets tier distribution for an event
-   * 
-   * @param {number} eventId - Event identifier
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<TierDistribution[]>} Array of tier distributions
    */
   async getTierDistribution(
     eventId: number,
@@ -1115,13 +611,7 @@ export class EventInfluencerModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * Gets top performing influencers by reach
-   * 
-   * @param {number} eventId - Event identifier
-   * @param {number} [limit=10] - Maximum number of results
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventInfluencer[]>} Array of top performing influencers
+   * Gets top performers
    */
   async getTopPerformers(
     eventId: number,
@@ -1143,11 +633,7 @@ export class EventInfluencerModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Calculates influencer tier based on follower count
-   * 
-   * @param {number} followerCount - Number of followers
-   * @returns {InfluencerTier} Calculated tier
    */
   private calculateTier(followerCount: number): InfluencerTier {
     if (followerCount < 100000) return InfluencerTier.MICRO;
@@ -1156,12 +642,7 @@ export class EventInfluencerModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Applies influencer-specific filters to query
-   * 
-   * @param {Knex.QueryBuilder} query - Database query builder
-   * @param {InfluencerQueryOptions} options - Query options
-   * @returns {Knex.QueryBuilder} Modified query builder
    */
   private applyInfluencerFilters(
     query: Knex.QueryBuilder,
@@ -1224,11 +705,7 @@ export class EventInfluencerModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Maps database record to EventInfluencer entity
-   * 
-   * @param {DatabaseRecord} record - Database record
-   * @returns {EventInfluencer} EventInfluencer entity
    */
   protected mapToEntity(record: DatabaseRecord): EventInfluencer {
     return {

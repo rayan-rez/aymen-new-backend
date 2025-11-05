@@ -1,11 +1,11 @@
 /**
  * Feature Model
- * 
+ *
  * Property amenities and features with multi-language support
  * Used in project_features junction table for many-to-many relationships
- * 
+ *
  * Translation structure: { "en": "Swimming Pool", "fr": "Piscine", "ar": "مسبح" }
- * 
+ *
  * @module models/feature.model
  */
 
@@ -23,207 +23,6 @@ import { Knex } from "knex";
 // ============================================================================
 
 /**
- * @openapi
- * components:
- *   schemas:
- *     
- *     FeatureCategory:
- *       type: string
- *       enum:
- *         - amenity
- *         - security
- *         - transport
- *         - leisure
- *         - other
- *       description: Category classification for property features
- *       example: amenity
- *     
- *     FeatureTranslations:
- *       type: object
- *       additionalProperties:
- *         type: string
- *       description: Multi-language translations for feature names
- *       example:
- *         en: "Swimming Pool"
- *         fr: "Piscine"
- *         ar: "مسبح"
- *     
- *     Feature:
- *       type: object
- *       required:
- *         - id
- *         - name
- *         - slug
- *         - category
- *         - displayOrder
- *         - isActive
- *         - createdAt
- *         - updatedAt
- *       properties:
- *         id:
- *           type: integer
- *           description: Unique identifier for the feature
- *           example: 1
- *         name:
- *           type: string
- *           description: Primary name of the feature (typically in English)
- *           example: "Swimming Pool"
- *         slug:
- *           type: string
- *           description: URL-friendly slug for the feature
- *           example: "swimming-pool"
- *         icon:
- *           type: string
- *           nullable: true
- *           description: Icon identifier or CSS class for UI display
- *           example: "pool-icon"
- *         translations:
- *           $ref: '#/components/schemas/FeatureTranslations'
- *         category:
- *           $ref: '#/components/schemas/FeatureCategory'
- *         displayOrder:
- *           type: integer
- *           description: Display order for sorting features in UI
- *           example: 5
- *         isActive:
- *           type: boolean
- *           description: Whether the feature is active and available for use
- *           example: true
- *         createdAt:
- *           type: string
- *           format: date-time
- *           description: Creation timestamp
- *           example: "2024-01-15T10:30:00Z"
- *         updatedAt:
- *           type: string
- *           format: date-time
- *           description: Last update timestamp
- *           example: "2024-01-25T16:20:00Z"
- *         projects:
- *           type: array
- *           description: Virtual relation - associated projects
- *           items:
- *             type: object
- *     
- *     CreateFeatureDto:
- *       type: object
- *       required:
- *         - name
- *       properties:
- *         name:
- *           type: string
- *           description: Primary name of the feature
- *           example: "Swimming Pool"
- *         slug:
- *           type: string
- *           description: URL-friendly slug (auto-generated if not provided)
- *           example: "swimming-pool"
- *         icon:
- *           type: string
- *           description: Icon identifier or CSS class for UI display
- *           example: "pool-icon"
- *         translations:
- *           $ref: '#/components/schemas/FeatureTranslations'
- *         category:
- *           $ref: '#/components/schemas/FeatureCategory'
- *         displayOrder:
- *           type: integer
- *           description: Display order for sorting features in UI
- *           example: 5
- *         isActive:
- *           type: boolean
- *           description: Whether the feature is active and available for use
- *           example: true
- *     
- *     UpdateFeatureDto:
- *       allOf:
- *         - $ref: '#/components/schemas/CreateFeatureDto'
- *         - type: object
- *           properties:
- *             id:
- *               type: integer
- *               description: Feature ID (for update operations)
- *               example: 1
- *     
- *     FeatureQueryOptions:
- *       allOf:
- *         - $ref: '#/components/schemas/AdvancedQueryOptions'
- *         - type: object
- *           properties:
- *             category:
- *               $ref: '#/components/schemas/FeatureCategory'
- *             isActive:
- *               type: boolean
- *               description: Filter by active status
- *               example: true
- *             hasIcon:
- *               type: boolean
- *               description: Filter features that have icons
- *               example: true
- *             hasTranslations:
- *               type: boolean
- *               description: Filter features that have translations
- *               example: false
- *     
- *     FeatureWithUsage:
- *       allOf:
- *         - $ref: '#/components/schemas/Feature'
- *         - type: object
- *           required:
- *             - projectCount
- *             - usagePercentage
- *           properties:
- *             projectCount:
- *               type: integer
- *               description: Number of projects using this feature
- *               example: 15
- *             usagePercentage:
- *               type: number
- *               format: float
- *               description: Percentage of total projects using this feature
- *               example: 25.5
- *     
- *     FeatureStatistics:
- *       type: object
- *       properties:
- *         total:
- *           type: integer
- *           description: Total number of features
- *           example: 50
- *         active:
- *           type: integer
- *           description: Number of active features
- *           example: 45
- *         inactive:
- *           type: integer
- *           description: Number of inactive features
- *           example: 5
- *         withIcon:
- *           type: integer
- *           description: Number of features with icons
- *           example: 35
- *         withTranslations:
- *           type: integer
- *           description: Number of features with translations
- *           example: 20
- *     
- *     CategoryStatistics:
- *       type: object
- *       properties:
- *         category:
- *           $ref: '#/components/schemas/FeatureCategory'
- *         total:
- *           type: integer
- *           description: Total number of features in this category
- *           example: 12
- *         active:
- *           type: integer
- *           description: Number of active features in this category
- *           example: 10
- */
-
-/**
- * @openapi
  * Feature category enumeration
  */
 export enum FeatureCategory {
@@ -235,7 +34,6 @@ export enum FeatureCategory {
 }
 
 /**
- * @openapi
  * Translations structure
  */
 export interface FeatureTranslations {
@@ -246,7 +44,6 @@ export interface FeatureTranslations {
 }
 
 /**
- * @openapi
  * Feature entity interface
  */
 export interface Feature {
@@ -266,7 +63,6 @@ export interface Feature {
 }
 
 /**
- * @openapi
  * Create feature DTO
  */
 export interface CreateFeatureDto {
@@ -280,13 +76,11 @@ export interface CreateFeatureDto {
 }
 
 /**
- * @openapi
  * Update feature DTO
  */
 export interface UpdateFeatureDto extends Partial<CreateFeatureDto> {}
 
 /**
- * @openapi
  * Feature query options
  */
 export interface FeatureQueryOptions extends AdvancedQueryOptions {
@@ -297,7 +91,6 @@ export interface FeatureQueryOptions extends AdvancedQueryOptions {
 }
 
 /**
- * @openapi
  * Feature with usage count
  */
 export interface FeatureWithUsage extends Feature {
@@ -309,16 +102,6 @@ export interface FeatureWithUsage extends Feature {
 // FEATURE MODEL CLASS
 // ============================================================================
 
-/**
- * @openapi
- * Feature Model Class
- * 
- * Manages property amenities and features with comprehensive multi-language
- * support, categorization, and usage analytics
- * 
- * @class FeatureModel
- * @extends BaseModel<Feature, CreateFeatureDto, UpdateFeatureDto>
- */
 export class FeatureModel extends BaseModel<
   Feature,
   CreateFeatureDto,
@@ -364,18 +147,7 @@ export class FeatureModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
-   * beforeCreate lifecycle hook
-   * 
-   * Validates and processes feature data before creation:
-   * - Auto-generates slug if not provided
-   * - Validates slug uniqueness
-   * - Sets default category
-   * - Validates translation format
-   * 
-   * @param {CreateFeatureDto} data - Feature creation data
-   * @returns {Promise<CreateFeatureDto>} Processed data
-   * @throws {Error} If validation fails
+   * Before create hook - validate and generate slug
    */
   protected async beforeCreate(
     data: CreateFeatureDto
@@ -405,13 +177,7 @@ export class FeatureModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * afterCreate lifecycle hook
-   * 
-   * Logs feature creation event
-   * 
-   * @param {Feature} entity - Created feature entity
-   * @returns {Promise<void>}
+   * After create hook
    */
   protected async afterCreate(entity: Feature): Promise<void> {
     console.log(
@@ -420,17 +186,7 @@ export class FeatureModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * beforeUpdate lifecycle hook
-   * 
-   * Validates and processes feature data before update:
-   * - Validates slug uniqueness if changing
-   * - Validates translation format
-   * 
-   * @param {number} id - Feature ID
-   * @param {UpdateFeatureDto} data - Feature update data
-   * @returns {Promise<UpdateFeatureDto>} Processed data
-   * @throws {Error} If validation fails
+   * Before update hook
    */
   protected async beforeUpdate(
     id: number,
@@ -453,14 +209,7 @@ export class FeatureModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * beforeDelete lifecycle hook
-   * 
-   * Prevents deletion of features that are in use by projects
-   * 
-   * @param {number} id - Feature ID to delete
-   * @returns {Promise<void>}
-   * @throws {Error} If feature is in use
+   * Before delete hook - check usage
    */
   protected async beforeDelete(id: number): Promise<void> {
     // Check if feature is used in any projects
@@ -481,12 +230,7 @@ export class FeatureModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Finds features with custom filters
-   * 
-   * @param {FeatureQueryOptions} [options={}] - Query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Feature[]>} Array of features
    */
   async findFeatures(
     options: FeatureQueryOptions = {},
@@ -514,12 +258,7 @@ export class FeatureModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Gets paginated features
-   * 
-   * @param {FeatureQueryOptions & { page: number; limit: number }} options - Query and pagination options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<PaginatedResult<Feature>>} Paginated result
    */
   async paginateFeatures(
     options: FeatureQueryOptions & { page: number; limit: number },
@@ -548,12 +287,7 @@ export class FeatureModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Counts features with filters
-   * 
-   * @param {FeatureQueryOptions} [options={}] - Query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<number>} Count of features
    */
   async countFeatures(
     options: FeatureQueryOptions = {},
@@ -569,13 +303,7 @@ export class FeatureModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Finds features by category
-   * 
-   * @param {FeatureCategory} category - Feature category
-   * @param {FeatureQueryOptions} [options={}] - Additional query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Feature[]>} Array of features in the category
    */
   async findByCategory(
     category: FeatureCategory,
@@ -589,12 +317,7 @@ export class FeatureModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Finds active features only
-   * 
-   * @param {FeatureQueryOptions} [options={}] - Additional query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Feature[]>} Array of active features
    */
   async findActive(
     options: FeatureQueryOptions = {},
@@ -607,13 +330,7 @@ export class FeatureModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Finds feature by slug
-   * 
-   * @param {string} slug - Feature slug
-   * @param {object} [options={}] - Query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Feature | null>} Feature or null
    */
   async findBySlug(
     slug: string,
@@ -624,12 +341,7 @@ export class FeatureModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Finds features with icons
-   * 
-   * @param {FeatureQueryOptions} [options={}] - Additional query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Feature[]>} Array of features with icons
    */
   async findWithIcons(
     options: FeatureQueryOptions = {},
@@ -639,12 +351,7 @@ export class FeatureModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Finds features with translations
-   * 
-   * @param {FeatureQueryOptions} [options={}] - Additional query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Feature[]>} Array of features with translations
    */
   async findWithTranslations(
     options: FeatureQueryOptions = {},
@@ -658,13 +365,7 @@ export class FeatureModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Gets feature name in specific language
-   * 
-   * @param {Feature} feature - Feature object
-   * @param {string} language - Language code (e.g., 'en', 'fr', 'ar')
-   * @param {boolean} [fallbackToName=true] - Whether to fallback to primary name
-   * @returns {string} Translated name or primary name if translation not available
    */
   getTranslatedName(
     feature: Feature,
@@ -683,14 +384,7 @@ export class FeatureModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Updates translations for a feature
-   * 
-   * @param {number} id - Feature ID
-   * @param {FeatureTranslations} translations - Translation object
-   * @param {boolean} [merge=true] - Whether to merge with existing translations
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Feature | null>} Updated feature or null
    */
   async updateTranslations(
     id: number,
@@ -717,14 +411,7 @@ export class FeatureModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Adds single translation
-   * 
-   * @param {number} id - Feature ID
-   * @param {string} language - Language code
-   * @param {string} translation - Translation text
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Feature | null>} Updated feature or null
    */
   async addTranslation(
     id: number,
@@ -736,13 +423,7 @@ export class FeatureModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Removes translation for a language
-   * 
-   * @param {number} id - Feature ID
-   * @param {string} language - Language code
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Feature | null>} Updated feature or null
    */
   async removeTranslation(
     id: number,
@@ -763,12 +444,7 @@ export class FeatureModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Gets feature with usage count
-   * 
-   * @param {number} id - Feature ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<FeatureWithUsage | null>} Feature with usage statistics
    */
   async getWithUsage(
     id: number,
@@ -787,12 +463,7 @@ export class FeatureModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Gets usage statistics for a feature
-   * 
-   * @param {number} id - Feature ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<{projectCount: number, usagePercentage: number}>} Usage statistics
    */
   async getUsageStats(
     id: number,
@@ -822,12 +493,7 @@ export class FeatureModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Gets all features with usage counts
-   * 
-   * @param {FeatureQueryOptions} [options={}] - Query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<FeatureWithUsage[]>} Array of features with usage statistics
    */
   async getAllWithUsage(
     options: FeatureQueryOptions = {},
@@ -850,12 +516,7 @@ export class FeatureModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * Gets most popular features by usage
-   * 
-   * @param {number} [limit=10] - Maximum number of results
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<FeatureWithUsage[]>} Array of most popular features
+   * Gets most popular features
    */
   async getMostPopular(
     limit: number = 10,
@@ -895,11 +556,7 @@ export class FeatureModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * Gets unused features (not used in any projects)
-   * 
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Feature[]>} Array of unused features
+   * Gets unused features
    */
   async getUnused(trx?: Knex.Transaction): Promise<Feature[]> {
     const connection = trx || this.db;
@@ -914,11 +571,7 @@ export class FeatureModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Gets feature statistics by category
-   * 
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<CategoryStatistics[]>} Array of category statistics
    */
   async getStatisticsByCategory(trx?: Knex.Transaction): Promise<any[]> {
     const connection = trx || this.db;
@@ -934,11 +587,7 @@ export class FeatureModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Gets overall feature statistics
-   * 
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<FeatureStatistics>} Comprehensive statistics object
    */
   async getStatistics(trx?: Knex.Transaction): Promise<any> {
     const connection = trx || this.db;
@@ -968,12 +617,7 @@ export class FeatureModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Reorders features
-   * 
-   * @param {number[]} featureIds - Array of feature IDs in desired order
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<boolean>} Success status
    */
   async reorder(
     featureIds: number[],
@@ -995,13 +639,7 @@ export class FeatureModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Reorders features within a category
-   * 
-   * @param {FeatureCategory} category - Category to reorder within
-   * @param {number[]} featureIds - Array of feature IDs in desired order
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<boolean>} Success status
    */
   async reorderByCategory(
     category: FeatureCategory,
@@ -1028,11 +666,7 @@ export class FeatureModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Validates translations format
-   * 
-   * @param {FeatureTranslations} translations - Translation object to validate
-   * @throws {Error} If validation fails
    */
   private validateTranslations(translations: FeatureTranslations): void {
     if (!translations || typeof translations !== "object") {
@@ -1059,12 +693,7 @@ export class FeatureModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Applies feature-specific filters to query
-   * 
-   * @param {Knex.QueryBuilder} query - Database query builder
-   * @param {FeatureQueryOptions} options - Query options
-   * @returns {Knex.QueryBuilder} Modified query builder
    */
   private applyFeatureFilters(
     query: Knex.QueryBuilder,
@@ -1106,11 +735,7 @@ export class FeatureModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Maps database record to Feature entity
-   * 
-   * @param {DatabaseRecord} record - Database record
-   * @returns {Feature} Feature entity
    */
   protected mapToEntity(record: DatabaseRecord): Feature {
     return {

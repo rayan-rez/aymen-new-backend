@@ -1,9 +1,9 @@
 /**
  * Event Registration Model
- * 
+ *
  * Manages event attendee registrations with status tracking
  * Handles guest counts, check-ins, and marketing attribution
- * 
+ *
  * @module models/event-registration.model
  */
 
@@ -13,368 +13,6 @@ import { Knex } from "knex";
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
-
-/**
- * @openapi
- * components:
- *   schemas:
- *     
- *     RegistrationStatus:
- *       type: string
- *       enum:
- *         - confirmed
- *         - pending
- *         - cancelled
- *         - attended
- *         - no_show
- *       description: |
- *         Registration status:
- *         - confirmed: Registration confirmed
- *         - pending: Registration pending approval
- *         - cancelled: Registration cancelled
- *         - attended: Attendee checked in at event
- *         - no_show: Registered but didn't attend
- *       example: confirmed
- *     
- *     EventRegistration:
- *       type: object
- *       required:
- *         - id
- *         - eventId
- *         - fullName
- *         - email
- *         - numberOfGuests
- *         - status
- *         - registeredAt
- *         - confirmationSent
- *         - reminderSent
- *         - feedbackRequested
- *         - createdAt
- *         - updatedAt
- *       properties:
- *         id:
- *           type: integer
- *           description: Unique identifier for the registration
- *           example: 1
- *         eventId:
- *           type: integer
- *           description: Associated event identifier
- *           example: 5
- *         leadMirrorId:
- *           type: integer
- *           nullable: true
- *           description: Associated lead mirror identifier
- *           example: 123
- *         fullName:
- *           type: string
- *           description: Full name of the registrant
- *           example: "John Smith"
- *         email:
- *           type: string
- *           format: email
- *           description: Email address of the registrant
- *           example: "john.smith@example.com"
- *         phone:
- *           type: string
- *           nullable: true
- *           description: Phone number of the registrant
- *           example: "+1-555-0123"
- *         company:
- *           type: string
- *           nullable: true
- *           description: Company or organization name
- *           example: "Tech Corp"
- *         jobTitle:
- *           type: string
- *           nullable: true
- *           description: Job title or position
- *           example: "Marketing Director"
- *         numberOfGuests:
- *           type: integer
- *           minimum: 1
- *           description: Number of guests including the registrant
- *           example: 2
- *         specialRequirements:
- *           type: string
- *           nullable: true
- *           description: Any special requirements or dietary restrictions
- *           example: "Vegetarian meal, wheelchair accessible"
- *         notes:
- *           type: string
- *           nullable: true
- *           description: Internal notes about the registration
- *           example: "VIP guest, arrived early"
- *         status:
- *           $ref: '#/components/schemas/RegistrationStatus'
- *         registeredAt:
- *           type: string
- *           format: date-time
- *           description: Timestamp when registration was created
- *           example: "2024-01-15T10:30:00Z"
- *         cancelledAt:
- *           type: string
- *           format: date-time
- *           nullable: true
- *           description: Timestamp when registration was cancelled
- *           example: null
- *         checkedInAt:
- *           type: string
- *           format: date-time
- *           nullable: true
- *           description: Timestamp when attendee checked in at event
- *           example: "2024-02-01T18:00:00Z"
- *         utmSource:
- *           type: string
- *           nullable: true
- *           description: UTM source for marketing attribution
- *           example: "google"
- *         utmMedium:
- *           type: string
- *           nullable: true
- *           description: UTM medium for marketing attribution
- *           example: "cpc"
- *         utmCampaign:
- *           type: string
- *           nullable: true
- *           description: UTM campaign for marketing attribution
- *           example: "spring_events_2024"
- *         utmTerm:
- *           type: string
- *           nullable: true
- *           description: UTM term for marketing attribution
- *           example: "real estate event"
- *         utmContent:
- *           type: string
- *           nullable: true
- *           description: UTM content for marketing attribution
- *           example: "banner_ad_1"
- *         confirmationSent:
- *           type: boolean
- *           description: Whether confirmation email has been sent
- *           example: true
- *         reminderSent:
- *           type: boolean
- *           description: Whether reminder email has been sent
- *           example: false
- *         feedbackRequested:
- *           type: boolean
- *           description: Whether post-event feedback has been requested
- *           example: false
- *         createdAt:
- *           type: string
- *           format: date-time
- *           description: Creation timestamp
- *           example: "2024-01-15T10:30:00Z"
- *         updatedAt:
- *           type: string
- *           format: date-time
- *           description: Last update timestamp
- *           example: "2024-01-25T16:20:00Z"
- *         event:
- *           type: object
- *           description: Virtual relation - associated event data
- *         leadMirror:
- *           type: object
- *           description: Virtual relation - associated lead mirror data
- *     
- *     CreateRegistrationDto:
- *       type: object
- *       required:
- *         - eventId
- *         - fullName
- *         - email
- *       properties:
- *         eventId:
- *           type: integer
- *           description: Associated event identifier
- *           example: 5
- *         leadMirrorId:
- *           type: integer
- *           description: Associated lead mirror identifier
- *           example: 123
- *         fullName:
- *           type: string
- *           description: Full name of the registrant
- *           example: "John Smith"
- *         email:
- *           type: string
- *           format: email
- *           description: Email address of the registrant
- *           example: "john.smith@example.com"
- *         phone:
- *           type: string
- *           description: Phone number of the registrant
- *           example: "+1-555-0123"
- *         company:
- *           type: string
- *           description: Company or organization name
- *           example: "Tech Corp"
- *         jobTitle:
- *           type: string
- *           description: Job title or position
- *           example: "Marketing Director"
- *         numberOfGuests:
- *           type: integer
- *           minimum: 1
- *           description: Number of guests including the registrant
- *           example: 2
- *         specialRequirements:
- *           type: string
- *           description: Any special requirements or dietary restrictions
- *           example: "Vegetarian meal, wheelchair accessible"
- *         notes:
- *           type: string
- *           description: Internal notes about the registration
- *           example: "VIP guest, arrived early"
- *         status:
- *           $ref: '#/components/schemas/RegistrationStatus'
- *         registeredAt:
- *           type: string
- *           format: date-time
- *           description: Timestamp when registration was created
- *           example: "2024-01-15T10:30:00Z"
- *         utmSource:
- *           type: string
- *           description: UTM source for marketing attribution
- *           example: "google"
- *         utmMedium:
- *           type: string
- *           description: UTM medium for marketing attribution
- *           example: "cpc"
- *         utmCampaign:
- *           type: string
- *           description: UTM campaign for marketing attribution
- *           example: "spring_events_2024"
- *         utmTerm:
- *           type: string
- *           description: UTM term for marketing attribution
- *           example: "real estate event"
- *         utmContent:
- *           type: string
- *           description: UTM content for marketing attribution
- *           example: "banner_ad_1"
- *     
- *     UpdateRegistrationDto:
- *       allOf:
- *         - $ref: '#/components/schemas/CreateRegistrationDto'
- *         - type: object
- *           properties:
- *             cancelledAt:
- *               type: string
- *               format: date-time
- *               nullable: true
- *               description: Timestamp when registration was cancelled
- *               example: null
- *             checkedInAt:
- *               type: string
- *               format: date-time
- *               nullable: true
- *               description: Timestamp when attendee checked in at event
- *               example: "2024-02-01T18:00:00Z"
- *             confirmationSent:
- *               type: boolean
- *               description: Whether confirmation email has been sent
- *               example: true
- *             reminderSent:
- *               type: boolean
- *               description: Whether reminder email has been sent
- *               example: false
- *             feedbackRequested:
- *               type: boolean
- *               description: Whether post-event feedback has been requested
- *               example: false
- *     
- *     RegistrationQueryOptions:
- *       allOf:
- *         - $ref: '#/components/schemas/AdvancedQueryOptions'
- *         - type: object
- *           properties:
- *             eventId:
- *               type: integer
- *               description: Filter by event ID
- *               example: 5
- *             leadMirrorId:
- *               type: integer
- *               description: Filter by lead mirror ID
- *               example: 123
- *             status:
- *               $ref: '#/components/schemas/RegistrationStatus'
- *             email:
- *               type: string
- *               description: Filter by email (partial match)
- *               example: "john@"
- *             phone:
- *               type: string
- *               description: Filter by phone (partial match)
- *               example: "555"
- *             company:
- *               type: string
- *               description: Filter by company (partial match)
- *               example: "Tech"
- *             hasCheckedIn:
- *               type: boolean
- *               description: Filter by check-in status
- *               example: true
- *             registeredAfter:
- *               type: string
- *               format: date-time
- *               description: Filter registrations created after this date
- *               example: "2024-01-01T00:00:00Z"
- *             registeredBefore:
- *               type: string
- *               format: date-time
- *               description: Filter registrations created before this date
- *               example: "2024-12-31T23:59:59Z"
- *             confirmationSent:
- *               type: boolean
- *               description: Filter by confirmation email status
- *               example: true
- *             reminderSent:
- *               type: boolean
- *               description: Filter by reminder email status
- *               example: false
- *     
- *     RegistrationStatistics:
- *       type: object
- *       properties:
- *         total:
- *           type: integer
- *           description: Total number of registrations
- *           example: 150
- *         confirmed:
- *           type: integer
- *           description: Number of confirmed registrations
- *           example: 120
- *         pending:
- *           type: integer
- *           description: Number of pending registrations
- *           example: 15
- *         cancelled:
- *           type: integer
- *           description: Number of cancelled registrations
- *           example: 10
- *         attended:
- *           type: integer
- *           description: Number of attendees who checked in
- *           example: 95
- *         noShow:
- *           type: integer
- *           description: Number of no-shows
- *           example: 25
- *         totalGuests:
- *           type: integer
- *           description: Total number of guests including registrants
- *           example: 180
- *         checkedIn:
- *           type: integer
- *           description: Number of registrations that checked in
- *           example: 95
- *         attendanceRate:
- *           type: number
- *           format: float
- *           description: Percentage of confirmed registrations that attended
- *           example: 79.17
- */
 
 /**
  * Registration status enumeration
@@ -388,7 +26,6 @@ export enum RegistrationStatus {
 }
 
 /**
- * @openapi
  * Event registration entity interface
  */
 export interface EventRegistration {
@@ -436,7 +73,6 @@ export interface EventRegistration {
 }
 
 /**
- * @openapi
  * Create registration DTO
  */
 export interface CreateRegistrationDto {
@@ -460,7 +96,6 @@ export interface CreateRegistrationDto {
 }
 
 /**
- * @openapi
  * Update registration DTO
  */
 export interface UpdateRegistrationDto extends Partial<CreateRegistrationDto> {
@@ -472,7 +107,6 @@ export interface UpdateRegistrationDto extends Partial<CreateRegistrationDto> {
 }
 
 /**
- * @openapi
  * Registration query options
  */
 export interface RegistrationQueryOptions extends AdvancedQueryOptions {
@@ -493,16 +127,6 @@ export interface RegistrationQueryOptions extends AdvancedQueryOptions {
 // EVENT REGISTRATION MODEL CLASS
 // ============================================================================
 
-/**
- * @openapi
- * Event Registration Model Class
- * 
- * Manages event attendee registrations with comprehensive status tracking,
- * guest management, check-in functionality, and marketing attribution
- * 
- * @class EventRegistrationModel
- * @extends BaseModel<EventRegistration, CreateRegistrationDto, UpdateRegistrationDto>
- */
 export class EventRegistrationModel extends BaseModel<
   EventRegistration,
   CreateRegistrationDto,
@@ -566,19 +190,7 @@ export class EventRegistrationModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
-   * beforeCreate lifecycle hook
-   * 
-   * Validates and processes registration data before creation:
-   * - Validates that associated event exists
-   * - Checks if registration is open and deadline hasn't passed
-   * - Validates event capacity
-   * - Prevents duplicate email registrations for same event
-   * - Sets default values for guest count, status, and registration timestamp
-   * 
-   * @param {CreateRegistrationDto} data - Registration creation data
-   * @returns {Promise<CreateRegistrationDto>} Processed data
-   * @throws {Error} If validation fails
+   * Before create hook - validate and check capacity
    */
   protected async beforeCreate(
     data: CreateRegistrationDto
@@ -639,13 +251,7 @@ export class EventRegistrationModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * afterCreate lifecycle hook
-   * 
-   * Logs registration creation and triggers post-registration actions
-   * 
-   * @param {EventRegistration} entity - Created registration entity
-   * @returns {Promise<void>}
+   * After create hook - update event registered count
    */
   protected async afterCreate(entity: EventRegistration): Promise<void> {
     // Event registered count is automatically updated by database trigger
@@ -658,16 +264,7 @@ export class EventRegistrationModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * beforeUpdate lifecycle hook
-   * 
-   * Validates and processes registration data before update:
-   * - Sets cancellation timestamp when status changes to cancelled
-   * - Sets check-in timestamp when marked as attended
-   * 
-   * @param {number} id - Registration ID
-   * @param {UpdateRegistrationDto} data - Registration update data
-   * @returns {Promise<UpdateRegistrationDto>} Processed data
+   * Before update hook - validate status changes
    */
   protected async beforeUpdate(
     id: number,
@@ -698,13 +295,7 @@ export class EventRegistrationModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * afterUpdate lifecycle hook
-   * 
-   * Logs registration updates and triggers post-update actions
-   * 
-   * @param {EventRegistration} entity - Updated registration entity
-   * @returns {Promise<void>}
+   * After update hook - update event counts
    */
   protected async afterUpdate(entity: EventRegistration): Promise<void> {
     // Event counts are automatically updated by database trigger
@@ -716,12 +307,7 @@ export class EventRegistrationModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Finds registrations with custom filters
-   * 
-   * @param {RegistrationQueryOptions} [options={}] - Query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventRegistration[]>} Array of registrations
    */
   async findRegistrations(
     options: RegistrationQueryOptions = {},
@@ -749,12 +335,7 @@ export class EventRegistrationModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Gets paginated registrations
-   * 
-   * @param {RegistrationQueryOptions & { page: number; limit: number }} options - Query and pagination options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<PaginatedResult<EventRegistration>>} Paginated result
    */
   async paginateRegistrations(
     options: RegistrationQueryOptions & { page: number; limit: number },
@@ -783,12 +364,7 @@ export class EventRegistrationModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Counts registrations with filters
-   * 
-   * @param {RegistrationQueryOptions} [options={}] - Query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<number>} Count of registrations
    */
   async countRegistrations(
     options: RegistrationQueryOptions = {},
@@ -804,13 +380,7 @@ export class EventRegistrationModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Finds registrations by event
-   * 
-   * @param {number} eventId - Event identifier
-   * @param {RegistrationQueryOptions} [options={}] - Additional query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventRegistration[]>} Array of registrations for the event
    */
   async findByEvent(
     eventId: number,
@@ -821,13 +391,7 @@ export class EventRegistrationModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Finds registration by email and event
-   * 
-   * @param {string} email - Email address
-   * @param {number} eventId - Event identifier
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventRegistration | null>} Registration or null
    */
   async findByEmailAndEvent(
     email: string,
@@ -838,12 +402,7 @@ export class EventRegistrationModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Finds confirmed registrations
-   * 
-   * @param {number} eventId - Event identifier
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventRegistration[]>} Array of confirmed registrations
    */
   async findConfirmed(
     eventId: number,
@@ -856,12 +415,7 @@ export class EventRegistrationModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Finds attended registrations
-   * 
-   * @param {number} eventId - Event identifier
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventRegistration[]>} Array of attended registrations
    */
   async findAttended(
     eventId: number,
@@ -878,12 +432,7 @@ export class EventRegistrationModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Checks in a registration
-   * 
-   * @param {number} id - Registration ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventRegistration | null>} Updated registration or null
    */
   async checkIn(
     id: number,
@@ -900,12 +449,7 @@ export class EventRegistrationModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Cancels a registration
-   * 
-   * @param {number} id - Registration ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventRegistration | null>} Updated registration or null
    */
   async cancel(
     id: number,
@@ -922,12 +466,7 @@ export class EventRegistrationModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Marks as no-show
-   * 
-   * @param {number} id - Registration ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventRegistration | null>} Updated registration or null
    */
   async markNoShow(
     id: number,
@@ -937,12 +476,7 @@ export class EventRegistrationModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * Bulk check-in multiple registrations
-   * 
-   * @param {number[]} ids - Array of registration IDs
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<number>} Number of updated registrations
+   * Bulk check-in
    */
   async bulkCheckIn(ids: number[], trx?: Knex.Transaction): Promise<number> {
     const connection = trx || this.db;
@@ -961,12 +495,7 @@ export class EventRegistrationModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Marks confirmation as sent
-   * 
-   * @param {number} id - Registration ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventRegistration | null>} Updated registration or null
    */
   async markConfirmationSent(
     id: number,
@@ -976,12 +505,7 @@ export class EventRegistrationModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Marks reminder as sent
-   * 
-   * @param {number} id - Registration ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventRegistration | null>} Updated registration or null
    */
   async markReminderSent(
     id: number,
@@ -991,12 +515,7 @@ export class EventRegistrationModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Marks feedback request as sent
-   * 
-   * @param {number} id - Registration ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventRegistration | null>} Updated registration or null
    */
   async markFeedbackRequested(
     id: number,
@@ -1006,12 +525,7 @@ export class EventRegistrationModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * Gets registrations needing confirmation emails
-   * 
-   * @param {number} [eventId] - Optional event ID filter
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventRegistration[]>} Array of registrations needing confirmation
+   * Gets registrations needing confirmation
    */
   async getNeedingConfirmation(
     eventId?: number,
@@ -1028,12 +542,7 @@ export class EventRegistrationModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * Gets registrations needing reminder emails
-   * 
-   * @param {number} [eventId] - Optional event ID filter
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventRegistration[]>} Array of registrations needing reminders
+   * Gets registrations needing reminder
    */
   async getNeedingReminder(
     eventId?: number,
@@ -1054,12 +563,7 @@ export class EventRegistrationModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Gets registration statistics for an event
-   * 
-   * @param {number} eventId - Event identifier
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<RegistrationStatistics>} Comprehensive statistics object
    */
   async getEventStatistics(
     eventId: number,
@@ -1113,12 +617,7 @@ export class EventRegistrationModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Applies registration-specific filters to query
-   * 
-   * @param {Knex.QueryBuilder} query - Database query builder
-   * @param {RegistrationQueryOptions} options - Query options
-   * @returns {Knex.QueryBuilder} Modified query builder
    */
   private applyRegistrationFilters(
     query: Knex.QueryBuilder,
@@ -1195,11 +694,7 @@ export class EventRegistrationModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Maps database record to EventRegistration entity
-   * 
-   * @param {DatabaseRecord} record - Database record
-   * @returns {EventRegistration} EventRegistration entity
    */
   protected mapToEntity(record: DatabaseRecord): EventRegistration {
     return {

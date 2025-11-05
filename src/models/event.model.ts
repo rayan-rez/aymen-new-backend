@@ -1,760 +1,10 @@
 /**
  * Event Model
  *
- * Comprehensive event management system for company events, exhibitions,
- * open houses, and promotional activities with registration tracking,
- * capacity management, and influencer associations
+ * Manages company events, exhibitions, open houses, and promotional activities
+ * Handles registration tracking, capacity management, and influencer associations
  *
  * @module models/event.model
- * @description Manages all types of company events with advanced scheduling,
- * location management, registration workflows, and comprehensive analytics
- *
- * @swagger
- * components:
- *   schemas:
- *     EventType:
- *       type: string
- *       enum: [exhibition, open_house, workshop, seminar, launch_event, trade_show, webinar, other]
- *       description: Type of company event
- *       example: "exhibition"
- *       x-enum-descriptions:
- *         exhibition: Property or product exhibition
- *         open_house: Property viewing event
- *         workshop: Educational workshop
- *         seminar: Educational seminar
- *         launch_event: Product or service launch
- *         trade_show: Trade show participation
- *         webinar: Online educational event
- *         other: Other event type
- *
- *     EventsLocationType:
- *       type: string
- *       enum: [physical, online, hybrid]
- *       description: Event location type
- *       example: "hybrid"
- *       x-enum-descriptions:
- *         physical: In-person event only
- *         online: Virtual event only
- *         hybrid: Both in-person and virtual
- *
- *     EventStatus:
- *       type: string
- *       enum: [draft, scheduled, ongoing, completed, cancelled, postponed]
- *       description: Event status in lifecycle
- *       example: "scheduled"
- *       x-enum-descriptions:
- *         draft: Event in draft state
- *         scheduled: Event scheduled and published
- *         ongoing: Event currently happening
- *         completed: Event completed successfully
- *         cancelled: Event cancelled
- *         postponed: Event postponed to later date
- *
- *     Event:
- *       type: object
- *       required:
- *         - id
- *         - name
- *         - slug
- *         - eventType
- *         - description
- *         - startDate
- *         - endDate
- *         - timezone
- *         - locationType
- *         - status
- *         - isFeatured
- *         - isPublished
- *         - viewCount
- *         - clickCount
- *         - createdAt
- *         - updatedAt
- *       properties:
- *         id:
- *           type: integer
- *           description: Unique event identifier
- *           example: 1
- *         name:
- *           type: string
- *           description: Event name/title
- *           example: "Luxury Apartments Open House"
- *         slug:
- *           type: string
- *           description: URL-friendly slug
- *           example: "luxury-apartments-open-house"
- *         eventType:
- *           $ref: '#/components/schemas/EventType'
- *         description:
- *           type: string
- *           description: Detailed event description
- *           example: "Join us for an exclusive open house event showcasing our latest luxury apartment developments..."
- *         shortDescription:
- *           type: string
- *           nullable: true
- *           description: Brief event description for listings
- *           example: "Exclusive open house for luxury apartments"
- *         translations:
- *           type: object
- *           additionalProperties: true
- *           nullable: true
- *           description: Multi-language translations
- *           example: {"fr": {"name": "Portes Ouvertes", "description": "..."}}
- *         startDate:
- *           type: string
- *           format: date-time
- *           description: Event start date and time
- *           example: "2024-03-15T09:00:00Z"
- *         endDate:
- *           type: string
- *           format: date-time
- *           description: Event end date and time
- *           example: "2024-03-15T18:00:00Z"
- *         timezone:
- *           type: string
- *           description: Event timezone
- *           example: "Africa/Algiers"
- *         locationType:
- *           $ref: '#/components/schemas/EventsLocationType'
- *         venueName:
- *           type: string
- *           nullable: true
- *           description: Venue name for physical events
- *           example: "Grand Hotel Conference Center"
- *         venueAddress:
- *           type: string
- *           nullable: true
- *           description: Full venue address
- *           example: "123 Main Street, Downtown District"
- *         latitude:
- *           type: number
- *           format: float
- *           nullable: true
- *           description: Venue latitude
- *           example: 36.7783
- *         longitude:
- *           type: number
- *           format: float
- *           nullable: true
- *           description: Venue longitude
- *           example: 3.0588
- *         locationId:
- *           type: integer
- *           nullable: true
- *           description: Associated location ID
- *           example: 15
- *         onlineMeetingUrl:
- *           type: string
- *           format: uri
- *           nullable: true
- *           description: Online meeting URL
- *           example: "https://meet.example.com/event-123"
- *         onlineMeetingPlatform:
- *           type: string
- *           nullable: true
- *           description: Online meeting platform name
- *           example: "Zoom"
- *         maxCapacity:
- *           type: integer
- *           nullable: true
- *           description: Maximum attendee capacity
- *           example: 100
- *         registeredCount:
- *           type: integer
- *           description: Current registration count
- *           example: 45
- *         requiresRegistration:
- *           type: boolean
- *           description: Whether registration is required
- *           example: true
- *         isRegistrationOpen:
- *           type: boolean
- *           description: Whether registration is currently open
- *           example: true
- *         registrationDeadline:
- *           type: string
- *           format: date-time
- *           nullable: true
- *           description: Registration deadline
- *           example: "2024-03-10T23:59:59Z"
- *         projectId:
- *           type: integer
- *           nullable: true
- *           description: Associated project ID
- *           example: 5
- *         status:
- *           $ref: '#/components/schemas/EventStatus'
- *         featuredImageUrl:
- *           type: string
- *           format: uri
- *           nullable: true
- *           description: Featured event image URL
- *           example: "https://cdn.example.com/images/events/featured.jpg"
- *         bannerImageUrl:
- *           type: string
- *           format: uri
- *           nullable: true
- *           description: Event banner image URL
- *           example: "https://cdn.example.com/images/events/banner.jpg"
- *         organizerName:
- *           type: string
- *           nullable: true
- *           description: Event organizer name
- *           example: "Jane Smith"
- *         email:
- *           type: string
- *           format: email
- *           nullable: true
- *           description: Organizer contact email
- *           example: "events@company.com"
- *         organizerPhone:
- *           type: string
- *           nullable: true
- *           description: Organizer contact phone
- *           example: "+33612345678"
- *         isFeatured:
- *           type: boolean
- *           description: Whether event is featured
- *           example: false
- *         isPublished:
- *           type: boolean
- *           description: Whether event is published and visible
- *           example: true
- *         publishedAt:
- *           type: string
- *           format: date-time
- *           nullable: true
- *           description: Publication timestamp
- *           example: "2024-01-15T10:30:00Z"
- *         metaTitle:
- *           type: string
- *           nullable: true
- *           description: SEO meta title
- *           example: "Luxury Apartments Open House | Exclusive Event"
- *         metaDescription:
- *           type: string
- *           nullable: true
- *           description: SEO meta description
- *           example: "Join us for an exclusive open house event showcasing luxury apartments..."
- *         viewCount:
- *           type: integer
- *           description: Total number of views
- *           example: 1250
- *         clickCount:
- *           type: integer
- *           description: Total number of clicks
- *           example: 85
- *         createdAt:
- *           type: string
- *           format: date-time
- *           description: Creation timestamp
- *           example: "2024-01-10T09:15:00Z"
- *         updatedAt:
- *           type: string
- *           format: date-time
- *           description: Last update timestamp
- *           example: "2024-01-15T10:30:00Z"
- *         deletedAt:
- *           type: string
- *           format: date-time
- *           nullable: true
- *           description: Deletion timestamp (soft delete)
- *           example: null
- *         location:
- *           $ref: '#/components/schemas/Location'
- *         project:
- *           $ref: '#/components/schemas/Project'
- *         registrations:
- *           type: array
- *           items:
- *             $ref: '#/components/schemas/EventRegistration'
- *           description: Associated event registrations
- *         influencers:
- *           type: array
- *           items:
- *             $ref: '#/components/schemas/EventInfluencer'
- *           description: Associated event influencers
- *
- *     CreateEventDto:
- *       type: object
- *       required:
- *         - name
- *         - eventType
- *         - description
- *         - startDate
- *         - endDate
- *         - locationType
- *       properties:
- *         name:
- *           type: string
- *           description: Event name/title
- *           example: "Luxury Apartments Open House"
- *         slug:
- *           type: string
- *           description: URL-friendly slug (auto-generated if not provided)
- *           example: "luxury-apartments-open-house"
- *         eventType:
- *           $ref: '#/components/schemas/EventType'
- *         description:
- *           type: string
- *           description: Detailed event description
- *           example: "Join us for an exclusive open house event showcasing our latest luxury apartment developments..."
- *         shortDescription:
- *           type: string
- *           description: Brief event description for listings
- *           example: "Exclusive open house for luxury apartments"
- *         translations:
- *           type: object
- *           additionalProperties: true
- *           description: Multi-language translations
- *           example: {"fr": {"name": "Portes Ouvertes", "description": "..."}}
- *         startDate:
- *           type: string
- *           format: date-time
- *           description: Event start date and time
- *           example: "2024-03-15T09:00:00Z"
- *         endDate:
- *           type: string
- *           format: date-time
- *           description: Event end date and time
- *           example: "2024-03-15T18:00:00Z"
- *         timezone:
- *           type: string
- *           description: Event timezone (defaults to Africa/Algiers)
- *           example: "Africa/Algiers"
- *         locationType:
- *           $ref: '#/components/schemas/EventsLocationType'
- *         venueName:
- *           type: string
- *           description: Venue name for physical events
- *           example: "Grand Hotel Conference Center"
- *         venueAddress:
- *           type: string
- *           description: Full venue address
- *           example: "123 Main Street, Downtown District"
- *         latitude:
- *           type: number
- *           format: float
- *           description: Venue latitude
- *           example: 36.7783
- *         longitude:
- *           type: number
- *           format: float
- *           description: Venue longitude
- *           example: 3.0588
- *         locationId:
- *           type: integer
- *           description: Associated location ID
- *           example: 15
- *         onlineMeetingUrl:
- *           type: string
- *           format: uri
- *           description: Online meeting URL
- *           example: "https://meet.example.com/event-123"
- *         onlineMeetingPlatform:
- *           type: string
- *           description: Online meeting platform name
- *           example: "Zoom"
- *         maxCapacity:
- *           type: integer
- *           description: Maximum attendee capacity
- *           example: 100
- *         requiresRegistration:
- *           type: boolean
- *           description: Whether registration is required
- *           example: true
- *         isRegistrationOpen:
- *           type: boolean
- *           description: Whether registration is initially open
- *           example: false
- *         registrationDeadline:
- *           type: string
- *           format: date-time
- *           description: Registration deadline
- *           example: "2024-03-10T23:59:59Z"
- *         projectId:
- *           type: integer
- *           description: Associated project ID
- *           example: 5
- *         status:
- *           $ref: '#/components/schemas/EventStatus'
- *         featuredImageUrl:
- *           type: string
- *           format: uri
- *           description: Featured event image URL
- *           example: "https://cdn.example.com/images/events/featured.jpg"
- *         bannerImageUrl:
- *           type: string
- *           format: uri
- *           description: Event banner image URL
- *           example: "https://cdn.example.com/images/events/banner.jpg"
- *         organizerName:
- *           type: string
- *           description: Event organizer name
- *           example: "Jane Smith"
- *         email:
- *           type: string
- *           format: email
- *           description: Organizer contact email
- *           example: "events@company.com"
- *         organizerPhone:
- *           type: string
- *           description: Organizer contact phone
- *           example: "+33612345678"
- *         isFeatured:
- *           type: boolean
- *           description: Whether to feature the event
- *           example: false
- *         isPublished:
- *           type: boolean
- *           description: Whether to publish immediately
- *           example: false
- *         publishedAt:
- *           type: string
- *           format: date-time
- *           description: Custom publication timestamp
- *           example: "2024-01-15T10:30:00Z"
- *         metaTitle:
- *           type: string
- *           description: SEO meta title
- *           example: "Luxury Apartments Open House | Exclusive Event"
- *         metaDescription:
- *           type: string
- *           description: SEO meta description
- *           example: "Join us for an exclusive open house event showcasing luxury apartments..."
- *
- *     UpdateEventDto:
- *       allOf:
- *         - $ref: '#/components/schemas/CreateEventDto'
- *         - type: object
- *           description: All fields from CreateEventDto are optional for updates
- *
- *     EventQueryOptions:
- *       allOf:
- *         - $ref: '#/components/schemas/AdvancedQueryOptions'
- *         - type: object
- *           properties:
- *             eventType:
- *               oneOf:
- *                 - $ref: '#/components/schemas/EventType'
- *                 - type: array
- *                   items:
- *                     $ref: '#/components/schemas/EventType'
- *             status:
- *               oneOf:
- *                 - $ref: '#/components/schemas/EventStatus'
- *                 - type: array
- *                   items:
- *                     $ref: '#/components/schemas/EventStatus'
- *             locationType:
- *               oneOf:
- *                 - $ref: '#/components/schemas/EventsLocationType'
- *                 - type: array
- *                   items:
- *                     $ref: '#/components/schemas/EventsLocationType'
- *             isFeatured:
- *               type: boolean
- *               description: Filter by featured status
- *               example: false
- *             isPublished:
- *               type: boolean
- *               description: Filter by published status
- *               example: true
- *             locationId:
- *               oneOf:
- *                 - type: integer
- *                   description: Single location ID
- *                   example: 15
- *                 - type: array
- *                   items:
- *                     type: integer
- *                   description: Multiple location IDs
- *                   example: [15, 16, 17]
- *             projectId:
- *               oneOf:
- *                 - type: integer
- *                   description: Single project ID
- *                   example: 5
- *                 - type: array
- *                   items:
- *                     type: integer
- *                   description: Multiple project IDs
- *                   example: [5, 6, 7]
- *             startDateFrom:
- *               type: string
- *               format: date-time
- *               description: Filter events starting after this date
- *               example: "2024-01-01T00:00:00Z"
- *             startDateTo:
- *               type: string
- *               format: date-time
- *               description: Filter events starting before this date
- *               example: "2024-12-31T23:59:59Z"
- *             endDateFrom:
- *               type: string
- *               format: date-time
- *               description: Filter events ending after this date
- *               example: "2024-01-01T00:00:00Z"
- *             endDateTo:
- *               type: string
- *               format: date-time
- *               description: Filter events ending before this date
- *               example: "2024-12-31T23:59:59Z"
- *             isRegistrationOpen:
- *               type: boolean
- *               description: Filter by registration open status
- *               example: true
- *             hasCapacity:
- *               type: boolean
- *               description: Filter events with available capacity
- *               example: true
- *             isUpcoming:
- *               type: boolean
- *               description: Filter upcoming events only
- *               example: true
- *             isPast:
- *               type: boolean
- *               description: Filter past events only
- *               example: false
- *
- *     EventWithStats:
- *       allOf:
- *         - $ref: '#/components/schemas/Event'
- *         - type: object
- *           required:
- *             - stats
- *           properties:
- *             stats:
- *               type: object
- *               required:
- *                 - totalRegistrations
- *                 - confirmedRegistrations
- *                 - attendedCount
- *                 - noShowCount
- *                 - attendanceRate
- *                 - capacityPercentage
- *                 - influencerCount
- *                 - totalReach
- *               properties:
- *                 totalRegistrations:
- *                   type: integer
- *                   description: Total number of registrations
- *                   example: 150
- *                 confirmedRegistrations:
- *                   type: integer
- *                   description: Number of confirmed registrations
- *                   example: 120
- *                 attendedCount:
- *                   type: integer
- *                   description: Number of attendees who showed up
- *                   example: 95
- *                 noShowCount:
- *                   type: integer
- *                   description: Number of no-shows
- *                   example: 25
- *                 attendanceRate:
- *                   type: number
- *                   format: float
- *                   description: Attendance rate percentage
- *                   example: 79.17
- *                 capacityPercentage:
- *                   type: number
- *                   format: float
- *                   description: Capacity utilization percentage
- *                   example: 95.0
- *                 influencerCount:
- *                   type: integer
- *                   description: Number of associated influencers
- *                   example: 5
- *                 totalReach:
- *                   type: integer
- *                   description: Total influencer reach
- *                   example: 50000
- *
- *   responses:
- *     EventResponse:
- *       description: Event data response
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/Event'
- *
- *     EventListResponse:
- *       description: Paginated event list response
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/PaginatedResult'
- *           example:
- *             items:
- *               - id: 1
- *                 name: "Luxury Apartments Open House"
- *                 slug: "luxury-apartments-open-house"
- *                 eventType: "open_house"
- *                 status: "scheduled"
- *                 startDate: "2024-03-15T09:00:00Z"
- *                 isPublished: true
- *             pagination:
- *               total: 25
- *               page: 1
- *               limit: 10
- *               totalPages: 3
- *               hasNextPage: true
- *               hasPrevPage: false
- *
- *     EventWithStatsResponse:
- *       description: Event with statistics response
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/EventWithStats'
- *
- *   parameters:
- *     EventIdParam:
- *       name: id
- *       in: path
- *       description: Event ID
- *       required: true
- *       schema:
- *         type: integer
- *         minimum: 1
- *       example: 1
- *
- *     EventSlugParam:
- *       name: slug
- *       in: path
- *       description: Event slug
- *       required: true
- *       schema:
- *         type: string
- *       example: "luxury-apartments-open-house"
- *
- *     EventTypeParam:
- *       name: eventType
- *       in: query
- *       description: Filter by event type
- *       required: false
- *       schema:
- *         $ref: '#/components/schemas/EventType'
- *
- *     EventStatusParam:
- *       name: status
- *       in: query
- *       description: Filter by event status
- *       required: false
- *       schema:
- *         $ref: '#/components/schemas/EventStatus'
- *
- *     LocationTypeParam:
- *       name: locationType
- *       in: query
- *       description: Filter by location type
- *       required: false
- *       schema:
- *         $ref: '#/components/schemas/EventsLocationType'
- *
- *     StartDateFromParam:
- *       name: startDateFrom
- *       in: query
- *       description: Filter events starting after this date
- *       required: false
- *       schema:
- *         type: string
- *         format: date-time
- *       example: "2024-01-01T00:00:00Z"
- *
- *     StartDateToParam:
- *       name: startDateTo
- *       in: query
- *       description: Filter events starting before this date
- *       required: false
- *       schema:
- *         type: string
- *         format: date-time
- *       example: "2024-12-31T23:59:59Z"
- *
- *     EndDateFromParam:
- *       name: endDateFrom
- *       in: query
- *       description: Filter events ending after this date
- *       required: false
- *       schema:
- *         type: string
- *         format: date-time
- *       example: "2024-01-01T00:00:00Z"
- *
- *     EndDateToParam:
- *       name: endDateTo
- *       in: query
- *       description: Filter events ending before this date
- *       required: false
- *       schema:
- *         type: string
- *         format: date-time
- *       example: "2024-12-31T23:59:59Z"
- *
- *     IsRegistrationOpenParam:
- *       name: isRegistrationOpen
- *       in: query
- *       description: Filter by registration open status
- *       required: false
- *       schema:
- *         type: boolean
- *         example: true
- *
- *     HasCapacityParam:
- *       name: hasCapacity
- *       in: query
- *       description: Filter events with available capacity
- *       required: false
- *       schema:
- *         type: boolean
- *         example: true
- *
- *     IsUpcomingParam:
- *       name: isUpcoming
- *       in: query
- *       description: Filter upcoming events only
- *       required: false
- *       schema:
- *         type: boolean
- *         example: true
- *
- *     IsPastParam:
- *       name: isPast
- *       in: query
- *       description: Filter past events only
- *       required: false
- *       schema:
- *         type: boolean
- *         example: false
- *
- * tags:
- *   - name: Events
- *     description: Event management operations including scheduling, registration, and analytics
- *     x-traitTag: true
- *
- * Features:
- * - Comprehensive event lifecycle management (draft → scheduled → ongoing → completed)
- * - Multi-location support (physical, online, hybrid)
- * - Advanced scheduling with timezone support
- * - Registration management with capacity tracking
- * - Influencer association and reach tracking
- * - Real-time statistics and analytics
- * - SEO optimization with meta tags
- * - Multi-language translation support
- * - Automatic registration count updates via triggers
- * - Geographic coordinate validation
- * - Capacity management and availability tracking
- * - Event status workflow management
- * - Comprehensive filtering and search
- * - View and click tracking
- * - Featured event system
- * - Publishing workflow with validation
- * - Integration with projects and locations
- * - Registration deadline management
- * - Attendance tracking and no-show management
- * - Event statistics and performance metrics
- * - Bulk operations support
  */
 
 import {
@@ -771,8 +21,7 @@ import { Knex } from "knex";
 // ============================================================================
 
 /**
- * @openapi
- * Event type enumeration for categorizing company events
+ * Event type enumeration
  */
 export enum EventType {
   EXHIBITION = "exhibition",
@@ -786,8 +35,7 @@ export enum EventType {
 }
 
 /**
- * @openapi
- * Event location type enumeration
+ * Location type enumeration
  */
 export enum EventsLocationType {
   PHYSICAL = "physical",
@@ -796,8 +44,7 @@ export enum EventsLocationType {
 }
 
 /**
- * @openapi
- * Event status enumeration for lifecycle management
+ * Event status enumeration
  */
 export enum EventStatus {
   DRAFT = "draft",
@@ -809,50 +56,7 @@ export enum EventStatus {
 }
 
 /**
- * @openapi
- * Event entity representing company events and activities
- *
- * @interface Event
- * @property {number} id - Unique event identifier
- * @property {string} name - Event name/title
- * @property {string} slug - URL-friendly slug
- * @property {EventType} eventType - Type of event
- * @property {string} description - Detailed event description
- * @property {string|null} shortDescription - Brief event description for listings
- * @property {Record<string,any>|null} translations - Multi-language translations
- * @property {Date} startDate - Event start date and time
- * @property {Date} endDate - Event end date and time
- * @property {string} timezone - Event timezone
- * @property {EventsLocationType} locationType - Event location type
- * @property {string|null} venueName - Venue name for physical events
- * @property {string|null} venueAddress - Full venue address
- * @property {number|null} latitude - Venue latitude
- * @property {number|null} longitude - Venue longitude
- * @property {number|null} locationId - Associated location ID
- * @property {string|null} onlineMeetingUrl - Online meeting URL
- * @property {string|null} onlineMeetingPlatform - Online meeting platform name
- * @property {number|null} maxCapacity - Maximum attendee capacity
- * @property {number} registeredCount - Current registration count
- * @property {boolean} requiresRegistration - Whether registration is required
- * @property {boolean} isRegistrationOpen - Whether registration is currently open
- * @property {Date|null} registrationDeadline - Registration deadline
- * @property {number|null} projectId - Associated project ID
- * @property {EventStatus} status - Event status
- * @property {string|null} featuredImageUrl - Featured event image URL
- * @property {string|null} bannerImageUrl - Event banner image URL
- * @property {string|null} organizerName - Event organizer name
- * @property {string|null} email - Organizer contact email
- * @property {string|null} organizerPhone - Organizer contact phone
- * @property {boolean} isFeatured - Whether event is featured
- * @property {boolean} isPublished - Whether event is published and visible
- * @property {Date|null} publishedAt - Publication timestamp
- * @property {string|null} metaTitle - SEO meta title
- * @property {string|null} metaDescription - SEO meta description
- * @property {number} viewCount - Total number of views
- * @property {number} clickCount - Total number of clicks
- * @property {Date} createdAt - Creation timestamp
- * @property {Date} updatedAt - Last update timestamp
- * @property {Date|null} deletedAt - Deletion timestamp (soft delete)
+ * Event entity interface
  */
 export interface Event {
   id: number;
@@ -926,43 +130,7 @@ export interface Event {
 }
 
 /**
- * @openapi
- * Data transfer object for creating event
- *
- * @interface CreateEventDto
- * @property {string} name - Event name/title (required)
- * @property {string} slug - URL-friendly slug (auto-generated if not provided)
- * @property {EventType} eventType - Type of event (required)
- * @property {string} description - Detailed event description (required)
- * @property {string} shortDescription - Brief event description for listings
- * @property {Record<string,any>} translations - Multi-language translations
- * @property {Date} startDate - Event start date and time (required)
- * @property {Date} endDate - Event end date and time (required)
- * @property {string} timezone - Event timezone (defaults to Africa/Algiers)
- * @property {EventsLocationType} locationType - Event location type (required)
- * @property {string} venueName - Venue name for physical events
- * @property {string} venueAddress - Full venue address
- * @property {number} latitude - Venue latitude
- * @property {number} longitude - Venue longitude
- * @property {number} locationId - Associated location ID
- * @property {string} onlineMeetingUrl - Online meeting URL
- * @property {string} onlineMeetingPlatform - Online meeting platform name
- * @property {number} maxCapacity - Maximum attendee capacity
- * @property {boolean} requiresRegistration - Whether registration is required
- * @property {boolean} isRegistrationOpen - Whether registration is initially open
- * @property {Date} registrationDeadline - Registration deadline
- * @property {number} projectId - Associated project ID
- * @property {EventStatus} status - Event status
- * @property {string} featuredImageUrl - Featured event image URL
- * @property {string} bannerImageUrl - Event banner image URL
- * @property {string} organizerName - Event organizer name
- * @property {string} email - Organizer contact email
- * @property {string} organizerPhone - Organizer contact phone
- * @property {boolean} isFeatured - Whether to feature the event
- * @property {boolean} isPublished - Whether to publish immediately
- * @property {Date} publishedAt - Custom publication timestamp
- * @property {string} metaTitle - SEO meta title
- * @property {string} metaDescription - SEO meta description
+ * Create event DTO
  */
 export interface CreateEventDto {
   name: string;
@@ -1001,35 +169,12 @@ export interface CreateEventDto {
 }
 
 /**
- * @openapi
- * Data transfer object for updating event
- *
- * @interface UpdateEventDto
- * @extends Partial<CreateEventDto>
+ * Update event DTO
  */
 export interface UpdateEventDto extends Partial<CreateEventDto> {}
 
 /**
- * @openapi
- * Extended query options for event filtering
- *
- * @interface EventQueryOptions
- * @extends AdvancedQueryOptions
- * @property {EventType|EventType[]} eventType - Filter by event type
- * @property {EventStatus|EventStatus[]} status - Filter by event status
- * @property {EventsLocationType|EventsLocationType[]} locationType - Filter by location type
- * @property {boolean} isFeatured - Filter by featured status
- * @property {boolean} isPublished - Filter by published status
- * @property {number|number[]} locationId - Filter by location ID(s)
- * @property {number|number[]} projectId - Filter by project ID(s)
- * @property {Date} startDateFrom - Filter events starting after this date
- * @property {Date} startDateTo - Filter events starting before this date
- * @property {Date} endDateFrom - Filter events ending after this date
- * @property {Date} endDateTo - Filter events ending before this date
- * @property {boolean} isRegistrationOpen - Filter by registration open status
- * @property {boolean} hasCapacity - Filter events with available capacity
- * @property {boolean} isUpcoming - Filter upcoming events only
- * @property {boolean} isPast - Filter past events only
+ * Event query options
  */
 export interface EventQueryOptions extends AdvancedQueryOptions {
   eventType?: EventType | EventType[];
@@ -1050,20 +195,7 @@ export interface EventQueryOptions extends AdvancedQueryOptions {
 }
 
 /**
- * @openapi
- * Event entity with comprehensive statistics
- *
- * @interface EventWithStats
- * @extends Event
- * @property {object} stats - Statistics object
- * @property {number} stats.totalRegistrations - Total number of registrations
- * @property {number} stats.confirmedRegistrations - Number of confirmed registrations
- * @property {number} stats.attendedCount - Number of attendees who showed up
- * @property {number} stats.noShowCount - Number of no-shows
- * @property {number} stats.attendanceRate - Attendance rate percentage
- * @property {number} stats.capacityPercentage - Capacity utilization percentage
- * @property {number} stats.influencerCount - Number of associated influencers
- * @property {number} stats.totalReach - Total influencer reach
+ * Event with statistics
  */
 export interface EventWithStats extends Event {
   stats: {
@@ -1082,44 +214,6 @@ export interface EventWithStats extends Event {
 // EVENT MODEL CLASS
 // ============================================================================
 
-/**
- * @openapi
- * Event Model Class
- *
- * Manages company events with comprehensive scheduling, registration management,
- * location handling, and detailed analytics
- *
- * @class EventModel
- * @extends BaseModel<Event, CreateEventDto, UpdateEventDto>
- *
- * @example
- * ```typescript
- * // Create a new event
- * const event = await eventModel.create({
- *   name: "Luxury Apartments Open House",
- *   eventType: EventType.OPEN_HOUSE,
- *   description: "Join us for an exclusive open house event...",
- *   startDate: new Date('2024-03-15T09:00:00Z'),
- *   endDate: new Date('2024-03-15T18:00:00Z'),
- *   locationType: EventsLocationType.PHYSICAL,
- *   venueName: "Grand Hotel Conference Center",
- *   venueAddress: "123 Main Street, Downtown",
- *   maxCapacity: 100,
- *   requiresRegistration: true,
- *   isPublished: true
- * });
- *
- * // Find upcoming events
- * const upcomingEvents = await eventModel.findUpcoming({
- *   eventType: EventType.OPEN_HOUSE,
- *   limit: 10
- * });
- *
- * // Get event with statistics
- * const eventWithStats = await eventModel.getWithStats(123);
- * console.log(`Attendance rate: ${eventWithStats.stats.attendanceRate}%`);
- * ```
- */
 export class EventModel extends BaseModel<
   Event,
   CreateEventDto,
@@ -1209,15 +303,7 @@ export class EventModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
-   * Before create hook - validates data, generates slug, checks date logic
-   *
-   * @param {CreateEventDto} data - Event creation data
-   * @returns {Promise<CreateEventDto>} Validated and processed data
-   * @throws {Error} When validation fails
-   *
-   * @private
-   * @lifecycle
+   * Before create hook - validate and generate slug
    */
   protected async beforeCreate(data: CreateEventDto): Promise<CreateEventDto> {
     // Generate slug if not provided
@@ -1284,30 +370,14 @@ export class EventModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * After create hook - logs event creation
-   *
-   * @param {Event} entity - Created event entity
-   * @returns {Promise<void>}
-   *
-   * @private
-   * @lifecycle
+   * After create hook
    */
   protected async afterCreate(entity: Event): Promise<void> {
     console.log(`✅ Event created: ${entity.name} (${entity.eventType})`);
   }
 
   /**
-   * @openapi
-   * Before update hook - validates changes and date logic
-   *
-   * @param {number} id - Event ID being updated
-   * @param {UpdateEventDto} data - Update data
-   * @returns {Promise<UpdateEventDto>} Validated update data
-   * @throws {Error} When validation fails
-   *
-   * @private
-   * @lifecycle
+   * Before update hook
    */
   protected async beforeUpdate(
     id: number,
@@ -1349,24 +419,7 @@ export class EventModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Finds events with custom filters
-   *
-   * @param {EventQueryOptions} [options={}] - Query options for filtering
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Event[]>} Array of events matching the criteria
-   *
-   * @example
-   * ```typescript
-   * const events = await eventModel.findEvents({
-   *   eventType: EventType.OPEN_HOUSE,
-   *   status: EventStatus.SCHEDULED,
-   *   isPublished: true,
-   *   sortBy: 'start_date',
-   *   sortOrder: 'asc',
-   *   limit: 10
-   * });
-   * ```
    */
   async findEvents(
     options: EventQueryOptions = {},
@@ -1394,24 +447,7 @@ export class EventModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * Gets paginated events with comprehensive filtering
-   *
-   * @param {EventQueryOptions & {page: number, limit: number}} options - Query options with pagination
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<PaginatedResult<Event>>} Paginated result with events and metadata
-   *
-   * @example
-   * ```typescript
-   * const result = await eventModel.paginateEvents({
-   *   page: 1,
-   *   limit: 10,
-   *   eventType: EventType.WORKSHOP,
-   *   isPublished: true,
-   *   isUpcoming: true
-   * });
-   * console.log(`Page ${result.pagination.page} of ${result.pagination.totalPages}`);
-   * ```
+   * Gets paginated events
    */
   async paginateEvents(
     options: EventQueryOptions & { page: number; limit: number },
@@ -1440,22 +476,7 @@ export class EventModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * Counts events matching the specified filters
-   *
-   * @param {EventQueryOptions} [options={}] - Query options for filtering
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<number>} Count of matching events
-   *
-   * @example
-   * ```typescript
-   * const count = await eventModel.countEvents({
-   *   eventType: EventType.SEMINAR,
-   *   isPublished: true,
-   *   isUpcoming: true
-   * });
-   * console.log(`Found ${count} upcoming seminars`);
-   * ```
+   * Counts events with filters
    */
   async countEvents(
     options: EventQueryOptions = {},
@@ -1475,22 +496,7 @@ export class EventModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Finds event by slug
-   *
-   * @param {string} slug - The event slug
-   * @param {Object} [options] - Options for loading relations
-   * @param {boolean} [options.includeDeleted=false] - Whether to include soft-deleted events
-   * @param {string[]} [options.relations=[]] - Relations to load
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Event|null>} Event or null if not found
-   *
-   * @example
-   * ```typescript
-   * const event = await eventModel.findBySlug("luxury-apartments-open-house", {
-   *   relations: ['location', 'project']
-   * });
-   * ```
    */
   async findBySlug(
     slug: string,
@@ -1501,20 +507,7 @@ export class EventModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * Finds upcoming published events
-   *
-   * @param {EventQueryOptions} [options={}] - Additional query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Event[]>} Array of upcoming events sorted by start date
-   *
-   * @example
-   * ```typescript
-   * const upcoming = await eventModel.findUpcoming({
-   *   eventType: EventType.EXHIBITION,
-   *   limit: 10
-   * });
-   * ```
+   * Finds upcoming events
    */
   async findUpcoming(
     options: EventQueryOptions = {},
@@ -1533,20 +526,7 @@ export class EventModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * Finds past published events
-   *
-   * @param {EventQueryOptions} [options={}] - Additional query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Event[]>} Array of past events sorted by start date (desc)
-   *
-   * @example
-   * ```typescript
-   * const pastEvents = await eventModel.findPast({
-   *   eventType: EventType.WORKSHOP,
-   *   limit: 10
-   * });
-   * ```
+   * Finds past events
    */
   async findPast(
     options: EventQueryOptions = {},
@@ -1565,20 +545,7 @@ export class EventModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * Finds featured published events
-   *
-   * @param {EventQueryOptions} [options={}] - Additional query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Event[]>} Array of featured events
-   *
-   * @example
-   * ```typescript
-   * const featured = await eventModel.findFeatured({
-   *   limit: 5,
-   *   eventType: EventType.LAUNCH_EVENT
-   * });
-   * ```
+   * Finds featured events
    */
   async findFeatured(
     options: EventQueryOptions = {},
@@ -1595,20 +562,7 @@ export class EventModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Finds events with available capacity
-   *
-   * @param {EventQueryOptions} [options={}] - Additional query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Event[]>} Array of events with available capacity
-   *
-   * @example
-   * ```typescript
-   * const withCapacity = await eventModel.findWithCapacity({
-   *   requiresRegistration: true,
-   *   limit: 10
-   * });
-   * ```
    */
   async findWithCapacity(
     options: EventQueryOptions = {},
@@ -1626,21 +580,7 @@ export class EventModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Finds events by type
-   *
-   * @param {EventType} eventType - The event type to filter by
-   * @param {EventQueryOptions} [options={}] - Additional query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Event[]>} Array of events of the specified type
-   *
-   * @example
-   * ```typescript
-   * const workshops = await eventModel.findByType(EventType.WORKSHOP, {
-   *   isPublished: true,
-   *   limit: 10
-   * });
-   * ```
    */
   async findByType(
     eventType: EventType,
@@ -1651,21 +591,7 @@ export class EventModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Finds events by project
-   *
-   * @param {number} projectId - The project ID to filter by
-   * @param {EventQueryOptions} [options={}] - Additional query options
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Event[]>} Array of events associated with the project
-   *
-   * @example
-   * ```typescript
-   * const projectEvents = await eventModel.findByProject(5, {
-   *   isPublished: true,
-   *   limit: 10
-   * });
-   * ```
    */
   async findByProject(
     projectId: number,
@@ -1680,21 +606,7 @@ export class EventModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
-   * Checks if event has available capacity for additional guests
-   *
-   * @param {number} id - Event ID
-   * @param {number} [guestCount=1] - Number of additional guests
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<boolean>} Whether the event has capacity
-   *
-   * @example
-   * ```typescript
-   * const hasCapacity = await eventModel.hasAvailableCapacity(123, 2);
-   * if (hasCapacity) {
-   *   console.log("Event has capacity for 2 more guests");
-   * }
-   * ```
+   * Checks if event has available capacity
    */
   async hasAvailableCapacity(
     id: number,
@@ -1710,20 +622,7 @@ export class EventModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * Updates registered count (typically called by database triggers)
-   *
-   * @param {number} id - Event ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Event|null>} Updated event or null if not found
-   *
-   * @example
-   * ```typescript
-   * const updated = await eventModel.updateRegisteredCount(123);
-   * if (updated) {
-   *   console.log(`Updated count: ${updated.registeredCount}`);
-   * }
-   * ```
+   * Updates registered count (called by triggers)
    */
   async updateRegisteredCount(
     id: number,
@@ -1741,17 +640,7 @@ export class EventModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * Opens registration for an event
-   *
-   * @param {number} id - Event ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Event|null>} Updated event or null if not found
-   *
-   * @example
-   * ```typescript
-   * const opened = await eventModel.openRegistration(123);
-   * ```
+   * Opens registration
    */
   async openRegistration(
     id: number,
@@ -1761,17 +650,7 @@ export class EventModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * Closes registration for an event
-   *
-   * @param {number} id - Event ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Event|null>} Updated event or null if not found
-   *
-   * @example
-   * ```typescript
-   * const closed = await eventModel.closeRegistration(123);
-   * ```
+   * Closes registration
    */
   async closeRegistration(
     id: number,
@@ -1789,18 +668,7 @@ export class EventModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
    * Updates event status
-   *
-   * @param {number} id - Event ID
-   * @param {EventStatus} status - New status
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Event|null>} Updated event or null if not found
-   *
-   * @example
-   * ```typescript
-   * const updated = await eventModel.updateStatus(123, EventStatus.COMPLETED);
-   * ```
    */
   async updateStatus(
     id: number,
@@ -1811,17 +679,7 @@ export class EventModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * Publishes an event
-   *
-   * @param {number} id - Event ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Event|null>} Updated event or null if not found
-   *
-   * @example
-   * ```typescript
-   * const published = await eventModel.publish(123);
-   * ```
+   * Publishes event
    */
   async publish(id: number, trx?: Knex.Transaction): Promise<Event | null> {
     return this.update(
@@ -1832,17 +690,7 @@ export class EventModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * Unpublishes an event
-   *
-   * @param {number} id - Event ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<Event|null>} Updated event or null if not found
-   *
-   * @example
-   * ```typescript
-   * const unpublished = await eventModel.unpublish(123);
-   * ```
+   * Unpublishes event
    */
   async unpublish(id: number, trx?: Knex.Transaction): Promise<Event | null> {
     return this.update(id, { isPublished: false } as UpdateEventDto, trx);
@@ -1853,20 +701,7 @@ export class EventModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
-   * Gets event with comprehensive statistics
-   *
-   * @param {number} id - Event ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventWithStats|null>} Event with statistics or null if not found
-   *
-   * @example
-   * ```typescript
-   * const eventWithStats = await eventModel.getWithStats(123);
-   * if (eventWithStats) {
-   *   console.log(`Attendance rate: ${eventWithStats.stats.attendanceRate}%`);
-   * }
-   * ```
+   * Gets event with statistics
    */
   async getWithStats(
     id: number,
@@ -1884,19 +719,7 @@ export class EventModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * Gets comprehensive statistics for an event
-   *
-   * @param {number} eventId - Event ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<EventWithStats["stats"]>} Event statistics object
-   *
-   * @example
-   * ```typescript
-   * const stats = await eventModel.getEventStats(123);
-   * console.log(`Total registrations: ${stats.totalRegistrations}`);
-   * console.log(`Attendance rate: ${stats.attendanceRate}%`);
-   * ```
+   * Gets event statistics
    */
   async getEventStats(
     eventId: number,
@@ -1962,20 +785,7 @@ export class EventModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
-   * Increments view count for an event
-   *
-   * @param {number} id - Event ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<boolean>} Whether the update was successful
-   *
-   * @example
-   * ```typescript
-   * const success = await eventModel.incrementViewCount(123);
-   * if (success) {
-   *   console.log("View count incremented");
-   * }
-   * ```
+   * Increments view count
    */
   async incrementViewCount(
     id: number,
@@ -1991,20 +801,7 @@ export class EventModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * Increments click count for an event
-   *
-   * @param {number} id - Event ID
-   * @param {Knex.Transaction} [trx] - Optional transaction
-   * @returns {Promise<boolean>} Whether the update was successful
-   *
-   * @example
-   * ```typescript
-   * const success = await eventModel.incrementClickCount(123);
-   * if (success) {
-   *   console.log("Click count incremented");
-   * }
-   * ```
+   * Increments click count
    */
   async incrementClickCount(
     id: number,
@@ -2024,14 +821,7 @@ export class EventModel extends BaseModel<
   // ============================================================================
 
   /**
-   * @openapi
-   * Applies event-specific filters to a query
-   *
-   * @param {Knex.QueryBuilder} query - The query builder to modify
-   * @param {EventQueryOptions} options - Event query options
-   * @returns {Knex.QueryBuilder} Modified query builder with filters applied
-   *
-   * @private
+   * Applies event-specific filters to query
    */
   private applyEventFilters(
     query: Knex.QueryBuilder,
@@ -2132,14 +922,7 @@ export class EventModel extends BaseModel<
   }
 
   /**
-   * @openapi
-   * Validates geographic coordinates
-   *
-   * @param {number|null|undefined} latitude - Latitude value
-   * @param {number|null|undefined} longitude - Longitude value
-   * @throws {Error} When coordinates are invalid
-   *
-   * @private
+   * Validates coordinates
    */
   private validateCoordinates(
     latitude?: number | null,
@@ -2159,14 +942,7 @@ export class EventModel extends BaseModel<
   }
 
   /**
-   * @openapi
    * Maps database record to Event entity
-   *
-   * @param {DatabaseRecord} record - Database record
-   * @returns {Event} Mapped event entity
-   *
-   * @override
-   * @protected
    */
   protected mapToEntity(record: DatabaseRecord): Event {
     return {

@@ -2,9 +2,7 @@
  * API Response utility class
  * Provides consistent response formatting throughout the application
  * All API responses should use this class
- *
- * @module utils/response
- *
+ * 
  * @swagger
  * components:
  *   schemas:
@@ -32,7 +30,7 @@
  *           format: date-time
  *           example: "2025-11-05T10:30:00.000Z"
  *           description: ISO 8601 timestamp of the response
- *
+ * 
  *     ApiErrorResponse:
  *       type: object
  *       required:
@@ -60,7 +58,7 @@
  *           format: date-time
  *           example: "2025-11-05T10:30:00.000Z"
  *           description: ISO 8601 timestamp of the response
- *
+ * 
  *   responses:
  *     Success200:
  *       description: Successful operation
@@ -73,7 +71,7 @@
  *             message: "Operation completed successfully"
  *             data: null
  *             timestamp: "2025-11-05T10:30:00.000Z"
- *
+ * 
  *     Created201:
  *       description: Resource created successfully
  *       content:
@@ -87,7 +85,7 @@
  *               id: 1
  *               name: "Example Resource"
  *             timestamp: "2025-11-05T10:30:00.000Z"
- *
+ * 
  *     BadRequest400:
  *       description: Bad request - validation error or malformed request
  *       content:
@@ -101,7 +99,7 @@
  *               email: "Invalid email format"
  *               name: "Name must be at least 2 characters long"
  *             timestamp: "2025-11-05T10:30:00.000Z"
- *
+ * 
  *     Unauthorized401:
  *       description: Unauthorized - authentication required or invalid credentials
  *       content:
@@ -112,7 +110,7 @@
  *             success: false
  *             message: "Unauthorized access"
  *             timestamp: "2025-11-05T10:30:00.000Z"
- *
+ * 
  *     Forbidden403:
  *       description: Forbidden - insufficient permissions
  *       content:
@@ -123,7 +121,7 @@
  *             success: false
  *             message: "Access forbidden"
  *             timestamp: "2025-11-05T10:30:00.000Z"
- *
+ * 
  *     NotFound404:
  *       description: Resource not found
  *       content:
@@ -134,7 +132,7 @@
  *             success: false
  *             message: "Resource not found"
  *             timestamp: "2025-11-05T10:30:00.000Z"
- *
+ * 
  *     Conflict409:
  *       description: Conflict - duplicate resource or state conflict
  *       content:
@@ -145,7 +143,7 @@
  *             success: false
  *             message: "Resource already exists"
  *             timestamp: "2025-11-05T10:30:00.000Z"
- *
+ * 
  *     UnprocessableEntity422:
  *       description: Unprocessable entity - validation passed but data cannot be processed
  *       content:
@@ -158,7 +156,7 @@
  *             errors:
  *               reason: "Date must be in the future"
  *             timestamp: "2025-11-05T10:30:00.000Z"
- *
+ * 
  *     InternalServerError500:
  *       description: Internal server error
  *       content:
@@ -169,64 +167,35 @@
  *             success: false
  *             message: "Internal server error"
  *             timestamp: "2025-11-05T10:30:00.000Z"
- *
- * Features:
- * - Consistent response structure across all endpoints
- * - Automatic timestamp generation
- * - Type-safe response methods
- * - Support for detailed error messages
- * - HTTP status code abstraction
- * - Chainable API design
- *
- * @example
- * ```typescript
- * // Success response
- * ApiResponse.success(res, { user: data }, "User created successfully", 201);
- *
- * // Error response
- * ApiResponse.error(res, "User not found", 404);
- *
- * // Validation errors
- * ApiResponse.badRequest(res, "Validation failed", {
- *   email: "Invalid email format",
- *   password: "Password too short"
- * });
- * ```
  */
 
 import { Response } from "express";
 import { ApiResponse as ApiResponseInterface } from "@/types/common.types";
 
 /**
- * @openapi
  * ApiResponse utility class
  * Standardizes all API responses for consistency
  *
- * @class ApiResponse
- * @static
+ * @example
+ * // Success response
+ * ApiResponse.success(res, data, "User created successfully", 201);
+ *
+ * @example
+ * // Error response
+ * ApiResponse.error(res, "User not found", 404);
+ *
+ * @example
+ * // Bad request with validation errors
+ * ApiResponse.badRequest(res, "Validation failed", { email: "Invalid email" });
  */
 export class ApiResponse {
   /**
-   * @openapi
    * Sends a success response
    *
-   * @param {Response} res - Express response object
-   * @param {any} [data=null] - Response data payload
-   * @param {string} [message="Success"] - Success message
-   * @param {number} [statusCode=200] - HTTP status code
-   * @returns {void}
-   *
-   * @example
-   * ```typescript
-   * // Simple success
-   * ApiResponse.success(res);
-   *
-   * // With data
-   * ApiResponse.success(res, { id: 1, name: "John" }, "User retrieved");
-   *
-   * // Custom status code
-   * ApiResponse.success(res, userData, "User created", 201);
-   * ```
+   * @param res - Express response object
+   * @param data - Response data payload
+   * @param message - Success message
+   * @param statusCode - HTTP status code (default: 200)
    */
   static success(
     res: Response,
@@ -245,19 +214,12 @@ export class ApiResponse {
   }
 
   /**
-   * @openapi
    * Sends a created (201) response
    * Used for POST requests that create new resources
    *
-   * @param {Response} res - Express response object
-   * @param {any} data - Created resource data
-   * @param {string} [message="Resource created successfully"] - Success message
-   * @returns {void}
-   *
-   * @example
-   * ```typescript
-   * ApiResponse.created(res, newUser, "User created successfully");
-   * ```
+   * @param res - Express response object
+   * @param data - Created resource data
+   * @param message - Success message (default: "Resource created successfully")
    */
   static created(
     res: Response,
@@ -268,19 +230,12 @@ export class ApiResponse {
   }
 
   /**
-   * @openapi
    * Sends an error response
    *
-   * @param {Response} res - Express response object
-   * @param {string} [message="Internal server error"] - Error message
-   * @param {number} [statusCode=500] - HTTP status code
-   * @param {Record<string, any>} [errors] - Additional error details
-   * @returns {void}
-   *
-   * @example
-   * ```typescript
-   * ApiResponse.error(res, "Database connection failed", 500);
-   * ```
+   * @param res - Express response object
+   * @param message - Error message
+   * @param statusCode - HTTP status code (default: 500)
+   * @param errors - Additional error details (optional)
    */
   static error(
     res: Response,
@@ -299,39 +254,22 @@ export class ApiResponse {
   }
 
   /**
-   * @openapi
    * Sends a not found (404) response
    *
-   * @param {Response} res - Express response object
-   * @param {string} [message="Resource not found"] - Not found message
-   * @returns {void}
-   *
-   * @example
-   * ```typescript
-   * ApiResponse.notFound(res, "User not found");
-   * ```
+   * @param res - Express response object
+   * @param message - Not found message
    */
   static notFound(res: Response, message: string = "Resource not found"): void {
     this.error(res, message, 404);
   }
 
   /**
-   * @openapi
    * Sends a bad request (400) response
    * Used for validation errors and malformed requests
    *
-   * @param {Response} res - Express response object
-   * @param {string} [message="Bad request"] - Error message
-   * @param {Record<string, any>} [errors] - Validation errors object
-   * @returns {void}
-   *
-   * @example
-   * ```typescript
-   * ApiResponse.badRequest(res, "Validation failed", {
-   *   email: "Invalid email format",
-   *   password: "Password must be at least 8 characters"
-   * });
-   * ```
+   * @param res - Express response object
+   * @param message - Error message
+   * @param errors - Validation errors object
    */
   static badRequest(
     res: Response,
@@ -342,17 +280,10 @@ export class ApiResponse {
   }
 
   /**
-   * @openapi
    * Sends an unauthorized (401) response
    *
-   * @param {Response} res - Express response object
-   * @param {string} [message="Unauthorized access"] - Error message
-   * @returns {void}
-   *
-   * @example
-   * ```typescript
-   * ApiResponse.unauthorized(res, "Invalid credentials");
-   * ```
+   * @param res - Express response object
+   * @param message - Error message
    */
   static unauthorized(
     res: Response,
@@ -362,56 +293,33 @@ export class ApiResponse {
   }
 
   /**
-   * @openapi
    * Sends a forbidden (403) response
    *
-   * @param {Response} res - Express response object
-   * @param {string} [message="Access forbidden"] - Error message
-   * @returns {void}
-   *
-   * @example
-   * ```typescript
-   * ApiResponse.forbidden(res, "Admin access required");
-   * ```
+   * @param res - Express response object
+   * @param message - Error message
    */
   static forbidden(res: Response, message: string = "Access forbidden"): void {
     this.error(res, message, 403);
   }
 
   /**
-   * @openapi
    * Sends a conflict (409) response
    * Used for duplicate resources or state conflicts
    *
-   * @param {Response} res - Express response object
-   * @param {string} [message="Resource conflict"] - Error message
-   * @returns {void}
-   *
-   * @example
-   * ```typescript
-   * ApiResponse.conflict(res, "Email already exists");
-   * ```
+   * @param res - Express response object
+   * @param message - Error message
    */
   static conflict(res: Response, message: string = "Resource conflict"): void {
     this.error(res, message, 409);
   }
 
   /**
-   * @openapi
    * Sends an unprocessable entity (422) response
    * Used when validation passes but data cannot be processed
    *
-   * @param {Response} res - Express response object
-   * @param {string} [message="Unable to process request"] - Error message
-   * @param {Record<string, any>} [errors] - Detailed error information
-   * @returns {void}
-   *
-   * @example
-   * ```typescript
-   * ApiResponse.unprocessable(res, "Invalid date range", {
-   *   startDate: "Start date must be before end date"
-   * });
-   * ```
+   * @param res - Express response object
+   * @param message - Error message
+   * @param errors - Detailed error information
    */
   static unprocessable(
     res: Response,
