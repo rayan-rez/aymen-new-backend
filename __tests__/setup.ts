@@ -3,7 +3,7 @@
  * Global test configuration and utilities
  * Runs before each test file
  */
-
+import "tsconfig-paths/register"
 import db from "@/config/database";
 import { registerKnexExtensions } from "@/database/knex-extensions";
 

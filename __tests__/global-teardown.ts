@@ -2,6 +2,7 @@
  * Global Teardown
  * Runs once after all tests
  */
+import "tsconfig-paths/register"
 
 export default async function globalTeardown() {
   console.log("\n🏁 Jest Test Suite Complete");

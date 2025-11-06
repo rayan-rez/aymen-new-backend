@@ -528,13 +528,12 @@ export abstract class BaseModel<T, TCreate = Partial<T>, TUpdate = Partial<T>> {
    */
   async bulkUpdate(
     updates: Array<{ id: number; data: TUpdate }>,
-    trx?: Knex.Transaction // Changed from options object to transaction
+    trx?: Knex.Transaction
   ): Promise<BatchOperationResult> {
     let processed = 0;
     let failed = 0;
     const errors: Array<{ id?: number; error: string }> = [];
 
-    const connection = trx || this.db;
     const shouldCommit = !trx;
     const localTrx = trx || (await this.db.transaction());
 
@@ -548,11 +547,22 @@ export abstract class BaseModel<T, TCreate = Partial<T>, TUpdate = Partial<T>> {
             updateData.updated_at = localTrx.fn.now();
           }
 
-          await localTrx(this.tableName)
+          // Execute update and check affected rows
+          const affectedRows = await localTrx(this.tableName)
             .where({ [this.primaryKey]: id })
             .update(updateData);
 
-          processed++;
+          // Check if update actually affected any rows
+          if (affectedRows > 0) {
+            processed++;
+          } else {
+            // No rows affected = record doesn't exist or is already deleted
+            failed++;
+            errors.push({
+              id,
+              error: `No record found with ${this.primaryKey}=${id}`
+            });
+          }
         } catch (error) {
           failed++;
           errors.push({ id, error: (error as Error).message });

@@ -1,21 +1,25 @@
 // jest.config.js
 module.exports = {
+  // Use ts-jest preset for TypeScript support
   preset: "ts-jest",
+  
+  // Node environment for backend testing
   testEnvironment: "node",
-  roots: ["<rootDir>/__tests__"],
-  testMatch: ["__tests__/**/*.test.ts", "**/?(*.)+(spec|test).ts"],
-  transform: {
-    "^.+\\.ts$": [
-      "ts-jest",
-      {
-        tsconfig: {
-          esModuleInterop: true,
-          allowSyntheticDefaultImports: true,
-        },
-      },
-    ],
-  },
+  
+  // Tell Jest where to find tests - both __tests__ and root level files
+  roots: ["<rootDir>/__tests__", "<rootDir>"],
+  
+  // Test file patterns
+  testMatch: [
+    "**/__tests__/**/*.test.ts",
+    "**/__tests__/**/*.spec.ts",
+    "**/?(*.)+(spec|test).ts"
+  ],
+  
+  // File extensions Jest should look for
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"],
+  
+  // CRITICAL: Path alias mapping - matches tsconfig.json paths
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
     "^@services/(.*)$": "<rootDir>/src/services/$1",
@@ -25,9 +29,12 @@ module.exports = {
     "^@models$": "<rootDir>/src/models/index.ts",
     "^@controllers/(.*)$": "<rootDir>/src/controllers/$1",
     "^@constants/(.*)$": "<rootDir>/src/constants/$1",
+    "^@assets/(.*)$": "<rootDir>/src/assets/$1",
     "^@/types/(.*)$": "<rootDir>/src/types/$1",
     "^@tests/(.*)$": "<rootDir>/__tests__/$1",
   },
+  
+  // Coverage collection settings
   collectCoverageFrom: [
     "src/**/*.{ts,tsx}",
     "!src/**/*.d.ts",
@@ -46,40 +53,44 @@ module.exports = {
       statements: 70,
     },
   },
+  
+  // Setup files
   setupFilesAfterEnv: ["<rootDir>/__tests__/setup.ts"],
-  testPathIgnorePatterns: ["/node_modules/", "/dist/"],
-
-  // Better test isolation and reliability
+  
+  // IGNORE: Prevent test files in dist from being picked up
+  testPathIgnorePatterns: ["/node_modules/", "/dist/", "/coverage/"],
+  
+  // Test reliability settings
   verbose: true,
   clearMocks: true,
   resetMocks: true,
   restoreMocks: true,
-
-  // CRITICAL: Run tests serially to prevent race conditions
+  
+  // CRITICAL: Run tests serially to prevent DB race conditions
   maxWorkers: 1,
-
-  // Increase timeout for database operations
+  
+  // Timeout for async operations
   testTimeout: 30000,
-
-  // Better error reporting
+  
+  // Error handling
   bail: false,
   errorOnDeprecated: true,
-
-  // Global setup and teardown
+  
+  // Global setup and teardown - these run in isolated Node processes
   globalSetup: "<rootDir>/__tests__/global-setup.ts",
   globalTeardown: "<rootDir>/__tests__/global-teardown.ts",
-
-  // FIXED: Properly handle async operations and prevent memory leaks
+  
+  // Memory and handle management
   detectOpenHandles: true,
   forceExit: true,
-  detectLeaks: false, // Disable leak detection as it's experimental
-
-  // Better module resolution
-  moduleDirectories: ["node_modules", "src"],
-
-  // Test sequencer for deterministic order
+  detectLeaks: false, // Experimental feature, keep disabled
+  
+  // Module resolution
+  moduleDirectories: ["node_modules", "src", "<rootDir>"],
+  
+  // Custom test sequencer for deterministic order
   testSequencer: "<rootDir>/__tests__/test-sequencer.js",
-
-  // Reduce console noise
+  
+  // Console output
   silent: false,
 };

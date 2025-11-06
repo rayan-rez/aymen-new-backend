@@ -2,7 +2,7 @@
  * Global Setup
  * Runs once before all tests
  */
-
+import "tsconfig-paths/register"
 import dotenv from "dotenv";
 import path from "path";
 import { registerKnexExtensions } from "@/database/knex-extensions";
