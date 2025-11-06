@@ -50,42 +50,89 @@ export async function createTestProject(overrides: any = {}) {
 }
 
 /**
- * Cleans up specific tables
+ * Cleans up specific tables in correct order (respects FK constraints)
  */
 export async function cleanupTables(tables: string[]): Promise<void> {
-  for (const table of tables) {
-    try {
-      const tableExists = await db.schema.hasTable(table);
-      if (tableExists) {
-        await db(table).del();
+  try {
+    // Check connection
+    await db.raw("SELECT 1");
+    
+    // Disable FK checks for cleanup
+    await db.raw("SET FOREIGN_KEY_CHECKS = 0");
+    
+    for (const table of tables) {
+      try {
+        const tableExists = await db.schema.hasTable(table);
+        if (tableExists) {
+          await db(table).del();
+        }
+      } catch (error) {
+        console.warn(`Could not clean table ${table}:`, error);
       }
-    } catch (error) {
-      console.warn(`Could not clean table ${table}:`, error);
     }
+    
+    // Re-enable FK checks
+    await db.raw("SET FOREIGN_KEY_CHECKS = 1");
+    
+    await waitFor(100);
+  } catch (error) {
+    // Connection not available
   }
-  await waitFor(100);
 }
 
 /**
- * Cleans up all test data
+ * Cleans up all test data in correct dependency order
  */
 export async function cleanupAllTables(): Promise<void> {
   const tables = [
+    // Analytics tables (deepest children)
+    "page_views",
+    "user_events", 
+    "property_interactions",
+    "event_analytics",
+    
+    // Event relationships
+    "event_influencers",
+    "event_registrations",
+    
+    // Form submissions and leads
+    "lead_mirrors",
+    "form_submissions",
+    
+    // User sessions
+    "user_sessions",
+    
+    // Media (polymorphic)
     "photos",
     "floor_plans",
-    "apartments",
-    "commercial_properties",
+    
+    // Blog
     "blog_post_sections",
     "blog_posts",
+    
+    // Feedback
+    "trade_show_feedback",
+    "customer_feedback",
+    
+    // Properties
+    "apartments",
+    "commercial_properties",
+    
+    // Project relationships
     "project_features",
-    "project_locations",
-    "virtual_tours",
+    "project_media",
+    
+    // Events
+    "events",
+    
+    // Projects
     "projects",
-    "catalog_download_requests",
-    "appointment_requests",
-    "contact_form_submissions",
+    
+    // Reference data
     "features",
     "locations",
+    
+    // Test table
     "test_table",
   ];
 
@@ -253,7 +300,9 @@ export function generateFakePhotoData(overrides: any = {}) {
   return {
     url: `https://example.com/photo-${generateUniqueId()}.jpg`,
     caption: "Test Photo",
-    isCover: false,
+    is_cover: false,
+    photoable_type: "project",
+    photoable_id: 1,
     ...overrides,
   };
 }

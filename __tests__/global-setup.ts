@@ -5,13 +5,18 @@
 
 import dotenv from "dotenv";
 import path from "path";
+import { registerKnexExtensions } from "@/database/knex-extensions";
 
 export default async function globalSetup() {
   console.log("🚀 Starting Jest Test Suite...\n");
 
   // Load test environment variables
-  dotenv.config({ path: path.resolve(__dirname, "../../.env.test") });
-  dotenv.config({ path: path.resolve(__dirname, "../../.env") });
+  dotenv.config({ path: path.resolve(__dirname, "../.env.test") });
+  dotenv.config({ path: path.resolve(__dirname, "../.env") });
+
+  // CRITICAL: Register Knex extensions before any database operations
+  console.log("📦 Registering Knex extensions...");
+  registerKnexExtensions();
 
   // Verify database connection settings
   console.log("📊 Database Configuration:");
