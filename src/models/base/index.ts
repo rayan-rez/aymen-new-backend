@@ -1001,25 +1001,35 @@ export abstract class BaseModel<T, TCreate = Partial<T>, TUpdate = Partial<T>> {
     const mapped: Record<string, any> = {};
 
     for (const [key, value] of Object.entries(data)) {
-      if (value === undefined) continue;
+      // Skip undefined - not a valid database value
+      if (value === undefined) {
+        continue;
+      }
 
       const columnName = this.columnMap.get(key) || this.camelToSnake(key);
 
-      // Serialize complex types
-      if (
-        Array.isArray(value) ||
-        (typeof value === "object" &&
-          value !== null &&
-          !(value instanceof Date))
-      ) {
+      // Determine how to handle the value
+      if (value === null) {
+        // Null is valid - explicitly set it
+        mapped[columnName] = null;
+      } else if (value instanceof Date) {
+        // Date objects should be passed as-is
+        mapped[columnName] = value;
+      } else if (Array.isArray(value)) {
+        // Arrays should be serialized to JSON
+        mapped[columnName] = JSON.stringify(value);
+      } else if (typeof value === "object") {
+        // Plain objects should be serialized to JSON
         mapped[columnName] = JSON.stringify(value);
       } else {
+        // Primitives (string, number, boolean) pass through
         mapped[columnName] = value;
       }
     }
 
     return mapped;
   }
+
 
   /**
    * Maps field names to column names for queries

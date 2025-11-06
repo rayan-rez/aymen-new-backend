@@ -17,7 +17,10 @@
 
 import { MediaService } from "@services/media.service";
 import PhotoModel, { PhotoableType, Photo } from "@models/photo.model";
-import FloorPlanModel, { PlannableType, FloorPlan } from "@models/floor-plan.model";
+import FloorPlanModel, {
+  PlannableType,
+  FloorPlan,
+} from "@models/floor-plan.model";
 import db from "@/config/database";
 
 // Mock dependencies
@@ -37,7 +40,9 @@ describe("Media Service", () => {
       rollback: jest.fn().mockResolvedValue(undefined),
     };
 
-    (db.transaction as jest.Mock) = jest.fn().mockResolvedValue(mockTransaction);
+    (db.transaction as jest.Mock) = jest
+      .fn()
+      .mockResolvedValue(mockTransaction);
     (db as any) = jest.fn().mockReturnValue({
       where: jest.fn().mockReturnThis(),
       del: jest.fn().mockResolvedValue(1),
@@ -58,15 +63,27 @@ describe("Media Service", () => {
   describe("Type Guards", () => {
     describe("isValidPhotoableType", () => {
       it("should validate correct photoable types", () => {
-        expect(MediaService.isValidPhotoableType(PhotoableType.PROJECT)).toBe(true);
-        expect(MediaService.isValidPhotoableType(PhotoableType.APARTMENT)).toBe(true);
-        expect(MediaService.isValidPhotoableType(PhotoableType.COMMERCIAL_PROPERTY)).toBe(true);
-        expect(MediaService.isValidPhotoableType(PhotoableType.BLOG_POST)).toBe(true);
-        expect(MediaService.isValidPhotoableType(PhotoableType.EVENT)).toBe(true);
+        expect(MediaService.isValidPhotoableType(PhotoableType.PROJECT)).toBe(
+          true
+        );
+        expect(MediaService.isValidPhotoableType(PhotoableType.APARTMENT)).toBe(
+          true
+        );
+        expect(
+          MediaService.isValidPhotoableType(PhotoableType.COMMERCIAL_PROPERTY)
+        ).toBe(true);
+        expect(MediaService.isValidPhotoableType(PhotoableType.BLOG_POST)).toBe(
+          true
+        );
+        expect(MediaService.isValidPhotoableType(PhotoableType.EVENT)).toBe(
+          true
+        );
       });
 
       it("should reject invalid photoable types", () => {
-        expect(MediaService.isValidPhotoableType("invalid_type" as any)).toBe(false);
+        expect(MediaService.isValidPhotoableType("invalid_type" as any)).toBe(
+          false
+        );
         expect(MediaService.isValidPhotoableType("" as any)).toBe(false);
         expect(MediaService.isValidPhotoableType(null as any)).toBe(false);
       });
@@ -74,13 +91,21 @@ describe("Media Service", () => {
 
     describe("isValidPlannableType", () => {
       it("should validate correct plannable types", () => {
-        expect(MediaService.isValidPlannableType(PlannableType.PROJECT)).toBe(true);
-        expect(MediaService.isValidPlannableType(PlannableType.APARTMENT)).toBe(true);
+        expect(MediaService.isValidPlannableType(PlannableType.PROJECT)).toBe(
+          true
+        );
+        expect(MediaService.isValidPlannableType(PlannableType.APARTMENT)).toBe(
+          true
+        );
       });
 
       it("should reject invalid plannable types", () => {
-        expect(MediaService.isValidPlannableType("commercial" as any)).toBe(false);
-        expect(MediaService.isValidPlannableType("blog_post" as any)).toBe(false);
+        expect(MediaService.isValidPlannableType("commercial" as any)).toBe(
+          false
+        );
+        expect(MediaService.isValidPlannableType("blog_post" as any)).toBe(
+          false
+        );
       });
     });
   });
@@ -96,10 +121,15 @@ describe("Media Service", () => {
         photoableType: PhotoableType.PROJECT,
         photoableId: 1,
         url: "photo1.jpg",
+        externalUrl: null, // Added
+        caption: null, // Added
         isCover: true,
         displayOrder: 1,
         createdAt: new Date(),
         updatedAt: new Date(),
+        deletedAt: null, // Added
+        polymorphicType: undefined as never, // Added (using 'never' type as per interface)
+        polymorphicId: undefined as never, // Added (using 'never' type as per interface)
       },
     ];
 
@@ -110,16 +140,21 @@ describe("Media Service", () => {
         plannableId: 1,
         name: "Floor Plan 1",
         imageUrl: "plan1.jpg",
+        pdfUrl: null, // Added
         displayOrder: 1,
         createdAt: new Date(),
         updatedAt: new Date(),
+        deletedAt: null, // Added
+        polymorphicType: undefined as never, // Added (using 'never' type as per interface)
+        polymorphicId: undefined as never, // Added (using 'never' type as per interface)
       },
     ];
-
     describe("getProjectMedia", () => {
       it("should retrieve all project media", async () => {
         (PhotoModel.getForEntity as jest.Mock).mockResolvedValue(mockPhotos);
-        (FloorPlanModel.getForEntity as jest.Mock).mockResolvedValue(mockFloorPlans);
+        (FloorPlanModel.getForEntity as jest.Mock).mockResolvedValue(
+          mockFloorPlans
+        );
 
         const media = await MediaService.getProjectMedia(1);
 
@@ -141,7 +176,9 @@ describe("Media Service", () => {
 
       it("should support transactions", async () => {
         (PhotoModel.getForEntity as jest.Mock).mockResolvedValue(mockPhotos);
-        (FloorPlanModel.getForEntity as jest.Mock).mockResolvedValue(mockFloorPlans);
+        (FloorPlanModel.getForEntity as jest.Mock).mockResolvedValue(
+          mockFloorPlans
+        );
 
         await MediaService.getProjectMedia(1, mockTransaction);
 
@@ -167,7 +204,9 @@ describe("Media Service", () => {
     describe("getApartmentMedia", () => {
       it("should retrieve all apartment media", async () => {
         (PhotoModel.getForEntity as jest.Mock).mockResolvedValue(mockPhotos);
-        (FloorPlanModel.getForEntity as jest.Mock).mockResolvedValue(mockFloorPlans);
+        (FloorPlanModel.getForEntity as jest.Mock).mockResolvedValue(
+          mockFloorPlans
+        );
 
         const media = await MediaService.getApartmentMedia(1);
 
@@ -243,9 +282,14 @@ describe("Media Service", () => {
     describe("getEntityMedia", () => {
       it("should retrieve media for any valid entity type", async () => {
         (PhotoModel.getForEntity as jest.Mock).mockResolvedValue(mockPhotos);
-        (FloorPlanModel.getForEntity as jest.Mock).mockResolvedValue(mockFloorPlans);
+        (FloorPlanModel.getForEntity as jest.Mock).mockResolvedValue(
+          mockFloorPlans
+        );
 
-        const media = await MediaService.getEntityMedia(PhotoableType.PROJECT, 1);
+        const media = await MediaService.getEntityMedia(
+          PhotoableType.PROJECT,
+          1
+        );
 
         expect(media.photos).toEqual(mockPhotos);
         expect(media.floorPlans).toEqual(mockFloorPlans);
@@ -274,7 +318,9 @@ describe("Media Service", () => {
     describe("getCoverPhoto", () => {
       it("should retrieve cover photo", async () => {
         const mockCoverPhoto = { ...mockPhotos[0], isCover: true };
-        (PhotoModel.getCoverPhoto as jest.Mock).mockResolvedValue(mockCoverPhoto);
+        (PhotoModel.getCoverPhoto as jest.Mock).mockResolvedValue(
+          mockCoverPhoto
+        );
 
         const coverPhoto = await MediaService.getCoverPhoto(
           PhotoableType.PROJECT,
@@ -504,7 +550,11 @@ describe("Media Service", () => {
         const photo = await MediaService.updatePhoto(1, updateData);
 
         expect(photo).toEqual(mockUpdatedPhoto);
-        expect(PhotoModel.update).toHaveBeenCalledWith(1, updateData, undefined);
+        expect(PhotoModel.update).toHaveBeenCalledWith(
+          1,
+          updateData,
+          undefined
+        );
       });
 
       it("should return null if photo not found", async () => {
@@ -815,7 +865,9 @@ describe("Media Service", () => {
           withoutPdf: 2,
         };
 
-        (FloorPlanModel.getStatistics as jest.Mock).mockResolvedValue(mockStats);
+        (FloorPlanModel.getStatistics as jest.Mock).mockResolvedValue(
+          mockStats
+        );
 
         const stats = await MediaService.getFloorPlanStatistics(
           PlannableType.PROJECT,
@@ -939,3 +991,288 @@ describe("Media Service", () => {
 
       it("should detect missing cover photo", async () => {
         (PhotoModel.countForEntity as jest.Mock).mockResolvedValue(5);
+        (PhotoModel.getCoverPhoto as jest.Mock).mockResolvedValue(null);
+
+        const result = await MediaService.validateRequiredMedia(
+          PhotoableType.PROJECT,
+          1,
+          { requireCoverPhoto: true }
+        );
+
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain("Cover photo is required");
+      });
+
+      it("should detect insufficient floor plans", async () => {
+        (PhotoModel.countForEntity as jest.Mock).mockResolvedValue(5);
+        (FloorPlanModel.countForEntity as jest.Mock).mockResolvedValue(1);
+
+        const result = await MediaService.validateRequiredMedia(
+          PhotoableType.PROJECT,
+          1,
+          { minFloorPlans: 3 }
+        );
+
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain(
+          "Requires at least 3 floor plan(s), found 1"
+        );
+      });
+
+      it("should pass validation when all requirements met", async () => {
+        (PhotoModel.countForEntity as jest.Mock).mockResolvedValue(10);
+        (PhotoModel.getCoverPhoto as jest.Mock).mockResolvedValue({ id: 1 });
+        (FloorPlanModel.countForEntity as jest.Mock).mockResolvedValue(5);
+
+        const result = await MediaService.validateRequiredMedia(
+          PhotoableType.PROJECT,
+          1,
+          {
+            minPhotos: 5,
+            requireCoverPhoto: true,
+            minFloorPlans: 3,
+          }
+        );
+
+        expect(result.valid).toBe(true);
+        expect(result.errors).toHaveLength(0);
+      });
+
+      it("should handle multiple validation errors", async () => {
+        (PhotoModel.countForEntity as jest.Mock).mockResolvedValue(1);
+        (PhotoModel.getCoverPhoto as jest.Mock).mockResolvedValue(null);
+        (FloorPlanModel.countForEntity as jest.Mock).mockResolvedValue(0);
+
+        const result = await MediaService.validateRequiredMedia(
+          PhotoableType.PROJECT,
+          1,
+          {
+            minPhotos: 5,
+            requireCoverPhoto: true,
+            minFloorPlans: 2,
+          }
+        );
+
+        expect(result.valid).toBe(false);
+        expect(result.errors.length).toBeGreaterThan(1);
+      });
+    });
+  });
+
+  // ============================================================================
+  // INTEGRATION SCENARIOS
+  // ============================================================================
+
+  describe("Integration Scenarios", () => {
+    it("should handle complete media lifecycle", async () => {
+      const photoData = [{ url: "photo1.jpg" }];
+      const mockPhotos = [{ id: 1, url: "photo1.jpg" }];
+
+      (PhotoModel.createManyForEntity as jest.Mock).mockResolvedValue(
+        mockPhotos
+      );
+      (PhotoModel.update as jest.Mock).mockResolvedValue({
+        id: 1,
+        caption: "Updated",
+      });
+      (PhotoModel.delete as jest.Mock).mockResolvedValue(true);
+
+      // Add
+      await MediaService.addPhotos(PhotoableType.PROJECT, 1, photoData);
+
+      // Update
+      await MediaService.updatePhoto(1, { caption: "Updated" });
+
+      // Delete
+      await MediaService.deletePhoto(1);
+
+      expect(PhotoModel.createManyForEntity).toHaveBeenCalled();
+      expect(PhotoModel.update).toHaveBeenCalled();
+      expect(PhotoModel.delete).toHaveBeenCalled();
+    });
+
+    it("should handle batch operations with transactions", async () => {
+      const photoData = [
+        { url: "photo1.jpg" },
+        { url: "photo2.jpg" },
+        { url: "photo3.jpg" },
+      ];
+
+      (PhotoModel.createManyForEntity as jest.Mock).mockResolvedValue([]);
+      (PhotoModel.reorder as jest.Mock).mockResolvedValue(true);
+
+      await MediaService.addPhotos(
+        PhotoableType.PROJECT,
+        1,
+        photoData,
+        mockTransaction
+      );
+
+      await MediaService.reorderPhotos(
+        PhotoableType.PROJECT,
+        1,
+        [3, 1, 2],
+        mockTransaction
+      );
+
+      expect(PhotoModel.createManyForEntity).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(Number),
+        expect.any(Array),
+        mockTransaction
+      );
+    });
+
+    it("should handle entity migration with media", async () => {
+      const mockPhotos = [{ id: 1, url: "photo1.jpg" }];
+      const mockPlans = [{ id: 1, name: "Plan 1" }];
+
+      (PhotoModel.duplicatePhotos as jest.Mock).mockResolvedValue(mockPhotos);
+      (FloorPlanModel.duplicateFloorPlans as jest.Mock).mockResolvedValue(
+        mockPlans
+      );
+
+      // Copy media from project 1 to project 2
+      await MediaService.copyMedia(
+        PhotoableType.PROJECT,
+        1,
+        PhotoableType.PROJECT,
+        2,
+        true
+      );
+
+      expect(PhotoModel.duplicatePhotos).toHaveBeenCalled();
+      expect(FloorPlanModel.duplicateFloorPlans).toHaveBeenCalled();
+    });
+  });
+
+  // ============================================================================
+  // ERROR HANDLING TESTS
+  // ============================================================================
+
+  describe("Error Handling", () => {
+    it("should handle database connection errors", async () => {
+      (PhotoModel.getForEntity as jest.Mock).mockRejectedValue(
+        new Error("Connection lost")
+      );
+
+      await expect(MediaService.getProjectMedia(1)).rejects.toThrow(
+        "Failed to retrieve media for project 1"
+      );
+    });
+
+    it("should rollback transactions on error", async () => {
+      (PhotoModel.deleteForEntity as jest.Mock).mockRejectedValue(
+        new Error("Delete failed")
+      );
+
+      await expect(
+        MediaService.deleteEntityMedia(PhotoableType.PROJECT, 1, false)
+      ).rejects.toThrow();
+
+      expect(mockTransaction.rollback).toHaveBeenCalled();
+    });
+
+    it("should handle concurrent modification errors", async () => {
+      (PhotoModel.reorder as jest.Mock).mockRejectedValue(
+        new Error("Deadlock detected")
+      );
+
+      await expect(
+        MediaService.reorderMedia(PhotoableType.PROJECT, 1, [1, 2, 3])
+      ).rejects.toThrow();
+    });
+
+    it("should propagate validation errors", async () => {
+      await expect(
+        MediaService.getEntityMedia("invalid" as any, 1)
+      ).rejects.toThrow("Invalid entity type");
+    });
+  });
+
+  // ============================================================================
+  // EDGE CASES
+  // ============================================================================
+
+  describe("Edge Cases", () => {
+    it("should handle empty media collections", async () => {
+      (PhotoModel.getForEntity as jest.Mock).mockResolvedValue([]);
+      (FloorPlanModel.getForEntity as jest.Mock).mockResolvedValue([]);
+
+      const media = await MediaService.getProjectMedia(1);
+
+      expect(media.photos).toEqual([]);
+      expect(media.floorPlans).toEqual([]);
+    });
+
+    it("should handle very large media collections", async () => {
+      const largePhotoArray = Array(1000).fill({ id: 1, url: "photo.jpg" });
+      (PhotoModel.getForEntity as jest.Mock).mockResolvedValue(largePhotoArray);
+
+      const media = await MediaService.getEntityMedia(PhotoableType.PROJECT, 1);
+
+      expect(media.photos.length).toBe(1000);
+    });
+
+    it("should handle null transaction parameter", async () => {
+      (PhotoModel.getForEntity as jest.Mock).mockResolvedValue([]);
+
+      await MediaService.getEntityMedia(PhotoableType.PROJECT, 1, undefined);
+
+      expect(PhotoModel.getForEntity).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(Number),
+        expect.any(Object),
+        undefined
+      );
+    });
+
+    it("should handle entities with mixed media types", async () => {
+      const mockPhotos = [{ id: 1, url: "photo.jpg" }];
+      const mockPlans = [{ id: 1, name: "Plan" }];
+
+      (PhotoModel.getForEntity as jest.Mock).mockResolvedValue(mockPhotos);
+      (FloorPlanModel.getForEntity as jest.Mock).mockResolvedValue(mockPlans);
+
+      const media = await MediaService.getApartmentMedia(1);
+
+      expect(media.photos).toBeDefined();
+      expect(media.floorPlans).toBeDefined();
+    });
+  });
+
+  // ============================================================================
+  // PERFORMANCE TESTS
+  // ============================================================================
+
+  describe("Performance", () => {
+    it("should efficiently batch multiple operations", async () => {
+      const operations = Array(100)
+        .fill(null)
+        .map((_, i) =>
+          MediaService.addPhoto(PhotoableType.PROJECT, 1, {
+            url: `photo${i}.jpg`,
+          })
+        );
+
+      (PhotoModel.create as jest.Mock).mockResolvedValue({ id: 1 });
+
+      await Promise.all(operations);
+
+      expect(PhotoModel.create).toHaveBeenCalledTimes(100);
+    });
+
+    it("should handle concurrent reads efficiently", async () => {
+      (PhotoModel.getForEntity as jest.Mock).mockResolvedValue([]);
+      (FloorPlanModel.getForEntity as jest.Mock).mockResolvedValue([]);
+
+      const reads = Array(50)
+        .fill(null)
+        .map(() => MediaService.getProjectMedia(1));
+
+      await Promise.all(reads);
+
+      expect(PhotoModel.getForEntity).toHaveBeenCalled();
+    });
+  });
+});

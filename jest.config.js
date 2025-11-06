@@ -1,8 +1,8 @@
-// jest.config.js - FIXED VERSION
+// jest.config.js
 module.exports = {
   preset: "ts-jest",
   testEnvironment: "node",
-  roots: ["<rootDir>"],
+  roots: ["<rootDir>/__tests__"],
   testMatch: ["__tests__/**/*.test.ts", "**/?(*.)+(spec|test).ts"],
   transform: {
     "^.+\\.ts$": [
@@ -26,7 +26,7 @@ module.exports = {
     "^@controllers/(.*)$": "<rootDir>/src/controllers/$1",
     "^@constants/(.*)$": "<rootDir>/src/constants/$1",
     "^@/types/(.*)$": "<rootDir>/src/types/$1",
-    "^@tests/(.*)$": "<rootDir>/src/__tests__/$1",
+    "^@tests/(.*)$": "<rootDir>/__tests__/$1",
   },
   collectCoverageFrom: [
     "src/**/*.{ts,tsx}",

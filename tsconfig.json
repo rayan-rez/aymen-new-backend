@@ -4,7 +4,10 @@
     "module": "commonjs",
     "lib": ["ES2020"],
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDirs": [
+      "./src",
+      "./__tests__"
+    ],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -30,7 +33,7 @@
       "@constants/*": ["src/constants/*"],
       "@assets/*": ["src/assets/*"],
       "@/types/*": ["src/types/*"],
-      "@tests/*": ["src/__tests__/*"]
+      "@tests/*": ["__tests__/*"]
     }
   },
   "include": ["src/**/*", "scripts/archive-data.ts", "scripts/manage-partition.ts", "scripts/verify-migration.ts","__tests__/**/*.ts"],

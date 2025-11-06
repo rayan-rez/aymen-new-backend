@@ -6,7 +6,59 @@
 import db from "@/config/database";
 import ProjectModel from "@models/project.model";
 import { ProjectStatus } from "@models/project.model";
+import fs from "fs";
+import path from "path";
+import { Request, Response, NextFunction } from 'express';
 
+
+/**
+ * Properly closes database connection for test cleanup
+ * Call this in afterAll() of each test file
+ */
+export async function closeDatabase(): Promise<void> {
+  try {
+    // Check if connection is still available
+    await db.raw('SELECT 1');
+    
+    // Give pending operations time to complete
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Destroy the connection pool
+    await db.destroy();
+  } catch (error) {
+    // Connection already closed or error - silently ignore
+    if (error instanceof Error && !error.message.includes('destroy')) {
+      console.warn('Database cleanup warning:', error.message);
+    }
+  }
+}
+
+/**
+ * Cleans specific tables in the correct order
+ */
+export async function cleanTables(tables: string[]): Promise<void> {
+  try {
+    // Check if connection is available
+    await db.raw('SELECT 1');
+    
+    for (const table of tables) {
+      try {
+        const tableExists = await db.schema.hasTable(table);
+        if (tableExists) {
+          await db(table).del();
+        }
+      } catch (error) {
+        // Skip if table doesn't exist or other errors
+        continue;
+      }
+    }
+    
+    // Small delay to ensure cleanup completes
+    await new Promise(resolve => setTimeout(resolve, 100));
+  } catch (error) {
+    // Connection not available, skip cleanup
+  }
+}
 /**
  * Generates a unique identifier
  */
@@ -267,9 +319,6 @@ export function mockRequestResponse(overrides: any = {}) {
 /**
  * Creates a temporary test file (useful for upload/multipart tests)
  */
-import fs from "fs";
-import path from "path";
-
 export async function createTempFile(
   name: string,
   content = "Temporary test file"
@@ -317,3 +366,17 @@ export async function closeDatabaseConnection(): Promise<void> {
     console.error("Failed to close database connection:", err);
   }
 }
+
+
+export const mockRequest = (data: Partial<Request> = {}): Request =>
+  data as Request;
+
+export const mockResponse = (): Response => {
+  const res = {} as Response;
+  res.status = jest.fn().mockReturnValue(res);
+  res.json = jest.fn().mockReturnValue(res);
+  res.send = jest.fn().mockReturnValue(res);
+  return res;
+};
+
+export const mockNext = (): NextFunction => jest.fn();
