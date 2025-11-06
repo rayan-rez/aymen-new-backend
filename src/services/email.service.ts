@@ -1,10 +1,12 @@
 /**
- * Email Service
- * Handles all email sending operations using Nodemailer
+ * Email Service with Edge.js Template Support
+ * Handles all email sending operations using Nodemailer with Edge templates
  * Supports various email templates and scenarios
  */
 
 import nodemailer, { Transporter } from "nodemailer";
+import { Edge } from "edge.js";
+import path from "path";
 
 /**
  * Email configuration interface
@@ -17,6 +19,18 @@ interface EmailOptions {
   text?: string;
   from?: string;
   replyTo?: string;
+  attachments?: Array<{
+    filename: string;
+    path?: string;
+    content?: Buffer | string;
+  }>;
+}
+
+/**
+ * Template data interface for type safety
+ */
+interface TemplateData {
+  [key: string]: any;
 }
 
 /**
@@ -30,8 +44,20 @@ interface ContactFormData {
 }
 
 /**
+ * Available email templates enum
+ */
+export enum EmailTemplate {
+  CONTACT_FORM_ADMIN = "contact-form-admin",
+  CONTACT_FORM_CONFIRMATION = "contact-form-confirmation",
+  WELCOME = "welcome",
+  PASSWORD_RESET = "password-reset",
+  BOOKING_CONFIRMATION = "booking-confirmation",
+  PROPERTY_INQUIRY = "property-inquiry",
+}
+
+/**
  * Email Service class
- * Manages email operations with Nodemailer
+ * Manages email operations with Nodemailer and Edge templates
  */
 class EmailService {
   /**
@@ -59,8 +85,18 @@ class EmailService {
   private adminEmail: string;
 
   /**
+   * Edge template engine instance
+   */
+  private edge: Edge;
+
+  /**
+   * Templates directory path
+   */
+  private templatesDir: string;
+
+  /**
    * Initializes the Email Service
-   * Sets up Nodemailer transporter with SMTP configuration
+   * Sets up Nodemailer transporter and Edge template engine
    *
    * Environment variables required:
    * - SMTP_HOST: SMTP server hostname
@@ -77,6 +113,18 @@ class EmailService {
     this.emailFromName = process.env.EMAIL_FROM_NAME || "Aymen Real Estate";
     this.adminEmail = process.env.CONTACT_EMAIL || "contact@aymen.com";
 
+    // Set templates directory path
+    this.templatesDir = path.join(__dirname, "../templates/emails");
+
+    // Initialize Edge template engine
+    this.edge = new Edge({ cache: process.env.NODE_ENV === "production" });
+
+    // Mount the templates directory
+    this.edge.mount(this.templatesDir);
+
+    // Register custom Edge globals (available in all templates)
+    this.registerEdgeGlobals();
+
     // Create Nodemailer transporter
     this.transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || "smtp.gmail.com",
@@ -87,6 +135,139 @@ class EmailService {
         pass: process.env.SMTP_PASS,
       },
     });
+  }
+
+  /**
+   * Registers global variables and helpers for Edge templates
+   * These will be available in all templates
+   *
+   * @private
+   */
+  private registerEdgeGlobals(): void {
+    // Register global variables
+    this.edge.global("currentYear", () => new Date().getFullYear());
+    this.edge.global("companyName", this.emailFromName);
+    this.edge.global("supportEmail", this.adminEmail);
+
+    // Register custom helper for escaping HTML
+    this.edge.global("escapeHtml", (text: string) => this.escapeHtml(text));
+
+    // Register helper for formatting dates
+    this.edge.global("formatDate", (date: Date | string) => {
+      const d = typeof date === "string" ? new Date(date) : date;
+      return d.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    });
+
+    // Register helper for formatting phone numbers
+    this.edge.global("formatPhone", (phone: string) => {
+      // Add your phone formatting logic here
+      return phone;
+    });
+  }
+
+  /**
+   * Renders an Edge template with provided data
+   *
+   * @param templateName - Name of the template file (without .edge extension)
+   * @param data - Data to pass to the template
+   * @returns Promise<string> - Rendered HTML
+   *
+   * @example
+   * const html = await emailService.renderTemplate('welcome', { name: 'John' });
+   */
+  async renderTemplate(
+    templateName: string,
+    data: TemplateData = {}
+  ): Promise<string> {
+    try {
+      // Render template using Edge
+      const html = await this.edge.render(templateName, data);
+      return html;
+    } catch (error) {
+      console.error(`❌ Error rendering template "${templateName}":`, error);
+      throw new Error(`Failed to render email template: ${templateName}`);
+    }
+  }
+
+  /**
+   * Embeds logo images as inline attachments
+   *
+   * @param logoType - 'row' or 'block' logo style
+   * @returns Array of attachment objects
+   *
+   * @private
+   */
+  private getLogoAttachments(
+    logoType: "row" | "block" = "row"
+  ): Array<{ filename: string; path: string; cid: string }> {
+    const logoPath = path.join(__dirname, `../assets/logo-${logoType}.svg`);
+
+    return [
+      {
+        filename: `logo-${logoType}.svg`,
+        path: logoPath,
+        cid: "logo", // Used in template as: src="cid:logo"
+      },
+      {
+        filename: `logo-${logoType}.svg`,
+        path: logoPath,
+        cid: "logo-footer", // Used in footer as: src="cid:logo-footer"
+      },
+    ];
+  }
+
+  /**
+   * Sends an email using a template
+   *
+   * @param to - Recipient email address(es)
+   * @param subject - Email subject
+   * @param templateName - Name of the template to use
+   * @param data - Data to pass to the template
+   * @param options - Additional email options
+   * @returns Promise<boolean> - Success status
+   *
+   * @example
+   * await emailService.sendTemplatedEmail(
+   *   'user@example.com',
+   *   'Welcome to Aymen',
+   *   EmailTemplate.WELCOME,
+   *   { name: 'John', propertyCount: 150 }
+   * );
+   */
+  async sendTemplatedEmail(
+    to: string | string[],
+    subject: string,
+    templateName: EmailTemplate | string,
+    data: TemplateData = {},
+    options: Partial<EmailOptions> = {}
+  ): Promise<boolean> {
+    try {
+      // Render the template
+      const html = await this.renderTemplate(templateName, data);
+
+      // Generate plain text version
+      const text = this.htmlToText(html);
+
+      // Get logo attachments
+      const logoAttachments = this.getLogoAttachments("row"); // or 'block'
+
+      // Send email with embedded logos
+      return await this.sendEmail({
+        to,
+        subject,
+        html,
+        text,
+        attachments: [...logoAttachments, ...(options.attachments || [])],
+        ...options,
+      });
+    } catch (error) {
+      console.error("❌ Error sending templated email:", error);
+      return false;
+    }
   }
 
   /**
@@ -114,6 +295,7 @@ class EmailService {
         text: options.text,
         html: options.html,
         replyTo: options.replyTo,
+        attachments: options.attachments,
       });
 
       // Log success
@@ -141,128 +323,87 @@ class EmailService {
    * });
    */
   async sendContactForm(data: ContactFormData): Promise<boolean> {
-    // Generate HTML email template
-    const html = `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #f4f4f4; padding: 20px; border-radius: 5px; }
-          .content { margin: 20px 0; }
-          .field { margin: 15px 0; }
-          .label { font-weight: bold; color: #555; }
-          .value { margin: 5px 0 0 0; color: #333; }
-          .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #999; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h2>📧 New Contact Form Submission</h2>
-          </div>
-          <div class="content">
-            <div class="field">
-              <div class="label">Name:</div>
-              <div class="value">${this.escapeHtml(data.name)}</div>
-            </div>
-            <div class="field">
-              <div class="label">Email:</div>
-              <div class="value">
-                <a href="mailto:${this.escapeHtml(data.email)}">${this.escapeHtml(data.email)}</a>
-              </div>
-            </div>
-            <div class="field">
-              <div class="label">Phone:</div>
-              <div class="value">
-                <a href="tel:${this.escapeHtml(data.phone)}">${this.escapeHtml(data.phone)}</a>
-              </div>
-            </div>
-            <div class="field">
-              <div class="label">Message:</div>
-              <div class="value">${this.escapeHtml(data.message).replace(/\n/g, "<br>")}</div>
-            </div>
-          </div>
-          <div class="footer">
-            <p>This message was sent from your website's contact form.</p>
-            <p>Received at: ${new Date().toLocaleString()}</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-
-    // Generate plain text version
-    const text = `
-New Contact Form Submission
-
-Name: ${data.name}
-Email: ${data.email}
-Phone: ${data.phone}
-
-Message:
-${data.message}
-
----
-Received at: ${new Date().toLocaleString()}
-    `.trim();
-
-    // Send email to admin
-    const adminEmailSent = await this.sendEmail({
-      to: this.adminEmail,
-      subject: `New Contact Form from ${data.name}`,
-      html,
-      text,
-      replyTo: data.email,
-    });
+    // Send email to admin using template
+    const adminEmailSent = await this.sendTemplatedEmail(
+      this.adminEmail,
+      `New Contact Form from ${data.name}`,
+      EmailTemplate.CONTACT_FORM_ADMIN,
+      {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        message: data.message,
+        receivedAt: new Date().toLocaleString(),
+      },
+      {
+        replyTo: data.email,
+      }
+    );
 
     if (!adminEmailSent) {
       return false;
     }
 
-    // Optionally send confirmation email to user
-    const confirmationHtml = `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: #f4f4f4; padding: 20px; border-radius: 5px; }
-          .content { margin: 20px 0; }
-          .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #999; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h2>Thank You for Contacting Us</h2>
-          </div>
-          <div class="content">
-            <p>Dear ${this.escapeHtml(data.name)},</p>
-            <p>We have received your message and will get back to you as soon as possible.</p>
-            <p>In the meantime, if you have any questions, please feel free to reach out to us.</p>
-          </div>
-          <div class="footer">
-            <p>Best regards,<br>Aymen Real Estate Team</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-
-    // Send confirmation to user
-    await this.sendEmail({
-      to: data.email,
-      subject: "We received your message - Aymen Real Estate",
-      html: confirmationHtml,
-      text: `Dear ${data.name},\n\nWe have received your message and will get back to you as soon as possible.\n\nBest regards,\nAymen Real Estate Team`,
-    });
+    // Send confirmation email to user using template
+    await this.sendTemplatedEmail(
+      data.email,
+      "We received your message - Aymen Real Estate",
+      EmailTemplate.CONTACT_FORM_CONFIRMATION,
+      {
+        name: data.name,
+      }
+    );
 
     return true;
+  }
+
+  /**
+   * Sends a welcome email to a new user
+   *
+   * @param to - User email address
+   * @param name - User name
+   * @param additionalData - Additional data for the template
+   * @returns Promise<boolean> - Success status
+   */
+  async sendWelcomeEmail(
+    to: string,
+    name: string,
+    additionalData: TemplateData = {}
+  ): Promise<boolean> {
+    return await this.sendTemplatedEmail(
+      to,
+      `Welcome to ${this.emailFromName}`,
+      EmailTemplate.WELCOME,
+      {
+        name,
+        ...additionalData,
+      }
+    );
+  }
+
+  /**
+   * Sends a password reset email
+   *
+   * @param to - User email address
+   * @param name - User name
+   * @param resetLink - Password reset link
+   * @returns Promise<boolean> - Success status
+   */
+  async sendPasswordResetEmail(
+    to: string,
+    name: string,
+    resetLink: string
+  ): Promise<boolean> {
+    return await this.sendTemplatedEmail(
+      to,
+      "Password Reset Request",
+      EmailTemplate.PASSWORD_RESET,
+      {
+        name,
+        resetLink,
+        expiryTime: "1 hour",
+      }
+    );
   }
 
   /**
@@ -283,6 +424,34 @@ Received at: ${new Date().toLocaleString()}
       console.error("❌ SMTP connection failed:", error);
       return false;
     }
+  }
+
+  /**
+   * Clears the Edge template cache
+   * Useful for development or when templates are updated
+   */
+  clearTemplateCache(): void {
+    // Edge handles cache internally, we can remount to force reload
+    this.edge.mount(this.templatesDir);
+    console.log("✅ Template cache cleared");
+  }
+
+  /**
+   * Converts HTML to plain text
+   * Simple implementation for email fallback
+   *
+   * @param html - HTML content
+   * @returns Plain text version
+   *
+   * @private
+   */
+  private htmlToText(html: string): string {
+    return html
+      .replace(/<style[^>]*>.*?<\/style>/gi, "")
+      .replace(/<script[^>]*>.*?<\/script>/gi, "")
+      .replace(/<[^>]+>/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 
   /**

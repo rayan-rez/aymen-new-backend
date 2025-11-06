@@ -1,0 +1,32 @@
+<div class="email-footer">
+    <div class="footer-logo">
+        <img src="cid:logo-footer" alt="{{ companyName }}" class="footer-logo">
+    </div>
+
+    <p style="font-size: 16px; font-weight: 600; margin-bottom: 20px;">
+        {{ companyName }}
+    </p>
+
+    <p>
+        Your trusted partner in real estate excellence
+    </p>
+
+    <div class="contact-info" style="background: rgba(255, 255, 255, 0.05); margin: 24px auto; max-width: 400px;">
+        <a href="mailto:{{ supportEmail }}">{{ supportEmail }}</a>
+    </div>
+
+    <div class="social-links">
+        <a href="#" title="Facebook">f</a>
+        <a href="#" title="Instagram">📷</a>
+        <a href="#" title="LinkedIn">in</a>
+    </div>
+
+    <div class="copyright">
+        <p>&copy; {{ currentYear() }} {{ companyName }}. All rights reserved.</p>
+        <p class="text-small" style="margin-top: 12px;">
+            This email was sent to you because you interacted with our services.<br>
+            <a href="#" style="color: #89D6CE;">Unsubscribe</a> |
+            <a href="#" style="color: #89D6CE;">Privacy Policy</a>
+        </p>
+    </div>
+</div>

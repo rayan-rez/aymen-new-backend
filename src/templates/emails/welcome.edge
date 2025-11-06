@@ -1,0 +1,85 @@
+@layout('layouts.base')
+
+@set('subject', 'Welcome to ' + companyName)
+
+@section('body')
+<div class="text-center">
+  <h2>Welcome to {{ companyName }}! 🎉</h2>
+  <p style="font-size: 18px; color: #068074; font-weight: 500;">
+    We're thrilled to have you join our community
+  </p>
+</div>
+
+<div class="divider"></div>
+
+<p>Dear <strong>{{ name }}</strong>,</p>
+
+<p>
+  Welcome aboard! You've just taken the first step toward finding your dream property
+  with Algeria's most trusted real estate platform. We're excited to be part of your
+  journey.
+</p>
+
+<div class="property-card">
+  <div class="property-card-header">
+    🌟 Your Exclusive Benefits
+  </div>
+  <div class="property-card-body">
+    <ul class="features-list">
+      <li><strong>Curated Listings:</strong> Access to premium properties before they hit the market</li>
+      <li><strong>Smart Recommendations:</strong> AI-powered suggestions based on your preferences</li>
+      <li><strong>Virtual Tours:</strong> Explore properties from the comfort of your home</li>
+      <li><strong>Expert Guidance:</strong> Dedicated agents available 24/7</li>
+      <li><strong>Market Insights:</strong> Regular updates on property trends and prices</li>
+    </ul>
+  </div>
+</div>
+
+@if(dashboardUrl)
+<div class="success-box">
+  <p style="color: #044D46; margin-bottom: 20px;">
+    <strong>Your personalized dashboard is ready!</strong><br>
+    Start exploring properties that match your dreams.
+  </p>
+  @component('components.button', {
+  url: dashboardUrl,
+  text: 'Go to Dashboard →'
+  })
+  @end
+</div>
+@end
+
+<div class="divider"></div>
+
+<h3>🚀 Quick Start Guide</h3>
+
+<div class="info-box">
+  <p><strong>1. Complete Your Profile</strong></p>
+  <p class="text-muted">Tell us about your preferences to get better recommendations</p>
+</div>
+
+<div class="info-box">
+  <p><strong>2. Set Your Search Criteria</strong></p>
+  <p class="text-muted">Location, budget, property type - we'll find the perfect match</p>
+</div>
+
+<div class="info-box">
+  <p><strong>3. Save Your Favorites</strong></p>
+  <p class="text-muted">Create collections and compare properties side by side</p>
+</div>
+
+<div class="contact-info">
+  <p style="color: #044D46;">
+    <strong>Need help getting started?</strong><br>
+    Our support team is here for you!
+  </p>
+  <a href="mailto:{{ supportEmail }}">Contact Support</a>
+  <span style="color: #B6E6E1;">•</span>
+  <a href="#">Help Center</a>
+</div>
+
+<p class="mt-32">
+  Here's to finding your perfect property!<br><br>
+  <strong style="color: #068074;">The {{ companyName }} Team</strong>
+</p>
+@end

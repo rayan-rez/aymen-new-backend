@@ -1,0 +1,50 @@
+@layout('layouts.base')
+
+@set('subject', 'Thank You for Contacting Us')
+
+@section('body')
+<div class="success-box">
+  <div class="icon">✅</div>
+  <h2 style="color: #044D46; margin: 0;">Message Received!</h2>
+</div>
+
+<p>Dear <strong>{{ name }}</strong>,</p>
+
+<p>
+  Thank you for reaching out to {{ companyName }}! We've successfully received
+  your message and truly appreciate you taking the time to connect with us.
+</p>
+
+<div class="info-box">
+  <p><strong>What happens next?</strong></p>
+  <ul class="features-list" style="margin: 16px 0 0 0;">
+    <li>Our specialist team will review your inquiry</li>
+    <li>You'll receive a personalized response within 24-48 hours</li>
+    <li>We'll provide detailed information tailored to your needs</li>
+  </ul>
+</div>
+
+<div class="divider"></div>
+
+<p class="text-center" style="font-size: 15px;">
+  In the meantime, explore our latest properties and exclusive listings
+</p>
+
+@component('components.button', {
+url: 'https://yourwebsite.com/properties',
+text: 'Browse Properties'
+})
+@end
+
+<div class="alert-box" style="background: #E1F5F3; border-left-color: #068074;">
+  <p style="color: #044D46;">
+    <strong>💡 Quick Tip:</strong> You can reply directly to this email if you
+    have any additional questions or information to share.
+  </p>
+</div>
+
+<p class="mt-32">
+  Warm regards,<br>
+  <strong style="color: #068074;">The {{ companyName }} Team</strong>
+</p>
+@end

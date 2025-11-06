@@ -1,0 +1,39 @@
+@layout('layouts.base')
+
+@set('subject', 'New Contact Form Submission')
+
+@section('body')
+<h2>📧 New Contact Form Submission</h2>
+
+<p>Great news! You've received a new message from your website's contact form.</p>
+
+<div class="info-box">
+  <p><strong>Contact Information</strong></p>
+  <div class="divider" style="margin: 16px 0;"></div>
+  <p><strong>Name:</strong> {{ name }}</p>
+  <p><strong>Email:</strong> <a href="mailto:{{ email }}" style="color: #068074; font-weight: 600;">{{ email }}</a></p>
+  <p><strong>Phone:</strong> <a href="tel:{{ phone }}" style="color: #068074; font-weight: 600;">{{ phone }}</a></p>
+</div>
+
+<div class="property-card">
+  <div class="property-card-header">
+    📝 Message Content
+  </div>
+  <div class="property-card-body">
+    <p style="color: #044D46; white-space: pre-wrap;">{{ message }}</p>
+  </div>
+</div>
+
+<div class="contact-info">
+  <p class="text-muted">
+    <strong>Received:</strong> {{ receivedAt }}<br>
+    <strong>Response Required:</strong> Please reply within 24 hours
+  </p>
+</div>
+
+<div class="btn-container">
+  <a href="mailto:{{ email }}?subject=Re: Your Inquiry" class="btn">
+    Reply to {{ name }}
+  </a>
+</div>
+@end

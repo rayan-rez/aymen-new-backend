@@ -2,8 +2,8 @@
 module.exports = {
   preset: "ts-jest",
   testEnvironment: "node",
-  roots: ["<rootDir>/src"],
-  testMatch: ["**/__tests__/**/*.test.ts", "**/?(*.)+(spec|test).ts"],
+  roots: ["<rootDir>"],
+  testMatch: ["__tests__/**/*.test.ts", "**/?(*.)+(spec|test).ts"],
   transform: {
     "^.+\\.ts$": [
       "ts-jest",
@@ -46,7 +46,7 @@ module.exports = {
       statements: 70,
     },
   },
-  setupFilesAfterEnv: ["<rootDir>/src/__tests__/setup.ts"],
+  setupFilesAfterEnv: ["<rootDir>/__tests__/setup.ts"],
   testPathIgnorePatterns: ["/node_modules/", "/dist/"],
 
   // Better test isolation and reliability
@@ -66,8 +66,8 @@ module.exports = {
   errorOnDeprecated: true,
 
   // Global setup and teardown
-  globalSetup: "<rootDir>/src/__tests__/global-setup.ts",
-  globalTeardown: "<rootDir>/src/__tests__/global-teardown.ts",
+  globalSetup: "<rootDir>/__tests__/global-setup.ts",
+  globalTeardown: "<rootDir>/__tests__/global-teardown.ts",
 
   // FIXED: Properly handle async operations and prevent memory leaks
   detectOpenHandles: true,
@@ -78,7 +78,7 @@ module.exports = {
   moduleDirectories: ["node_modules", "src"],
 
   // Test sequencer for deterministic order
-  testSequencer: "<rootDir>/src/__tests__/test-sequencer.js",
+  testSequencer: "<rootDir>/__tests__/test-sequencer.js",
 
   // Reduce console noise
   silent: false,

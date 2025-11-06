@@ -1,0 +1,125 @@
+@layout('layouts.base')
+
+@set('subject', 'Thank You for Your Interest')
+
+@section('body')
+<div class="text-center">
+  <h2>Thank You for Your Interest! 🏠</h2>
+  <p style="font-size: 18px; color: #068074; font-weight: 500;">
+    We're here to help you find your dream property
+  </p>
+</div>
+
+<div class="divider"></div>
+
+<p>Dear <strong>{{ name }}</strong>,</p>
+
+<p>
+  Thank you for your inquiry! We're thrilled about your interest in this property.
+  One of our experienced specialists has been notified and will contact you shortly
+  with comprehensive information.
+</p>
+
+<div class="property-card">
+  <div class="property-card-header">
+    🏡 Property Information
+  </div>
+  <div class="property-card-body">
+    <div class="property-detail">
+      <span class="property-detail-label">Property Name</span>
+      <span class="property-detail-value">{{ propertyName }}</span>
+    </div>
+    @if(propertyPrice)
+    <div class="property-detail">
+      <span class="property-detail-label">Price</span>
+      <span class="property-detail-value" style="color: #068074; font-size: 18px;">{{ propertyPrice }}</span>
+    </div>
+    @end
+    <div class="property-detail">
+      <span class="property-detail-label">Location</span>
+      <span class="property-detail-value">{{ propertyLocation }}</span>
+    </div>
+    @if(propertyType)
+    <div class="property-detail">
+      <span class="property-detail-label">Property Type</span>
+      <span class="property-detail-value">{{ propertyType }}</span>
+    </div>
+    @end
+    @if(propertySize)
+    <div class="property-detail">
+      <span class="property-detail-label">Size</span>
+      <span class="property-detail-value">{{ propertySize }}</span>
+    </div>
+    @end
+  </div>
+</div>
+
+@if(propertyUrl)
+@component('components.button', {
+url: propertyUrl,
+text: 'View Full Details →'
+})
+@end
+@end
+
+<div class="divider"></div>
+
+<h3>⏱️ What Happens Next?</h3>
+
+<div class="info-box">
+  <p><strong>1. Immediate Confirmation</strong></p>
+  <p class="text-muted">You're reading it! Your inquiry has been received.</p>
+</div>
+
+<div class="info-box">
+  <p><strong>2. Expert Review (within 2 hours)</strong></p>
+  <p class="text-muted">Our specialist will review the property details and your requirements.</p>
+</div>
+
+<div class="info-box">
+  <p><strong>3. Personal Contact (within 24 hours)</strong></p>
+  <p class="text-muted">We'll reach out with detailed information and answer all your questions.</p>
+</div>
+
+<div class="info-box">
+  <p><strong>4. Schedule Viewing</strong></p>
+  <p class="text-muted">Book a convenient time to see the property in person.</p>
+</div>
+
+<div class="success-box">
+  <p style="color: #044D46; margin-bottom: 16px;">
+    <strong>🌟 Exclusive Opportunity</strong>
+  </p>
+  <p style="color: #05665D; font-size: 15px;">
+    This property matches your search criteria perfectly! Act fast as premium
+    properties like this are in high demand.
+  </p>
+</div>
+
+<h3>🔍 Similar Properties You Might Love</h3>
+
+<p class="text-muted">
+  While you wait, explore other properties that match your preferences:
+</p>
+
+<div class="btn-container">
+  <a href="https://yourwebsite.com/properties?similar={{ propertyId }}" class="btn btn-secondary">
+    View Similar Properties
+  </a>
+</div>
+
+<div class="contact-info">
+  <p style="color: #044D46;">
+    <strong>Have urgent questions?</strong><br>
+    Our team is available to assist you right away!
+  </p>
+  <a href="mailto:{{ supportEmail }}">Email Us</a>
+  <span style="color: #B6E6E1;">•</span>
+  <a href="tel:+213XXXXXXXXX">Call Now</a>
+</div>
+
+<p class="mt-32">
+  Looking forward to helping you find your perfect home!<br><br>
+  <strong style="color: #068074;">The {{ companyName }} Team</strong>
+</p>
+@end

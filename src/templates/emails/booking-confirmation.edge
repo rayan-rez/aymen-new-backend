@@ -1,0 +1,92 @@
+@layout('layouts.base')
+
+@set('subject', 'Booking Confirmed')
+
+@section('body')
+<div class="success-box">
+  <div class="icon">🎉</div>
+  <h2 style="color: #044D46; margin: 0;">Booking Confirmed!</h2>
+  <p style="color: #05665D; margin: 12px 0 0 0;">Your property viewing is scheduled</p>
+</div>
+
+<p>Dear <strong>{{ name }}</strong>,</p>
+
+<p>
+  Excellent news! Your property viewing has been successfully scheduled. We're excited
+  to show you around and help you find your perfect property.
+</p>
+
+<div class="property-card">
+  <div class="property-card-header">
+    📅 Viewing Details
+  </div>
+  <div class="property-card-body">
+    <div class="property-detail">
+      <span class="property-detail-label">Property</span>
+      <span class="property-detail-value">{{ propertyName }}</span>
+    </div>
+    <div class="property-detail">
+      <span class="property-detail-label">Date</span>
+      <span class="property-detail-value">{{ bookingDate }}</span>
+    </div>
+    <div class="property-detail">
+      <span class="property-detail-label">Time</span>
+      <span class="property-detail-value">{{ bookingTime }}</span>
+    </div>
+    <div class="property-detail">
+      <span class="property-detail-label">Location</span>
+      <span class="property-detail-value">{{ propertyAddress }}</span>
+    </div>
+  </div>
+</div>
+
+@if(agentName)
+<div class="info-box">
+  <p><strong>👤 Your Dedicated Agent</strong></p>
+  <div class="divider" style="margin: 12px 0;"></div>
+  <p><strong>Name:</strong> {{ agentName }}</p>
+  @if(agentPhone)
+  <p><strong>Phone:</strong> <a href="tel:{{ agentPhone }}" style="color: #068074; font-weight: 600;">{{ agentPhone
+      }}</a></p>
+  @end
+  @if(agentEmail)
+  <p><strong>Email:</strong> <a href="mailto:{{ agentEmail }}" style="color: #068074; font-weight: 600;">{{ agentEmail
+      }}</a></p>
+  @end
+</div>
+@end
+
+<h3>📋 Before Your Visit</h3>
+
+<div class="info-box">
+  <ul class="features-list">
+    <li>Please arrive 5 minutes early</li>
+    <li>Bring a valid ID for security purposes</li>
+    <li>Feel free to take photos and notes during the viewing</li>
+    <li>Prepare any questions you'd like to ask</li>
+  </ul>
+</div>
+
+<div class="alert-box">
+  <p style="color: #92400E;">
+    <strong>⚠️ Need to reschedule?</strong><br>
+    Please notify us at least 24 hours in advance to reschedule or cancel your viewing.
+  </p>
+</div>
+
+<div class="btn-container">
+  <a href="#" class="btn">Add to Calendar</a>
+  <a href="tel:{{ agentPhone }}" class="btn btn-secondary">Call Agent</a>
+</div>
+
+<div class="divider"></div>
+
+<p class="text-center text-muted">
+  We look forward to meeting you and showing you this amazing property!
+</p>
+
+<p class="mt-32">
+  See you soon,<br>
+  <strong style="color: #068074;">The {{ companyName }} Team</strong>
+</p>
+@end
