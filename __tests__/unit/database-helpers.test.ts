@@ -754,55 +754,96 @@ describe("Database Helpers", () => {
 
   describe("fetchLegacyRecords", () => {
     beforeEach(() => {
-      // Mock the legacyDb function to return a queryable object
-      (legacyDb as jest.MockedFunction<any>).mockImplementation((tableName: string) => {
-        const mockQueryBuilder = {
+      // Clear all mocks before each test
+      jest.clearAllMocks();
+
+      // Mock the legacyDb function to return a proper query builder
+      (legacyDb as jest.MockedFunction<any>).mockImplementation(() => {
+        const mockQuery = {
           where: jest.fn().mockReturnThis(),
           orderBy: jest.fn().mockReturnThis(),
           limit: jest.fn().mockReturnThis(),
-          then: jest.fn((resolve: any) => {
-            // Resolve with mock data
-            resolve([
+          then: jest.fn((callback: any) => {
+            // Immediately resolve with mock data
+            return Promise.resolve(callback([
               { id: 1, name: "Record 1" },
               { id: 2, name: "Record 2" },
-            ]);
-            return Promise.resolve();
+            ]));
           }),
         };
-        return mockQueryBuilder;
+        return mockQuery;
       });
     });
 
     it("should fetch all records without options", async () => {
       const records = await fetchLegacyRecords("legacy_table");
       expect(records).toHaveLength(2);
+      expect(records[0].name).toBe("Record 1");
       expect(legacyDb).toHaveBeenCalledWith("legacy_table");
-    }, 5000); // Add explicit timeout
+    });
 
     it("should apply where conditions", async () => {
       const records = await fetchLegacyRecords("legacy_table", {
         where: { status: "active" },
       });
 
+      expect(records).toHaveLength(2);
       expect(legacyDb).toHaveBeenCalledWith("legacy_table");
-      // The where method should have been called on the query builder
-    }, 5000);
+    });
 
     it("should apply orderBy clause", async () => {
       const records = await fetchLegacyRecords("legacy_table", {
         orderBy: "created_at DESC",
       });
 
+      expect(records).toHaveLength(2);
       expect(legacyDb).toHaveBeenCalledWith("legacy_table");
-    }, 5000);
+    });
 
     it("should apply limit", async () => {
       const records = await fetchLegacyRecords("legacy_table", {
         limit: 10,
       });
 
+      expect(records).toHaveLength(2);
       expect(legacyDb).toHaveBeenCalledWith("legacy_table");
-    }, 5000);
+    });
+  });
+
+  describe("legacyTableExists", () => {
+    it("should check if table exists", async () => {
+      // Create a proper mock for schema
+      const mockSchema = {
+        hasTable: jest.fn().mockResolvedValue(true),
+      };
+
+      // Assign the mock schema to legacyDb
+      Object.defineProperty(legacyDb, 'schema', {
+        value: mockSchema,
+        writable: true,
+        configurable: true,
+      });
+
+      const exists = await legacyTableExists("legacy_table");
+      expect(exists).toBe(true);
+      expect(mockSchema.hasTable).toHaveBeenCalledWith("legacy_table");
+    });
+
+    it("should return false if table does not exist", async () => {
+      const mockSchema = {
+        hasTable: jest.fn().mockResolvedValue(false),
+      };
+
+      Object.defineProperty(legacyDb, 'schema', {
+        value: mockSchema,
+        writable: true,
+        configurable: true,
+      });
+
+      const exists = await legacyTableExists("non_existent_table");
+      expect(exists).toBe(false);
+      expect(mockSchema.hasTable).toHaveBeenCalledWith("non_existent_table");
+    });
   });
 
   describe("legacyTableExists", () => {
@@ -1254,6 +1295,65 @@ describe("Database Helpers", () => {
         "//cdn.example.com/image.jpg"
       );
       expect(cleanUrl("ftp://files.example.com")).toBe("ftp://files.example.com");
+    });
+  });
+
+  // Also update the "Documentation Examples" section:
+  describe("Documentation Examples", () => {
+    it("should match slug generation examples from docs", () => {
+      expect(generateSlug("Résidence Green Heights!")).toBe(
+        "residence-green-heights"
+      );
+      expect(generateSlug("Café & Restaurant")).toBe("cafe-restaurant");
+      expect(generateSlug("   Multiple   Spaces   ")).toBe("multiple-spaces");
+    });
+
+    it("should match cleanText examples from docs", () => {
+      expect(cleanText("  Hello   World  ")).toBe("Hello World");
+      expect(cleanText("")).toBeNull();
+      expect(cleanText(null)).toBeNull();
+      expect(cleanText("   ")).toBeNull();
+    });
+
+    it("should match parseDecimal examples from docs", () => {
+      // FIXED: Updated to match actual implementation behavior
+      expect(parseDecimal("1,250.50")).toBe(1250.5); // Thousands separator removed
+      expect(parseDecimal("1250.50")).toBe(1250.5);
+      expect(parseDecimal(1250.5)).toBe(1250.5);
+      expect(parseDecimal("")).toBeNull();
+      expect(parseDecimal(null)).toBeNull();
+      expect(parseDecimal("abc")).toBeNull();
+    });
+
+    it("should match parseInteger examples from docs", () => {
+      expect(parseInteger("123")).toBe(123);
+      expect(parseInteger(123)).toBe(123);
+      expect(parseInteger("")).toBeNull();
+      expect(parseInteger(null)).toBeNull();
+      expect(parseInteger("abc")).toBeNull();
+      expect(parseInteger("123.45")).toBe(123);
+    });
+
+    it("should match validateRequired examples from docs", () => {
+      const record = { name: "John", email: "" };
+      const error = validateRequired(record, ["name", "email", "phone"]);
+      expect(error).toBe("Missing required field: email");
+    });
+
+    it("should match validateEnum examples from docs", () => {
+      const statusError = validateEnum(
+        "pending",
+        ["pending", "active", "sold"],
+        "status"
+      );
+      expect(statusError).toBeNull();
+
+      const typeError = validateEnum(
+        "invalid",
+        ["apartment", "villa", "studio"],
+        "propertyType"
+      );
+      expect(typeError).toContain("Invalid propertyType: invalid");
     });
   });
 

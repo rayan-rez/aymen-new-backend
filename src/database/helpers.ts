@@ -360,14 +360,18 @@ export function generateSlug(text: string): string {
   return text
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/[\u0300-\u036f]/g, "") // Remove diacritical marks
+    .replace(/œ/g, "oe") // Handle special ligatures
+    .replace(/æ/g, "ae")
+    .replace(/ø/g, "o")
+    .replace(/ß/g, "ss")
+    .replace(/ñ/g, "n")
+    .replace(/[^a-z0-9\s-]/g, "") // Remove special characters
     .trim()
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
+    .replace(/\s+/g, "-") // Replace spaces with hyphens
+    .replace(/-+/g, "-") // Replace multiple hyphens with single
+    .replace(/^-|-$/g, ""); // Remove leading/trailing hyphens
 }
-
 /**
  * Ensures slug uniqueness by appending counter if needed
  * Checks database and increments suffix until unique slug found
@@ -479,7 +483,36 @@ export function parseBoolean(value: any): boolean {
  */
 export function parseDecimal(value: any): number | null {
   if (value === null || value === undefined || value === "") return null;
-  const parsed = parseFloat(String(value).replace(",", "."));
+
+  // Convert to string
+  let strValue = String(value);
+
+  // Check if it's a number with comma as thousands separator and period as decimal
+  // e.g., "1,250.50" -> remove commas -> "1250.50"
+  if (strValue.includes(',') && strValue.includes('.')) {
+    // Comma before period = thousands separator
+    const commaIndex = strValue.indexOf(',');
+    const periodIndex = strValue.indexOf('.');
+    if (commaIndex < periodIndex) {
+      strValue = strValue.replace(/,/g, ''); // Remove all commas
+    } else {
+      // Period before comma = European format "1.250,50"
+      strValue = strValue.replace(/\./g, '').replace(',', '.');
+    }
+  } else if (strValue.includes(',')) {
+    // Only comma - could be decimal separator or thousands separator
+    // If there are 3 digits after comma, it's thousands separator
+    const parts = strValue.split(',');
+    if (parts.length === 2 && parts[1].length === 3 && !parts[1].includes('.')) {
+      // Likely thousands separator: "1,250"
+      strValue = strValue.replace(',', '');
+    } else {
+      // Decimal separator: "123,45"
+      strValue = strValue.replace(',', '.');
+    }
+  }
+
+  const parsed = parseFloat(strValue);
   return isNaN(parsed) ? null : parsed;
 }
 
@@ -526,16 +559,24 @@ export function cleanUrl(url: string | null | undefined): string | null {
   if (!url) return null;
   const cleaned = url.trim();
   if (!cleaned) return null;
-  
+
+  // Preserve relative paths
   if (cleaned.startsWith("/") || cleaned.startsWith("images/")) {
     return cleaned;
   }
-  
-  if (!cleaned.match(/^https?:\/\//i)) {
-    return `https://${cleaned}`;
+
+  // Preserve protocol-relative URLs (//cdn.example.com)
+  if (cleaned.startsWith("//")) {
+    return cleaned;
   }
-  
-  return cleaned;
+
+  // If already has a protocol (http://, https://, ftp://, etc.), keep it
+  if (cleaned.match(/^\w+:\/\//)) {
+    return cleaned;
+  }
+
+  // Otherwise add https://
+  return `https://${cleaned}`;
 }
 
 // ============================================================================
@@ -560,7 +601,7 @@ export function cleanUrl(url: string | null | undefined): string | null {
 export function parseDate(value: any): Date | null {
   if (!value) return null;
   if (value instanceof Date) return value;
-  
+
   const parsed = new Date(value);
   return isNaN(parsed.getTime()) ? null : parsed;
 }
@@ -641,7 +682,7 @@ export async function processBatch<TSource, TTarget>(
   const batchSize = options.batchSize || 100;
   const retryAttempts = options.retryAttempts || 3;
   const retryDelay = options.retryDelay || 1000;
-  
+
   let batch: TTarget[] = [];
 
   for (let i = 0; i < records.length; i++) {
@@ -709,7 +750,7 @@ async function insertWithRetry<T>(
   delay: number
 ): Promise<void> {
   let lastError: Error | null = null;
-  
+
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       await insertFn(batch);
@@ -717,13 +758,13 @@ async function insertWithRetry<T>(
     } catch (error: any) {
       lastError = error;
       console.warn(`⚠️  Insert attempt ${attempt}/${maxAttempts} failed: ${error.message}`);
-      
+
       if (attempt < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, delay * attempt));
       }
     }
   }
-  
+
   throw lastError;
 }
 
@@ -986,7 +1027,7 @@ export async function clearTable(
   try {
     // Disable foreign key checks temporarily
     await knex.raw("SET FOREIGN_KEY_CHECKS = 0");
-    
+
     let query = knex(tableName);
 
     if (options?.where) {
@@ -994,10 +1035,10 @@ export async function clearTable(
     }
 
     const count = await query.del();
-    
+
     // Re-enable foreign key checks
     await knex.raw("SET FOREIGN_KEY_CHECKS = 1");
-    
+
     return count;
   } catch (error: any) {
     console.error(`❌ Failed to clear table ${tableName}:`, error.message);
@@ -1034,11 +1075,11 @@ export async function shouldSeed(
 ): Promise<boolean> {
   const count = await knex(tableName).count("* as count").first();
   const recordCount = count ? Number(count.count) : 0;
-  
+
   if (options?.minRecords) {
     return recordCount < options.minRecords;
   }
-  
+
   return recordCount === 0;
 }
 
