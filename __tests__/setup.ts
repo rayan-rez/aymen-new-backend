@@ -6,6 +6,7 @@
 import "tsconfig-paths/register"
 import db from "@/config/database";
 import { registerKnexExtensions } from "@/database/knex-extensions";
+import { uniqueEmail, uniqueSlug } from "./helpers";
 
 // Increase timeout for all tests
 jest.setTimeout(30000);
@@ -21,8 +22,8 @@ declare global {
   var testUtils: {
     cleanupDatabase: () => Promise<void>;
     waitFor: (ms: number) => Promise<void>;
-    generateUniqueSlug: (prefix: string) => string;
-    generateUniqueEmail: (prefix: string) => string;
+    uniqueSlug: (prefix: string) => string;
+    uniqueEmail: (prefix: string) => string;
   };
 }
 
@@ -80,8 +81,9 @@ async function cleanupDatabase(): Promise<void> {
     "features",
     "locations",
     
-    // Test table
+    // Test tables
     "test_table",
+    "test_polymorphic",
   ];
 
   // Check if connection is still available
@@ -126,26 +128,12 @@ function waitFor(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Generate unique slug with timestamp and random string
- */
-function generateUniqueSlug(prefix: string): string {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-}
-
-/**
- * Generate unique email with timestamp
- */
-function generateUniqueEmail(prefix: string): string {
-  return `${prefix}-${Date.now()}@test.com`;
-}
-
 // Export global utilities
 global.testUtils = {
   cleanupDatabase,
   waitFor,
-  generateUniqueSlug,
-  generateUniqueEmail,
+  uniqueSlug,
+  uniqueEmail,
 };
 
 // Global beforeAll hook
@@ -154,15 +142,72 @@ beforeAll(async () => {
     console.log("🔧 Setting up test environment...");
 
     try {
-      // Ensure test table exists for base model tests
+      // FIXED: Create test_table with ALL required columns
       const testTableExists = await db.schema.hasTable("test_table");
       if (!testTableExists) {
         await db.schema.createTable("test_table", (table) => {
           table.increments("id").primary();
           table.string("name").notNullable();
           table.string("value").nullable();
+          table.string("status").defaultTo("active"); // ADDED
+          table.integer("priority").defaultTo(0); // ADDED
+          table.json("metadata").nullable(); // ADDED
           table.timestamps(true, true);
           table.timestamp("deleted_at").nullable();
+        });
+      } else {
+        // Alter existing table to add missing columns
+        const hasStatus = await db.schema.hasColumn("test_table", "status");
+        if (!hasStatus) {
+          await db.schema.alterTable("test_table", (table) => {
+            table.string("status").defaultTo("active");
+          });
+        }
+        
+        const hasPriority = await db.schema.hasColumn("test_table", "priority");
+        if (!hasPriority) {
+          await db.schema.alterTable("test_table", (table) => {
+            table.integer("priority").defaultTo(0);
+          });
+        }
+        
+        const hasMetadata = await db.schema.hasColumn("test_table", "metadata");
+        if (!hasMetadata) {
+          await db.schema.alterTable("test_table", (table) => {
+            table.json("metadata").nullable();
+          });
+        }
+      }
+
+      // FIXED: Create test_polymorphic with correct column names
+      const polymorphicTableExists = await db.schema.hasTable("test_polymorphic");
+      if (!polymorphicTableExists) {
+        await db.schema.createTable("test_polymorphic", (table) => {
+          table.increments("id").primary();
+          table.string("testable_type").notNullable(); // FIXED: Use correct column name
+          table.integer("testable_id").notNullable(); // FIXED: Use correct column name
+          table.string("url").notNullable();
+          table.text("caption").nullable();
+          table.integer("display_order").defaultTo(0);
+          table.timestamps(true, true);
+          table.timestamp("deleted_at").nullable();
+          
+          table.index(["testable_type", "testable_id"]);
+        });
+      } else {
+        // Drop and recreate if columns are wrong
+        await db.schema.dropTableIfExists("test_polymorphic");
+        await db.schema.createTable("test_polymorphic", (table) => {
+          table.increments("id").primary();
+          table.string("testable_type").notNullable();
+          table.integer("testable_id").notNullable();
+          table.string("url").notNullable();
+          table.text("caption").nullable();
+          table.integer("display_order").defaultTo(0);
+          table.timestamps(true, true);
+          table.timestamp("deleted_at").nullable();
+          
+          table.index(["testable_type", "testable_id"]);
         });
       }
       

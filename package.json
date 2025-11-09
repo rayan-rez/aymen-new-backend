@@ -27,6 +27,7 @@
     "lint:fix": "eslint . --ext .ts --fix",
     "type-check": "tsc --noEmit",
     "test": "jest --verbose --runInBand --logHeapUsage",
+    "test:log": "jest --verbose --runInBand > test.log 2>&1",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage --verbose",
     "test:ci": "jest --ci --coverage --maxWorkers=2",
