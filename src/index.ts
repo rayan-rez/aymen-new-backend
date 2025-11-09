@@ -3,12 +3,13 @@
  * Starts the Express server and handles graceful shutdown
  */
 
-import dotenv from "dotenv";
 import { createApp } from "@/app";
+import { loadEnv } from "@/config/load-env"
+
+
 
 // Load environment variables
-dotenv.config();
-
+loadEnv();
 /**
  * Application port
  * Reads from environment variable or defaults to 3000

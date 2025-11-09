@@ -1,10 +1,9 @@
 // knexfile.ts
-import dotenv from "dotenv";
-import path from "path";
 import { registerKnexExtensions } from "./src/database/knex-extensions";
 import { Knex } from "knex";
+import { loadEnv } from "./src/config/load-env"
 
-dotenv.config();
+loadEnv();
 
 registerKnexExtensions();
 

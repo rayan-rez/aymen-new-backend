@@ -4,17 +4,13 @@
  * Runs before each test file
  */
 import "tsconfig-paths/register";
-import db from "@/config/database";
-import { registerKnexExtensions } from "@/database/knex-extensions";
 import { uniqueEmail, uniqueSlug } from "./helpers";
 
 // Increase timeout for all tests
-jest.setTimeout(30000);
+jest.setTimeout(3000);
 
-// Register Knex extensions BEFORE any database operations
-registerKnexExtensions();
-
-// Track if database has been initialized
+// Import database AFTER environment is loaded
+let db: any = null;
 let dbInitialized = false;
 let dbAvailable = false;
 
@@ -26,7 +22,25 @@ declare global {
     uniqueSlug: (prefix: string) => string;
     uniqueEmail: (prefix: string) => string;
     isDatabaseAvailable: () => boolean;
+    getDb: () => any;
   };
+}
+
+/**
+ * Wait for specified milliseconds
+ */
+function waitFor(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Get database instance lazily
+ */
+function getDb() {
+  if (!db) {
+    db = require("@/config/database").default;
+  }
+  return db;
 }
 
 /**
@@ -34,9 +48,11 @@ declare global {
  */
 async function checkDatabaseConnection(): Promise<boolean> {
   try {
-    await db.raw("SELECT 1");
+    const database = getDb();
+    await database.raw("SELECT 1");
     return true;
   } catch (error) {
+    console.error("❌ Database connection check failed:", error instanceof Error ? error.message : error);
     return false;
   }
 }
@@ -80,18 +96,20 @@ async function cleanupDatabase(): Promise<void> {
   ];
 
   try {
-    await db.raw("SELECT 1");
+    const database = getDb();
+    await database.raw("SELECT 1");
   } catch (error) {
     return;
   }
 
-  await db.raw("SET FOREIGN_KEY_CHECKS = 0");
+  const database = getDb();
+  await database.raw("SET FOREIGN_KEY_CHECKS = 0");
 
   for (const table of tables) {
     try {
-      const tableExists = await db.schema.hasTable(table);
+      const tableExists = await database.schema.hasTable(table);
       if (tableExists) {
-        await db(table).del();
+        await database(table).del();
       }
     } catch (error) {
       if (error instanceof Error && !error.message.includes("acquire a connection")) {
@@ -100,15 +118,8 @@ async function cleanupDatabase(): Promise<void> {
     }
   }
 
-  await db.raw("SET FOREIGN_KEY_CHECKS = 1");
+  await database.raw("SET FOREIGN_KEY_CHECKS = 1");
   await waitFor(100);
-}
-
-/**
- * Wait for specified milliseconds
- */
-function waitFor(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -125,6 +136,7 @@ global.testUtils = {
   uniqueSlug,
   uniqueEmail,
   isDatabaseAvailable,
+  getDb,
 };
 
 // Global beforeAll hook
@@ -133,19 +145,28 @@ beforeAll(async () => {
     console.log("🔧 Setting up test environment...");
 
     try {
-      // Check database availability
+      // Check database availability - DON'T THROW if unavailable
       dbAvailable = await checkDatabaseConnection();
 
       if (!dbAvailable) {
-        console.warn("⚠️  Database not available - tests requiring DB will be skipped");
+        console.error("❌ Database not available");
+        console.error("📋 To fix this:");
+        console.error("   1. Ensure MySQL/MariaDB is running: sudo systemctl start mysql");
+        console.error("   2. Check credentials in .env.test");
+        console.error("   3. Run: npm run db:setup:test");
+        console.error("");
+        console.error("⚠️  Tests requiring database will be skipped");
         dbInitialized = true;
+        // DON'T throw - let tests handle unavailable database
         return;
       }
 
+      const database = getDb();
+
       // Create test_table with ALL required columns
-      const testTableExists = await db.schema.hasTable("test_table");
+      const testTableExists = await database.schema.hasTable("test_table");
       if (!testTableExists) {
-        await db.schema.createTable("test_table", (table) => {
+        await database.schema.createTable("test_table", (table: any) => {
           table.increments("id").primary();
           table.string("name").notNullable();
           table.string("value").nullable();
@@ -157,35 +178,35 @@ beforeAll(async () => {
         });
       } else {
         // Ensure all columns exist
-        const hasStatus = await db.schema.hasColumn("test_table", "status");
+        const hasStatus = await database.schema.hasColumn("test_table", "status");
         if (!hasStatus) {
-          await db.schema.alterTable("test_table", (table) => {
+          await database.schema.alterTable("test_table", (table: any) => {
             table.string("status").defaultTo("active");
           });
         }
 
-        const hasPriority = await db.schema.hasColumn("test_table", "priority");
+        const hasPriority = await database.schema.hasColumn("test_table", "priority");
         if (!hasPriority) {
-          await db.schema.alterTable("test_table", (table) => {
+          await database.schema.alterTable("test_table", (table: any) => {
             table.integer("priority").defaultTo(0);
           });
         }
 
-        const hasMetadata = await db.schema.hasColumn("test_table", "metadata");
+        const hasMetadata = await database.schema.hasColumn("test_table", "metadata");
         if (!hasMetadata) {
-          await db.schema.alterTable("test_table", (table) => {
+          await database.schema.alterTable("test_table", (table: any) => {
             table.json("metadata").nullable();
           });
         }
       }
 
       // Create test_polymorphic with correct column names
-      const polymorphicTableExists = await db.schema.hasTable("test_polymorphic");
+      const polymorphicTableExists = await database.schema.hasTable("test_polymorphic");
       if (polymorphicTableExists) {
-        await db.schema.dropTable("test_polymorphic");
+        await database.schema.dropTable("test_polymorphic");
       }
 
-      await db.schema.createTable("test_polymorphic", (table) => {
+      await database.schema.createTable("test_polymorphic", (table: any) => {
         table.increments("id").primary();
         table.string("testable_type").notNullable();
         table.integer("testable_id").notNullable();
@@ -204,6 +225,8 @@ beforeAll(async () => {
       console.error("❌ Error during setup:", error);
       dbAvailable = false;
       dbInitialized = true;
+      // DON'T throw - let tests handle the error
+      console.error("⚠️  Tests requiring database will be skipped");
     }
   }
 });
@@ -225,7 +248,8 @@ afterAll(async () => {
     await waitFor(500);
 
     // Now safely destroy the connection
-    await db.destroy();
+    const database = getDb();
+    await database.destroy();
 
     // Clear any timers or intervals
     jest.clearAllTimers();

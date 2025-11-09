@@ -1,11 +1,8 @@
 // src/config/database.ts
 import knex, { Knex } from "knex";
-import dotenv from "dotenv";
-import path from "path";
+import { loadEnv } from "@/config/load-env"
 
-// Load environment variables
-dotenv.config({ path: path.resolve(process.cwd(), ".env.test") });
-dotenv.config({ path: path.resolve(process.cwd(), ".env") });
+loadEnv();
 
 const config: Knex.Config = {
   client: "mysql2",
@@ -15,14 +12,19 @@ const config: Knex.Config = {
     user: process.env.DB_USER || "root",
     password: process.env.DB_PASSWORD || "",
     database: process.env.DB_NAME || "aymen_db",
+    // Add these options for better connection handling
+    charset: "utf8mb4",
+    timezone: "+00:00",
   },
   pool: {
     min: 2,
     max: 10,
-    // Add connection timeout
     acquireTimeoutMillis: 30000,
-    // Add idle timeout
     idleTimeoutMillis: 30000,
+    // Add reaping interval to clean up dead connections
+    reapIntervalMillis: 1000,
+    // Create test connection on pool initialization
+    createTimeoutMillis: 30000,
   },
   migrations: {
     directory: "./src/database/migrations",
@@ -32,27 +34,24 @@ const config: Knex.Config = {
     directory: "./src/database/seeds",
     extension: "ts",
   },
-  // Suppress warnings in test environment
   debug: false,
+  // Add this to ensure connections are returned to pool
+  asyncStackTraces: process.env.NODE_ENV === "development",
 };
 
-let db: Knex;
+// Create the database instance
+const db = knex(config);
 
-try {
-  db = knex(config);
-} catch (error) {
-  console.error("Failed to initialize database connection:", error);
-  // Create a dummy connection that will fail gracefully
-  db = knex({
-    client: "mysql2",
-    connection: {
-      host: "127.0.0.1",
-      port: 3306,
-      user: "root",
-      password: "",
-      database: "aymen_db",
-    },
-  });
+// Add connection validation
+if (process.env.NODE_ENV !== "test") {
+  // Only validate in non-test environment (test validates in setup)
+  db.raw("SELECT 1")
+    .then(() => {
+      console.log("✅ Database connected successfully");
+    })
+    .catch((error) => {
+      console.error("❌ Database connection failed:", error.message);
+    });
 }
 
 export default db;

@@ -1,12 +1,10 @@
 // src/config/legacy-database.ts
 import knex, { Knex } from "knex";
-import dotenv from "dotenv";
-import path from "path";
+import { loadEnv } from "@/config/load-env"
+
 
 // Load environment variables
-dotenv.config({ path: path.resolve(process.cwd(), ".env.test") });
-dotenv.config({ path: path.resolve(process.cwd(), ".env") });
-
+loadEnv();
 const config: Knex.Config = {
   client: "mysql2",
   connection: {
