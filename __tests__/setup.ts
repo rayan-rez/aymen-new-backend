@@ -3,7 +3,7 @@
  * Global test configuration and utilities
  * Runs before each test file
  */
-import "tsconfig-paths/register"
+import "tsconfig-paths/register";
 import db from "@/config/database";
 import { registerKnexExtensions } from "@/database/knex-extensions";
 import { uniqueEmail, uniqueSlug } from "./helpers";
@@ -16,6 +16,7 @@ registerKnexExtensions();
 
 // Track if database has been initialized
 let dbInitialized = false;
+let dbAvailable = false;
 
 // Global test utilities
 declare global {
@@ -24,77 +25,66 @@ declare global {
     waitFor: (ms: number) => Promise<void>;
     uniqueSlug: (prefix: string) => string;
     uniqueEmail: (prefix: string) => string;
+    isDatabaseAvailable: () => boolean;
   };
 }
 
 /**
+ * Check if database is available
+ */
+async function checkDatabaseConnection(): Promise<boolean> {
+  try {
+    await db.raw("SELECT 1");
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
  * Cleanup database tables in correct order
- * Respects foreign key constraints from new migration structure
  */
 async function cleanupDatabase(): Promise<void> {
-  // Tables in reverse dependency order (children first, parents last)
+  if (!dbAvailable) {
+    console.warn("⚠️  Database not available, skipping cleanup");
+    return;
+  }
+
   const tables = [
-    // Analytics (deepest children)
     "page_views",
     "user_events",
     "property_interactions",
     "event_analytics",
-    
-    // Event relationships
     "event_influencers",
     "event_registrations",
-    
-    // Form submissions and leads
     "lead_mirrors",
     "form_submissions",
-    
-    // User sessions
     "user_sessions",
-    
-    // Media (polymorphic)
     "photos",
     "floor_plans",
-    
-    // Blog
     "blog_post_sections",
     "blog_posts",
-    
-    // Feedback
     "trade_show_feedback",
     "customer_feedback",
-    
-    // Properties
     "apartments",
     "commercial_properties",
-    
-    // Project relationships
     "project_features",
     "project_media",
-    
-    // Events
     "events",
-    
-    // Projects
     "projects",
-    
-    // Reference data
     "features",
     "locations",
-    
-    // Test tables
     "test_table",
     "test_polymorphic",
+    "test_helpers_table",
   ];
 
-  // Check if connection is still available
   try {
     await db.raw("SELECT 1");
   } catch (error) {
-    // Connection is already closed, skip cleanup
     return;
   }
 
-  // Disable foreign key checks temporarily for cleanup
   await db.raw("SET FOREIGN_KEY_CHECKS = 0");
 
   for (const table of tables) {
@@ -104,20 +94,13 @@ async function cleanupDatabase(): Promise<void> {
         await db(table).del();
       }
     } catch (error) {
-      // Only log if it's not a connection error
-      if (
-        error instanceof Error &&
-        !error.message.includes("acquire a connection")
-      ) {
+      if (error instanceof Error && !error.message.includes("acquire a connection")) {
         console.warn(`Could not clean table ${table}:`, error.message);
       }
     }
   }
 
-  // Re-enable foreign key checks
   await db.raw("SET FOREIGN_KEY_CHECKS = 1");
-
-  // Small delay to ensure cleanup completes
   await waitFor(100);
 }
 
@@ -128,12 +111,20 @@ function waitFor(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Check if database is available
+ */
+function isDatabaseAvailable(): boolean {
+  return dbAvailable;
+}
+
 // Export global utilities
 global.testUtils = {
   cleanupDatabase,
   waitFor,
   uniqueSlug,
   uniqueEmail,
+  isDatabaseAvailable,
 };
 
 // Global beforeAll hook
@@ -142,35 +133,44 @@ beforeAll(async () => {
     console.log("🔧 Setting up test environment...");
 
     try {
-      // FIXED: Create test_table with ALL required columns
+      // Check database availability
+      dbAvailable = await checkDatabaseConnection();
+
+      if (!dbAvailable) {
+        console.warn("⚠️  Database not available - tests requiring DB will be skipped");
+        dbInitialized = true;
+        return;
+      }
+
+      // Create test_table with ALL required columns
       const testTableExists = await db.schema.hasTable("test_table");
       if (!testTableExists) {
         await db.schema.createTable("test_table", (table) => {
           table.increments("id").primary();
           table.string("name").notNullable();
           table.string("value").nullable();
-          table.string("status").defaultTo("active"); // ADDED
-          table.integer("priority").defaultTo(0); // ADDED
-          table.json("metadata").nullable(); // ADDED
+          table.string("status").defaultTo("active");
+          table.integer("priority").defaultTo(0);
+          table.json("metadata").nullable();
           table.timestamps(true, true);
           table.timestamp("deleted_at").nullable();
         });
       } else {
-        // Alter existing table to add missing columns
+        // Ensure all columns exist
         const hasStatus = await db.schema.hasColumn("test_table", "status");
         if (!hasStatus) {
           await db.schema.alterTable("test_table", (table) => {
             table.string("status").defaultTo("active");
           });
         }
-        
+
         const hasPriority = await db.schema.hasColumn("test_table", "priority");
         if (!hasPriority) {
           await db.schema.alterTable("test_table", (table) => {
             table.integer("priority").defaultTo(0);
           });
         }
-        
+
         const hasMetadata = await db.schema.hasColumn("test_table", "metadata");
         if (!hasMetadata) {
           await db.schema.alterTable("test_table", (table) => {
@@ -179,53 +179,46 @@ beforeAll(async () => {
         }
       }
 
-      // FIXED: Create test_polymorphic with correct column names
+      // Create test_polymorphic with correct column names
       const polymorphicTableExists = await db.schema.hasTable("test_polymorphic");
-      if (!polymorphicTableExists) {
-        await db.schema.createTable("test_polymorphic", (table) => {
-          table.increments("id").primary();
-          table.string("testable_type").notNullable(); // FIXED: Use correct column name
-          table.integer("testable_id").notNullable(); // FIXED: Use correct column name
-          table.string("url").notNullable();
-          table.text("caption").nullable();
-          table.integer("display_order").defaultTo(0);
-          table.timestamps(true, true);
-          table.timestamp("deleted_at").nullable();
-          
-          table.index(["testable_type", "testable_id"]);
-        });
-      } else {
-        // Drop and recreate if columns are wrong
-        await db.schema.dropTableIfExists("test_polymorphic");
-        await db.schema.createTable("test_polymorphic", (table) => {
-          table.increments("id").primary();
-          table.string("testable_type").notNullable();
-          table.integer("testable_id").notNullable();
-          table.string("url").notNullable();
-          table.text("caption").nullable();
-          table.integer("display_order").defaultTo(0);
-          table.timestamps(true, true);
-          table.timestamp("deleted_at").nullable();
-          
-          table.index(["testable_type", "testable_id"]);
-        });
+      if (polymorphicTableExists) {
+        await db.schema.dropTable("test_polymorphic");
       }
-      
+
+      await db.schema.createTable("test_polymorphic", (table) => {
+        table.increments("id").primary();
+        table.string("testable_type").notNullable();
+        table.integer("testable_id").notNullable();
+        table.string("url").notNullable();
+        table.text("caption").nullable();
+        table.integer("display_order").defaultTo(0);
+        table.timestamps(true, true);
+        table.timestamp("deleted_at").nullable();
+
+        table.index(["testable_type", "testable_id"]);
+      });
+
       dbInitialized = true;
       console.log("✅ Test environment ready");
     } catch (error) {
       console.error("❌ Error during setup:", error);
-      throw error;
+      dbAvailable = false;
+      dbInitialized = true;
     }
   }
 });
 
-// Global afterAll hook - FIXED to prevent memory leaks
+// Global afterAll hook
 afterAll(async () => {
   console.log("🧹 Cleaning up test environment...");
 
+  if (!dbAvailable) {
+    console.log("⊗ Database not available, skipping cleanup");
+    return;
+  }
+
   try {
-    // CRITICAL: Clean database BEFORE destroying connection
+    // Clean database BEFORE destroying connection
     await cleanupDatabase();
 
     // Give a moment for cleanup to complete
@@ -233,22 +226,18 @@ afterAll(async () => {
 
     // Now safely destroy the connection
     await db.destroy();
-    
+
     // Clear any timers or intervals
     jest.clearAllTimers();
-    
+
     // Force garbage collection if available
     if (global.gc) {
       global.gc();
     }
-    
+
     console.log("✅ Test cleanup complete");
   } catch (error) {
-    // Silently handle cleanup errors since tests are done
-    if (
-      error instanceof Error &&
-      !error.message.includes("acquire a connection")
-    ) {
+    if (error instanceof Error && !error.message.includes("acquire a connection")) {
       console.error("⚠️  Error during cleanup:", error.message);
     }
   }

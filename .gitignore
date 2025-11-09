@@ -48,3 +48,6 @@ middlewares.txt
 services.txt
 utils.txt
 migrations.txt
+
+
+test-connection.js

@@ -1,8 +1,11 @@
 // src/config/database.ts
 import knex, { Knex } from "knex";
 import dotenv from "dotenv";
+import path from "path";
 
-dotenv.config();
+// Load environment variables
+dotenv.config({ path: path.resolve(process.cwd(), ".env.test") });
+dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 
 const config: Knex.Config = {
   client: "mysql2",
@@ -16,6 +19,10 @@ const config: Knex.Config = {
   pool: {
     min: 2,
     max: 10,
+    // Add connection timeout
+    acquireTimeoutMillis: 30000,
+    // Add idle timeout
+    idleTimeoutMillis: 30000,
   },
   migrations: {
     directory: "./src/database/migrations",
@@ -25,9 +32,28 @@ const config: Knex.Config = {
     directory: "./src/database/seeds",
     extension: "ts",
   },
+  // Suppress warnings in test environment
+  debug: false,
 };
 
-const db = knex(config);
+let db: Knex;
+
+try {
+  db = knex(config);
+} catch (error) {
+  console.error("Failed to initialize database connection:", error);
+  // Create a dummy connection that will fail gracefully
+  db = knex({
+    client: "mysql2",
+    connection: {
+      host: "127.0.0.1",
+      port: 3306,
+      user: "root",
+      password: "",
+      database: "aymen_db",
+    },
+  });
+}
 
 export default db;
 export { config };
