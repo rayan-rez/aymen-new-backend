@@ -3,22 +3,19 @@
 import { Knex } from "knex";
 
 /**
- * Master Seeder Runner
+ * Master Seeder Runner (REFINED)
  * 
- * Executes all seeders in the correct order to maintain referential integrity.
+ * Executes seeders in correct order for referential integrity.
  * 
  * EXECUTION ORDER:
  * 1. Reference data (locations, features)
- * 2. Core entities (projects, apartments, commercial properties)
- * 3. Relationships (project_features)
- * 4. Media (photos, floor plans)
+ * 2. Core entities (projects, apartments)
+ * 3. Relationships (project_features, project_media)
+ * 4. Media (photos, floor_plans)
  * 5. Content (blog posts)
  * 
  * USAGE:
  * npx knex seed:run --specific=main.ts
- * 
- * or individually:
- * npx knex seed:run --specific=locations.ts
  */
 
 export async function seed(knex: Knex): Promise<void> {
@@ -29,7 +26,6 @@ export async function seed(knex: Knex): Promise<void> {
   console.log("=".repeat(70));
   console.log(`Started at: ${new Date().toISOString()}\n`);
 
-  // Track overall stats
   const migrationLog: Array<{ seeder: string; duration: number; status: string }> = [];
 
   // ============================================================================
@@ -114,28 +110,10 @@ export async function seed(knex: Knex): Promise<void> {
     throw error;
   }
 
-  try {
-    const commercialStart = Date.now();
-    const { seed: commercialSeeder } = await import("./commercial_properties");
-    await commercialSeeder(knex);
-    migrationLog.push({
-      seeder: "08_commercial_properties",
-      duration: Date.now() - commercialStart,
-      status: "✓ SUCCESS",
-    });
-  } catch (error: any) {
-    migrationLog.push({
-      seeder: "08_commercial_properties",
-      duration: Date.now(),
-      status: `✗ FAILED: ${error.message}`,
-    });
-    throw error;
-  }
-
   // ============================================================================
-  // 3. RELATIONSHIPS
+  // 3. RELATIONSHIPS & MEDIA
   // ============================================================================
-  console.log("\n🔗 PHASE 3: Relationships\n");
+  console.log("\n🔗 PHASE 3: Relationships & Media\n");
 
   try {
     const featuresStart = Date.now();
@@ -152,31 +130,67 @@ export async function seed(knex: Knex): Promise<void> {
       duration: Date.now(),
       status: `✗ FAILED: ${error.message}`,
     });
-    throw error;
+    // Don't throw - relationships are recoverable
+    console.warn("⚠️  Project features migration failed but continuing...");
+  }
+
+  try {
+    const mediaStart = Date.now();
+    const { seed: projectMediaSeeder } = await import("./project_media");
+    await projectMediaSeeder(knex);
+    migrationLog.push({
+      seeder: "06_project_media",
+      duration: Date.now() - mediaStart,
+      status: "✓ SUCCESS",
+    });
+  } catch (error: any) {
+    migrationLog.push({
+      seeder: "06_project_media",
+      duration: Date.now(),
+      status: `✗ FAILED: ${error.message}`,
+    });
+    console.warn("⚠️  Project media migration failed but continuing...");
   }
 
   // ============================================================================
-  // 4. MEDIA
+  // 4. POLYMORPHIC MEDIA
   // ============================================================================
-  console.log("\n📸 PHASE 4: Media Assets\n");
+  console.log("\n📸 PHASE 4: Polymorphic Media\n");
 
   try {
     const photosStart = Date.now();
     const { seed: photosSeeder } = await import("./photos");
     await photosSeeder(knex);
     migrationLog.push({
-      seeder: "06_photos",
+      seeder: "07_photos",
       duration: Date.now() - photosStart,
       status: "✓ SUCCESS",
     });
   } catch (error: any) {
     migrationLog.push({
-      seeder: "06_photos",
+      seeder: "07_photos",
       duration: Date.now(),
       status: `✗ FAILED: ${error.message}`,
     });
-    // Don't throw - photos are non-critical
     console.warn("⚠️  Photos migration failed but continuing...");
+  }
+
+  try {
+    const floorPlansStart = Date.now();
+    const { seed: floorPlansSeeder } = await import("./floor_plans");
+    await floorPlansSeeder(knex);
+    migrationLog.push({
+      seeder: "08_floor_plans",
+      duration: Date.now() - floorPlansStart,
+      status: "✓ SUCCESS",
+    });
+  } catch (error: any) {
+    migrationLog.push({
+      seeder: "08_floor_plans",
+      duration: Date.now(),
+      status: `✗ FAILED: ${error.message}`,
+    });
+    console.warn("⚠️  Floor plans migration failed but continuing...");
   }
 
   // ============================================================================
@@ -189,17 +203,16 @@ export async function seed(knex: Knex): Promise<void> {
     const { seed: blogSeeder } = await import("./blog_posts");
     await blogSeeder(knex);
     migrationLog.push({
-      seeder: "07_blog_posts",
+      seeder: "09_blog_posts",
       duration: Date.now() - blogStart,
       status: "✓ SUCCESS",
     });
   } catch (error: any) {
     migrationLog.push({
-      seeder: "07_blog_posts",
+      seeder: "09_blog_posts",
       duration: Date.now(),
       status: `✗ FAILED: ${error.message}`,
     });
-    // Don't throw - blog is non-critical
     console.warn("⚠️  Blog posts migration failed but continuing...");
   }
 
@@ -233,16 +246,21 @@ export async function seed(knex: Knex): Promise<void> {
     "features",
     "projects",
     "apartments",
-    "commercial_properties",
     "project_features",
+    "project_media",
     "photos",
+    "floor_plans",
     "blog_posts",
     "blog_post_sections",
   ];
 
   for (const table of tables) {
-    const count = await knex(table).count("* as count").first();
-    console.log(`  ${table.padEnd(30)} ${count?.count} records`);
+    try {
+      const count = await knex(table).count("* as count").first();
+      console.log(`  ${table.padEnd(30)} ${count?.count || 0} records`);
+    } catch (error) {
+      console.log(`  ${table.padEnd(30)} ⚠️  Table not found`);
+    }
   }
 
   console.log("\n✅ Migration Complete!\n");

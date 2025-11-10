@@ -61,8 +61,6 @@ interface NewProject {
   main_photo_url: string | null;
   is_featured: boolean;
   is_published: boolean;
-  meta_title: string | null;
-  meta_description: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -201,8 +199,6 @@ async function transformProject(
         main_photo_url: mainPhotoUrl,
         is_featured: isFeatured,
         is_published: isPublished,
-        meta_title: metaTitle,
-        meta_description: metaDescription,
         created_at: legacy.created_at,
         updated_at: legacy.updated_at,
       },

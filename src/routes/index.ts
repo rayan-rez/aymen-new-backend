@@ -11,18 +11,11 @@ import { apiLimiter } from "@/middlewares/rate-limit.middleware";
 // Import route modules
 import projectRoutes from "./project.routes";
 import apartmentRoutes from "./apartment.routes";
-import eventRoutes from "./event.routes";
 import locationRoutes from "./location.routes";
 import featureRoutes from "./feature.routes";
 import photoRoutes from "./photo.routes";
 import { formSubmissionRoutes } from "./form-submission.routes";
-// import eventRegistrationRoutes from "./event-registration.routes";
-// import eventInfluencerRoutes from "./event-influencer.routes";
-// import blogPostRoutes from "./blog-post.routes";
-// import floorPlanRoutes from "./floor-plan.routes";
-// import customerFeedbackRoutes from "./customer-feedback.routes";
-// import commercialPropertyRoutes from "./commercial-property.routes";
-// import leadMirrorRoutes from "./lead-mirror.routes";
+
 
 const router = Router();
 
@@ -86,9 +79,6 @@ router.use(apiLimiter);
 // Core domain routes
 router.use("/projects", projectRoutes);
 router.use("/apartments", apartmentRoutes);
-router.use("/events", eventRoutes);
-// router.use("/event-registrations", eventRegistrationRoutes);
-// router.use("/event-influencers", eventInfluencerRoutes);
 
 // Location & geography
 router.use("/locations", locationRoutes);
@@ -98,16 +88,9 @@ router.use("/features", featureRoutes);
 
 // Media routes (polymorphic)
 router.use("/photos", photoRoutes);
-// router.use("/floor-plans", floorPlanRoutes);
-
-// Content management
-// router.use("/blog-posts", blogPostRoutes);
-// router.use("/commercial-properties", commercialPropertyRoutes);
 
 // Feedback & forms
 router.use("/forms", formSubmissionRoutes);
-// router.use("/feedback", customerFeedbackRoutes);
-// router.use("/leads", leadMirrorRoutes);
 
 // ============================================================================
 // 404 HANDLER

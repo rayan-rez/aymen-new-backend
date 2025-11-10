@@ -29,7 +29,6 @@ interface NewFeature {
   name: string;
   slug: string;
   icon: string | null;
-  translations: Record<string, string> | null;
   category: "amenity" | "security" | "transport" | "leisure" | "other";
   display_order: number;
   is_active: boolean;
@@ -47,79 +46,62 @@ interface NewFeature {
 const FEATURE_CATEGORIES: Record<string, {
   category: "amenity" | "security" | "transport" | "leisure" | "other";
   icon?: string;
-  translations?: Record<string, string>;
 }> = {
   "climatisation-centralisee": {
     category: "amenity",
     icon: "air-vent",
-    translations: {
-      en: "Central Air Conditioning",
-      fr: "Climatisation centralisée",
-      ar: "تكييف مركزي",
-    },
   },
   "chauffage-centralise": {
     category: "amenity",
     icon: "flame",
-    translations: {
-      en: "Central Heating",
-      fr: "Chauffage centralisé",
-      ar: "تدفئة مركزية",
-    },
   },
   parking: {
     category: "transport",
     icon: "car",
-    translations: {
-      en: "Parking",
-      fr: "Parking",
-      ar: "موقف سيارات",
-    },
+  },
+  "parking-de-stationnement": {
+    category: "transport",
+    icon: "car",
   },
   "aire-de-jeux": {
     category: "leisure",
     icon: "baby",
-    translations: {
-      en: "Playground",
-      fr: "Aire de jeux",
-      ar: "ملعب أطفال",
-    },
   },
   piscine: {
     category: "leisure",
     icon: "waves",
-    translations: {
-      en: "Swimming Pool",
-      fr: "Piscine",
-      ar: "مسبح",
-    },
+  },
+  "piscine-commune": {
+    category: "leisure",
+    icon: "waves",
+  },
+  "piscine-privative": {
+    category: "leisure",
+    icon: "waves",
   },
   securite: {
     category: "security",
     icon: "shield-check",
-    translations: {
-      en: "24/7 Security",
-      fr: "Sécurité 24/7",
-      ar: "حراسة أمنية",
-    },
   },
   ascenseur: {
     category: "amenity",
     icon: "arrow-up-down",
-    translations: {
-      en: "Elevator",
-      fr: "Ascenseur",
-      ar: "مصعد",
-    },
   },
   jardin: {
     category: "amenity",
     icon: "trees",
-    translations: {
-      en: "Garden",
-      fr: "Jardin",
-      ar: "حديقة",
-    },
+  },
+  spa: {
+    category: "leisure",
+    icon: "sparkles",
+  },
+  "spa-hammam-sauna": {
+    category: "leisure",
+    icon: "sparkles",
+  },
+  "salle-de-sport": {
+    category: "leisure",
+    icon: "dumbbell",
   },
 };
 
@@ -153,7 +135,6 @@ async function transformFeature(
     const categoryInfo = FEATURE_CATEGORIES[slug] || {
       category: "other" as const,
       icon: null,
-      translations: null,
     };
 
     // Clean icon URL (extract icon name if it's a path)
@@ -171,7 +152,6 @@ async function transformFeature(
         name,
         slug,
         icon,
-        translations: categoryInfo.translations || null,
         category: categoryInfo.category,
         display_order: 0,
         is_active: true,

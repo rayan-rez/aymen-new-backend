@@ -51,8 +51,6 @@ interface NewBlogPost {
   content: string;
   featured_image_url: string | null;
   reading_time_minutes: number | null;
-  meta_title: string | null;
-  meta_description: string | null;
   tags: string | null; // JSON
   is_published: boolean;
   is_featured: boolean;
@@ -155,8 +153,6 @@ async function transformBlogPost(
       content,
       featured_image_url: featuredImageUrl,
       reading_time_minutes: readingTime,
-      meta_title: metaTitle,
-      meta_description: metaDescription,
       tags: null,
       is_published: isPublished,
       is_featured: isFeatured,
