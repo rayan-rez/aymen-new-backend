@@ -18,7 +18,7 @@ import {
     closeDatabase,
     uniqueSlug
 } from "@tests/helpers";
-import { mockApartmentData, mockFloorPlanData, mockPhotoData, createTestProjectData } from "../mock-data-factory"
+import { createApartmentDto, createFloorPlanDto, createPhotoDto, createProjectDto, createProject } from "../data-factory"
 
 
 
@@ -49,7 +49,7 @@ describe("ApartmentModel", () => {
         ]);
 
         // Create test project
-        testProject = await createTestProjectData({
+        testProject = createProjectDto({
             name: "Test Project for Apartments",
             slug: uniqueSlug("test-project"),
             status: ProjectStatus.PLANNING,
@@ -73,7 +73,7 @@ describe("ApartmentModel", () => {
     describe("CRUD Operations", () => {
         describe("create()", () => {
             it("should create a new apartment", async () => {
-                const data = mockApartmentData(testProject.id);
+                const data = createApartmentDto(testProject.id);
                 const apartment = await ApartmentModel.create(data);
 
                 expect(apartment).toBeDefined();
@@ -94,7 +94,7 @@ describe("ApartmentModel", () => {
             });
 
             it("should set default status to available", async () => {
-                const data = mockApartmentData(testProject.id);
+                const data = createApartmentDto(testProject.id);
                 delete data.status;
 
                 const apartment = await ApartmentModel.create(data);
@@ -103,7 +103,7 @@ describe("ApartmentModel", () => {
             });
 
             it("should validate area is greater than 0", async () => {
-                const data = mockApartmentData({ projectId: testProject.id, areaSqm: 0 });
+                const data = createApartmentDto({ projectId: testProject.id, areaSqm: 0 });
 
                 await expect(ApartmentModel.create(data)).rejects.toThrow(
                     "Area must be greater than 0"
@@ -111,7 +111,7 @@ describe("ApartmentModel", () => {
             });
 
             it("should validate price is greater than 0", async () => {
-                const data = mockApartmentData({ projectId: testProject.id, price: -100 });
+                const data = createApartmentDto({ projectId: testProject.id, price: -100 });
 
                 await expect(ApartmentModel.create(data)).rejects.toThrow(
                     "Price must be greater than 0"
@@ -119,7 +119,7 @@ describe("ApartmentModel", () => {
             });
 
             it("should validate room counts are non-negative", async () => {
-                const data = mockApartmentData({ projectId: testProject.id, bedrooms: -1 });
+                const data = createApartmentDto({ projectId: testProject.id, bedrooms: -1 });
 
                 await expect(ApartmentModel.create(data)).rejects.toThrow(
                     "bedrooms cannot be negative"
@@ -129,36 +129,36 @@ describe("ApartmentModel", () => {
             it("should validate unit number uniqueness within project", async () => {
                 const unitNumber = "A101";
                 await ApartmentModel.create(
-                    mockApartmentData({ projectId: testProject.id, unitNumber })
+                    createApartmentDto({ projectId: testProject.id, unitNumber })
                 );
 
                 await expect(
                     ApartmentModel.create(
-                        mockApartmentData({ projectId: testProject.id, unitNumber })
+                        createApartmentDto({ projectId: testProject.id, unitNumber })
                     )
                 ).rejects.toThrow(`Unit number "${unitNumber}" already exists`);
             });
 
             it("should allow same unit number in different projects", async () => {
-                const project2 = await createTestProjectData({
+                const project2 = await createProject({
                     name: "Another Project",
                     slug: uniqueSlug("another-project"),
                 });
 
                 const unitNumber = "A101";
                 await ApartmentModel.create(
-                    mockApartmentData({ projectId: testProject.id, unitNumber })
+                    createApartmentDto({ projectId: testProject.id, unitNumber })
                 );
 
                 const apartment2 = await ApartmentModel.create(
-                    mockApartmentData({ projectId: project2.id, unitNumber: unitNumber })
+                    createApartmentDto({ projectId: project2.id, unitNumber: unitNumber })
                 );
 
                 expect(apartment2.unitNumber).toBe(unitNumber);
             });
 
             it("should validate project exists", async () => {
-                const data = mockApartmentData({ projectId: 99999 });
+                const data = createApartmentDto({ projectId: 99999 });
 
                 await expect(ApartmentModel.create(data)).rejects.toThrow(
                     "Project with ID 99999 not found"
@@ -166,7 +166,7 @@ describe("ApartmentModel", () => {
             });
 
             it("should handle null optional fields", async () => {
-                const data = mockApartmentData({
+                const data = createApartmentDto({
                     projectId: testProject.id,
                     unitNumber: undefined,
                     floorNumber: undefined,
@@ -187,7 +187,7 @@ describe("ApartmentModel", () => {
 
             it("should work within transaction", async () => {
                 await db.transaction(async (trx) => {
-                    const data = mockApartmentData(testProject.id);
+                    const data = createApartmentDto(testProject.id);
                     const apartment = await ApartmentModel.create(data, trx);
 
                     expect(apartment).toBeDefined();
@@ -199,7 +199,7 @@ describe("ApartmentModel", () => {
         describe("findById()", () => {
             it("should find apartment by id", async () => {
                 const created = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
                 const found = await ApartmentModel.findById(created.id);
 
@@ -215,7 +215,7 @@ describe("ApartmentModel", () => {
 
             it("should exclude soft-deleted apartments by default", async () => {
                 const created = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
                 await ApartmentModel.delete(created.id);
 
@@ -225,7 +225,7 @@ describe("ApartmentModel", () => {
 
             it("should include soft-deleted apartments when requested", async () => {
                 const created = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
                 await ApartmentModel.delete(created.id);
 
@@ -241,7 +241,7 @@ describe("ApartmentModel", () => {
         describe("update()", () => {
             it("should update apartment", async () => {
                 const created = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
 
                 const updated = await ApartmentModel.update(created.id, {
@@ -261,7 +261,7 @@ describe("ApartmentModel", () => {
 
             it("should validate area on update", async () => {
                 const created = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
 
                 await expect(
@@ -271,7 +271,7 @@ describe("ApartmentModel", () => {
 
             it("should validate price on update", async () => {
                 const created = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
 
                 await expect(
@@ -281,10 +281,10 @@ describe("ApartmentModel", () => {
 
             it("should validate unit number uniqueness on update", async () => {
                 const apt1 = await ApartmentModel.create(
-                    mockApartmentData({ projectId: testProject.id, unitNumber: "A101" })
+                    createApartmentDto({ projectId: testProject.id, unitNumber: "A101" })
                 );
                 const apt2 = await ApartmentModel.create(
-                    mockApartmentData({ projectId: testProject.id, unitNumber: "A102" })
+                    createApartmentDto({ projectId: testProject.id, unitNumber: "A102" })
                 );
 
                 await expect(
@@ -301,7 +301,7 @@ describe("ApartmentModel", () => {
 
             it("should update only provided fields", async () => {
                 const created = await ApartmentModel.create(
-                    mockApartmentData({
+                    createApartmentDto({
                         projectId: testProject.id,
                         name: "Original",
                         price: 250000,
@@ -322,7 +322,7 @@ describe("ApartmentModel", () => {
         describe("delete()", () => {
             it("should soft-delete apartment", async () => {
                 const created = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
 
                 const deleted = await ApartmentModel.delete(created.id);
@@ -347,7 +347,7 @@ describe("ApartmentModel", () => {
         describe("restore()", () => {
             it("should restore soft-deleted apartment", async () => {
                 const created = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
                 await ApartmentModel.delete(created.id);
 
@@ -364,7 +364,7 @@ describe("ApartmentModel", () => {
         describe("forceDelete()", () => {
             it("should permanently delete apartment", async () => {
                 const created = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
 
                 const deleted = await ApartmentModel.forceDelete(created.id);
@@ -387,11 +387,11 @@ describe("ApartmentModel", () => {
         describe("loadPhotos()", () => {
             it("should load photos for apartment", async () => {
                 const apartment = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
 
-                await PhotoModel.create(mockPhotoData({ photoableId: apartment.id, isCover: true }));
-                await PhotoModel.create(mockPhotoData({ photoableId: apartment.id, isCover: false }));
+                await PhotoModel.create(createPhotoDto({ photoableId: apartment.id, isCover: true }));
+                await PhotoModel.create(createPhotoDto({ photoableId: apartment.id, isCover: false }));
 
                 const photos = await ApartmentModel.loadPhotos(apartment.id);
 
@@ -402,7 +402,7 @@ describe("ApartmentModel", () => {
 
             it("should return empty array if no photos", async () => {
                 const apartment = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
 
                 const photos = await ApartmentModel.loadPhotos(apartment.id);
@@ -414,11 +414,11 @@ describe("ApartmentModel", () => {
         describe("loadFloorPlans()", () => {
             it("should load floor plans for apartment", async () => {
                 const apartment = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
 
-                await FloorPlanModel.create(mockFloorPlanData({ plannableId: apartment.id }));
-                await FloorPlanModel.create(mockFloorPlanData({ plannableId: apartment.id }));
+                await FloorPlanModel.create(createFloorPlanDto({ plannableId: apartment.id }));
+                await FloorPlanModel.create(createFloorPlanDto({ plannableId: apartment.id }));
 
                 const plans = await ApartmentModel.loadFloorPlans(apartment.id);
 
@@ -429,7 +429,7 @@ describe("ApartmentModel", () => {
 
             it("should return empty array if no floor plans", async () => {
                 const apartment = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
 
                 const plans = await ApartmentModel.loadFloorPlans(apartment.id);
@@ -441,11 +441,11 @@ describe("ApartmentModel", () => {
         describe("loadMedia()", () => {
             it("should load both photos and floor plans", async () => {
                 const apartment = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
 
-                await PhotoModel.create(mockPhotoData({ photoableId: apartment.id, isCover: true }));
-                await FloorPlanModel.create(mockFloorPlanData({ plannableId: apartment.id }));
+                await PhotoModel.create(createPhotoDto({ photoableId: apartment.id, isCover: true }));
+                await FloorPlanModel.create(createFloorPlanDto({ plannableId: apartment.id }));
 
                 const media = await ApartmentModel.loadMedia(apartment.id);
 
@@ -457,9 +457,9 @@ describe("ApartmentModel", () => {
         describe("findByIdWithMedia()", () => {
             it("should find apartment with photos", async () => {
                 const apartment = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
-                await PhotoModel.create(mockPhotoData({ photoableId: apartment.id, isCover: true }));
+                await PhotoModel.create(createPhotoDto({ photoableId: apartment.id, isCover: true }));
 
                 const found = await ApartmentModel.findByIdWithMedia(apartment.id, {
                     includePhotos: true,
@@ -471,9 +471,9 @@ describe("ApartmentModel", () => {
 
             it("should find apartment with floor plans", async () => {
                 const apartment = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
-                await FloorPlanModel.create(mockFloorPlanData({ plannableId: apartment.id }));
+                await FloorPlanModel.create(createFloorPlanDto({ plannableId: apartment.id }));
 
                 const found = await ApartmentModel.findByIdWithMedia(apartment.id, {
                     includeFloorPlans: true,
@@ -485,10 +485,10 @@ describe("ApartmentModel", () => {
 
             it("should find apartment with both media types", async () => {
                 const apartment = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
-                await PhotoModel.create(mockPhotoData({ photoableId: apartment.id, isCover: true }));
-                await FloorPlanModel.create(mockFloorPlanData({ plannableId: apartment.id }));
+                await PhotoModel.create(createPhotoDto({ photoableId: apartment.id, isCover: true }));
+                await FloorPlanModel.create(createFloorPlanDto({ plannableId: apartment.id }));
 
                 const found = await ApartmentModel.findByIdWithMedia(apartment.id, {
                     includePhotos: true,
@@ -512,9 +512,9 @@ describe("ApartmentModel", () => {
         describe("validateMediaForPublishing()", () => {
             it("should validate apartment has required media", async () => {
                 const apartment = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
-                await PhotoModel.create(mockPhotoData({ photoableId: apartment.id, isCover: true }));
+                await PhotoModel.create(createPhotoDto({ photoableId: apartment.id, isCover: true }));
 
                 const validation = await ApartmentModel.validateMediaForPublishing(
                     apartment.id
@@ -526,7 +526,7 @@ describe("ApartmentModel", () => {
 
             it("should require at least one photo", async () => {
                 const apartment = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
 
                 const validation = await ApartmentModel.validateMediaForPublishing(
@@ -539,9 +539,9 @@ describe("ApartmentModel", () => {
 
             it("should require cover photo", async () => {
                 const apartment = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
-                await PhotoModel.create(mockPhotoData({ photoableId: apartment.id, isCover: true }));
+                await PhotoModel.create(createPhotoDto({ photoableId: apartment.id, isCover: true }));
 
                 const validation = await ApartmentModel.validateMediaForPublishing(
                     apartment.id
@@ -561,7 +561,7 @@ describe("ApartmentModel", () => {
         beforeEach(async () => {
             // Create test apartments with different statuses
             await ApartmentModel.create(
-                mockApartmentData({
+                createApartmentDto({
                     projectId: testProject.id,
                     status: ApartmentStatus.AVAILABLE,
                     isPublished: true,
@@ -570,7 +570,7 @@ describe("ApartmentModel", () => {
                 })
             );
             await ApartmentModel.create(
-                mockApartmentData({
+                createApartmentDto({
                     projectId: testProject.id,
                     status: ApartmentStatus.RESERVED,
                     isPublished: true,
@@ -579,7 +579,7 @@ describe("ApartmentModel", () => {
                 })
             );
             await ApartmentModel.create(
-                mockApartmentData({
+                createApartmentDto({
                     projectId: testProject.id,
                     status: ApartmentStatus.SOLD,
                     isPublished: false,
@@ -666,9 +666,9 @@ describe("ApartmentModel", () => {
 
             it("should load photos when requested", async () => {
                 const apartment = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
-                await PhotoModel.create(mockPhotoData({ photoableId: apartment.id, isCover: true }));
+                await PhotoModel.create(createPhotoDto({ photoableId: apartment.id, isCover: true }));
 
                 const apartments = await ApartmentModel.findApartments({
                     includePhotos: true,
@@ -681,9 +681,9 @@ describe("ApartmentModel", () => {
 
             it("should load floor plans when requested", async () => {
                 const apartment = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
-                await FloorPlanModel.create(mockFloorPlanData({ plannableId: apartment.id }));
+                await FloorPlanModel.create(createFloorPlanDto({ plannableId: apartment.id }));
 
                 const apartments = await ApartmentModel.findApartments({
                     includeFloorPlans: true,
@@ -749,7 +749,7 @@ describe("ApartmentModel", () => {
             });
 
             it("should return empty array for project with no apartments", async () => {
-                const project2 = await createTestProjectData({
+                const project2 = await createProject({
                     name: "Empty Project",
                     slug: uniqueSlug("empty"),
                 });
@@ -807,7 +807,7 @@ describe("ApartmentModel", () => {
         describe("findModelUnits()", () => {
             it("should find model units", async () => {
                 await ApartmentModel.create(
-                    mockApartmentData({
+                    createApartmentDto({
                         projectId: testProject.id,
                         isModelUnit: true,
                         isPublished: true,
@@ -828,7 +828,7 @@ describe("ApartmentModel", () => {
             it("should find apartments by floor number", async () => {
                 const floorNumber = 5;
                 await ApartmentModel.create(
-                    mockApartmentData({ projectId: testProject.id, floorNumber })
+                    createApartmentDto({ projectId: testProject.id, floorNumber })
                 );
 
                 const apartments = await ApartmentModel.findByFloor(
@@ -847,7 +847,7 @@ describe("ApartmentModel", () => {
             it("should find apartments by unit number", async () => {
                 const unitNumber = "A999";
                 await ApartmentModel.create(
-                    mockApartmentData({ projectId: testProject.id, unitNumber })
+                    createApartmentDto({ projectId: testProject.id, unitNumber })
                 );
 
                 const apartments = await ApartmentModel.findByUnitNumber(unitNumber);
@@ -867,7 +867,7 @@ describe("ApartmentModel", () => {
 
         beforeEach(async () => {
             testApartment = await ApartmentModel.create(
-                mockApartmentData({
+                createApartmentDto({
                     projectId: testProject.id,
                     status: ApartmentStatus.AVAILABLE,
                 })
@@ -930,10 +930,10 @@ describe("ApartmentModel", () => {
         describe("bulkUpdateStatus()", () => {
             it("should update multiple apartment statuses", async () => {
                 const apt1 = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
                 const apt2 = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
 
                 const updated = await ApartmentModel.bulkUpdateStatus(
@@ -978,7 +978,7 @@ describe("ApartmentModel", () => {
         beforeEach(async () => {
             // Create apartments with different statuses
             await ApartmentModel.create(
-                mockApartmentData({
+                createApartmentDto({
                     projectId: testProject.id,
                     status: ApartmentStatus.AVAILABLE,
                     price: 200000,
@@ -988,7 +988,7 @@ describe("ApartmentModel", () => {
                 })
             );
             await ApartmentModel.create(
-                mockApartmentData({
+                createApartmentDto({
                     projectId: testProject.id,
                     status: ApartmentStatus.AVAILABLE,
                     price: 250000,
@@ -998,7 +998,7 @@ describe("ApartmentModel", () => {
                 })
             );
             await ApartmentModel.create(
-                mockApartmentData({
+                createApartmentDto({
                     projectId: testProject.id,
                     status: ApartmentStatus.RESERVED,
                     price: 300000,
@@ -1008,7 +1008,7 @@ describe("ApartmentModel", () => {
                 })
             );
             await ApartmentModel.create(
-                mockApartmentData({
+                createApartmentDto({
                     projectId: testProject.id,
                     status: ApartmentStatus.SOLD,
                     price: 350000,
@@ -1034,7 +1034,7 @@ describe("ApartmentModel", () => {
             });
 
             it("should handle project with no apartments", async () => {
-                const project2 = await createTestProjectData({
+                const project2 = await createProject({
                     name: "Empty Project",
                     slug: uniqueSlug("empty"),
                 });
@@ -1075,7 +1075,7 @@ describe("ApartmentModel", () => {
 
             it("should include published and model unit counts", async () => {
                 await ApartmentModel.create(
-                    mockApartmentData({
+                    createApartmentDto({
                         projectId: testProject.id,
                         isPublished: true,
                         isModelUnit: true,
@@ -1155,7 +1155,7 @@ describe("ApartmentModel", () => {
             });
 
             it("should return empty array for project with no apartments", async () => {
-                const project2 = await createTestProjectData({
+                const project2 = await createProject({
                     name: "Empty Project",
                     slug: uniqueSlug("empty"),
                 });
@@ -1186,9 +1186,9 @@ describe("ApartmentModel", () => {
         describe("bulkCreate()", () => {
             it("should create multiple apartments", async () => {
                 const items = [
-                    mockApartmentData({ projectId: testProject.id, unitNumber: "B101" }),
-                    mockApartmentData({ projectId: testProject.id, unitNumber: "B102" }),
-                    mockApartmentData({ projectId: testProject.id, unitNumber: "B103" }),
+                    createApartmentDto({ projectId: testProject.id, unitNumber: "B101" }),
+                    createApartmentDto({ projectId: testProject.id, unitNumber: "B102" }),
+                    createApartmentDto({ projectId: testProject.id, unitNumber: "B103" }),
                 ];
 
                 const result = await ApartmentModel.bulkCreate(items);
@@ -1205,7 +1205,7 @@ describe("ApartmentModel", () => {
                 const items = [];
                 for (let i = 0; i < 150; i++) {
                     items.push(
-                        mockApartmentData({
+                        createApartmentDto({
                             projectId: testProject.id,
                             unitNumber: `BULK${i}`,
                         })
@@ -1222,9 +1222,9 @@ describe("ApartmentModel", () => {
 
             it("should rollback on error", async () => {
                 const items: any[] = [
-                    mockApartmentData({ projectId: testProject.id, unitNumber: "C101" }),
-                    mockApartmentData({ projectId: testProject.id, areaSqm: -10 }), // Invalid
-                    mockApartmentData({ projectId: testProject.id, unitNumber: "C102" }),
+                    createApartmentDto({ projectId: testProject.id, unitNumber: "C101" }),
+                    createApartmentDto({ projectId: testProject.id, areaSqm: -10 }), // Invalid
+                    createApartmentDto({ projectId: testProject.id, unitNumber: "C102" }),
                 ];
 
                 const result = await ApartmentModel.bulkCreate(items);
@@ -1241,10 +1241,10 @@ describe("ApartmentModel", () => {
         describe("bulkUpdate()", () => {
             it("should update multiple apartments", async () => {
                 const apt1 = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
                 const apt2 = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
 
                 const updates = [
@@ -1267,7 +1267,7 @@ describe("ApartmentModel", () => {
 
             it("should handle partial failures", async () => {
                 const apt = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
 
                 const updates = [
@@ -1286,13 +1286,13 @@ describe("ApartmentModel", () => {
         describe("bulkDelete()", () => {
             it("should soft-delete multiple apartments", async () => {
                 const apt1 = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
                 const apt2 = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
                 const apt3 = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
 
                 const result = await ApartmentModel.bulkDelete([apt1.id, apt2.id]);
@@ -1307,7 +1307,7 @@ describe("ApartmentModel", () => {
 
             it("should force delete when specified", async () => {
                 const apt = await ApartmentModel.create(
-                    mockApartmentData(testProject.id)
+                    createApartmentDto(testProject.id)
                 );
 
                 const result = await ApartmentModel.bulkDelete([apt.id], {
@@ -1331,7 +1331,7 @@ describe("ApartmentModel", () => {
     describe("Search & Filtering", () => {
         beforeEach(async () => {
             await ApartmentModel.create(
-                mockApartmentData({
+                createApartmentDto({
                     projectId: testProject.id,
                     name: "Luxury Penthouse",
                     title: "Premium Living Space",
@@ -1339,7 +1339,7 @@ describe("ApartmentModel", () => {
                 })
             );
             await ApartmentModel.create(
-                mockApartmentData({
+                createApartmentDto({
                     projectId: testProject.id,
                     name: "Modern Studio",
                     title: "Compact Urban Living",
@@ -1347,7 +1347,7 @@ describe("ApartmentModel", () => {
                 })
             );
             await ApartmentModel.create(
-                mockApartmentData({
+                createApartmentDto({
                     projectId: testProject.id,
                     name: "Family Apartment",
                     title: "Spacious Family Home",
@@ -1396,7 +1396,7 @@ describe("ApartmentModel", () => {
         describe("Advanced Filters", () => {
             beforeEach(async () => {
                 await ApartmentModel.create(
-                    mockApartmentData({
+                    createApartmentDto({
                         projectId: testProject.id,
                         price: 150000,
                         areaSqm: 80,
@@ -1405,7 +1405,7 @@ describe("ApartmentModel", () => {
                     })
                 );
                 await ApartmentModel.create(
-                    mockApartmentData({
+                    createApartmentDto({
                         projectId: testProject.id,
                         price: 250000,
                         areaSqm: 120,
@@ -1414,7 +1414,7 @@ describe("ApartmentModel", () => {
                     })
                 );
                 await ApartmentModel.create(
-                    mockApartmentData({
+                    createApartmentDto({
                         projectId: testProject.id,
                         price: 350000,
                         areaSqm: 160,
@@ -1493,7 +1493,7 @@ describe("ApartmentModel", () => {
 
             it("should filter by virtual visit availability", async () => {
                 await ApartmentModel.create(
-                    mockApartmentData({
+                    createApartmentDto({
                         projectId: testProject.id,
                         virtualVisitUrl: "https://example.com/tour",
                     })
@@ -1527,11 +1527,11 @@ describe("ApartmentModel", () => {
         it("should commit transaction on success", async () => {
             await ApartmentModel.transaction(async (trx) => {
                 await ApartmentModel.create(
-                    mockApartmentData(testProject.id),
+                    createApartmentDto(testProject.id),
                     trx
                 );
                 await ApartmentModel.create(
-                    mockApartmentData(testProject.id),
+                    createApartmentDto(testProject.id),
                     trx
                 );
             });
@@ -1544,7 +1544,7 @@ describe("ApartmentModel", () => {
             try {
                 await ApartmentModel.transaction(async (trx) => {
                     await ApartmentModel.create(
-                        mockApartmentData(testProject.id),
+                        createApartmentDto(testProject.id),
                         trx
                     );
                     throw new Error("Simulated error");
@@ -1560,13 +1560,13 @@ describe("ApartmentModel", () => {
         it("should handle nested transactions", async () => {
             await ApartmentModel.transaction(async (trx) => {
                 await ApartmentModel.create(
-                    mockApartmentData(testProject.id),
+                    createApartmentDto(testProject.id),
                     trx
                 );
 
                 await ApartmentModel.transaction(async (nestedTrx) => {
                     await ApartmentModel.create(
-                        mockApartmentData(testProject.id),
+                        createApartmentDto(testProject.id),
                         nestedTrx
                     );
                 }, trx);
@@ -1592,7 +1592,7 @@ describe("ApartmentModel", () => {
 
         it("should handle null values", async () => {
             const apartment = await ApartmentModel.create(
-                mockApartmentData({
+                createApartmentDto({
                     projectId: testProject.id,
                     unitNumber: undefined,
                     floorNumber: undefined,
@@ -1610,7 +1610,7 @@ describe("ApartmentModel", () => {
             for (let i = 0; i < 10; i++) {
                 promises.push(
                     ApartmentModel.create(
-                        mockApartmentData({
+                        createApartmentDto({
                             projectId: testProject.id,
                             unitNumber: `CONC${i}`,
                         })
@@ -1626,7 +1626,7 @@ describe("ApartmentModel", () => {
 
         it("should handle very large area values", async () => {
             const apartment = await ApartmentModel.create(
-                mockApartmentData({ projectId: testProject.id, areaSqm: 10000 })
+                createApartmentDto({ projectId: testProject.id, areaSqm: 10000 })
             );
 
             expect(apartment.areaSqm).toBe(10000);
@@ -1634,7 +1634,7 @@ describe("ApartmentModel", () => {
 
         it("should handle very high floor numbers", async () => {
             const apartment = await ApartmentModel.create(
-                mockApartmentData({ projectId: testProject.id, floorNumber: 100 })
+                createApartmentDto({ projectId: testProject.id, floorNumber: 100 })
             );
 
             expect(apartment.floorNumber).toBe(100);
@@ -1642,7 +1642,7 @@ describe("ApartmentModel", () => {
 
         it("should handle basement floors", async () => {
             const apartment = await ApartmentModel.create(
-                mockApartmentData({ projectId: testProject.id, floorNumber: -1 })
+                createApartmentDto({ projectId: testProject.id, floorNumber: -1 })
             );
 
             expect(apartment.floorNumber).toBe(-1);
@@ -1651,14 +1651,14 @@ describe("ApartmentModel", () => {
         it("should validate basement floor limit", async () => {
             await expect(
                 ApartmentModel.create(
-                    mockApartmentData({ projectId: testProject.id, floorNumber: -6 })
+                    createApartmentDto({ projectId: testProject.id, floorNumber: -6 })
                 )
             ).rejects.toThrow("Floor number cannot be less than -5");
         });
 
         it("should handle special characters in text fields", async () => {
             const apartment = await ApartmentModel.create(
-                mockApartmentData({
+                createApartmentDto({
                     projectId: testProject.id,
                     name: "Apartment with 'quotes' and \"double quotes\"",
                     description: "Special chars: & < > % $",
@@ -1672,7 +1672,7 @@ describe("ApartmentModel", () => {
         it("should handle very long descriptions", async () => {
             const longDescription = "A".repeat(5000);
             const apartment = await ApartmentModel.create(
-                mockApartmentData({
+                createApartmentDto({
                     projectId: testProject.id,
                     description: longDescription,
                 })
@@ -1683,7 +1683,7 @@ describe("ApartmentModel", () => {
 
         it("should handle URL validation for virtual tours", async () => {
             const apartment = await ApartmentModel.create(
-                mockApartmentData({
+                createApartmentDto({
                     projectId: testProject.id,
                     virtualVisitUrl: "https://example.com/tour/123",
                 })
@@ -1694,7 +1694,7 @@ describe("ApartmentModel", () => {
 
         it("should handle zero bedrooms (studio)", async () => {
             const apartment = await ApartmentModel.create(
-                mockApartmentData({ projectId: testProject.id, bedrooms: 0 })
+                createApartmentDto({ projectId: testProject.id, bedrooms: 0 })
             );
 
             expect(apartment.bedrooms).toBe(0);
@@ -1702,7 +1702,7 @@ describe("ApartmentModel", () => {
 
         it("should handle multiple bathrooms", async () => {
             const apartment = await ApartmentModel.create(
-                mockApartmentData({ projectId: testProject.id, bathrooms: 5 })
+                createApartmentDto({ projectId: testProject.id, bathrooms: 5 })
             );
 
             expect(apartment.bathrooms).toBe(5);
@@ -1717,7 +1717,7 @@ describe("ApartmentModel", () => {
         it("should handle complete workflow", async () => {
             // Create apartment
             const created = await ApartmentModel.create(
-                mockApartmentData({
+                createApartmentDto({
                     projectId: testProject.id,
                     status: ApartmentStatus.AVAILABLE,
                     isPublished: false,
@@ -1727,8 +1727,8 @@ describe("ApartmentModel", () => {
             expect(created.id).toBeGreaterThan(0);
 
             // Add media
-            await PhotoModel.create(mockPhotoData({ photoableId: created.id, isCover: true }));
-            await FloorPlanModel.create(mockFloorPlanData({ plannableId: created.id }));
+            await PhotoModel.create(createPhotoDto({ photoableId: created.id, isCover: true }));
+            await FloorPlanModel.create(createFloorPlanDto({ plannableId: created.id }));
 
             // Validate media
             const validation = await ApartmentModel.validateMediaForPublishing(
@@ -1774,7 +1774,7 @@ describe("ApartmentModel", () => {
 
         it("should handle complex filtering with media", async () => {
             const apt1 = await ApartmentModel.create(
-                mockApartmentData({
+                createApartmentDto({
                     projectId: testProject.id,
                     status: ApartmentStatus.AVAILABLE,
                     isPublished: true,
@@ -1782,10 +1782,10 @@ describe("ApartmentModel", () => {
                     price: 220000,
                 })
             );
-            await PhotoModel.create(mockPhotoData({ photoableId: apt1.id, isCover: true }));
+            await PhotoModel.create(createPhotoDto({ photoableId: apt1.id, isCover: true }));
 
             const apt2 = await ApartmentModel.create(
-                mockApartmentData({
+                createApartmentDto({
                     projectId: testProject.id,
                     status: ApartmentStatus.AVAILABLE,
                     isPublished: true,
@@ -1793,7 +1793,7 @@ describe("ApartmentModel", () => {
                     price: 280000,
                 })
             );
-            await PhotoModel.create(mockPhotoData({ photoableId: apt2.id, isCover: true }));
+            await PhotoModel.create(createPhotoDto({ photoableId: apt2.id, isCover: true }));
 
             const results = await ApartmentModel.findApartments({
                 status: ApartmentStatus.AVAILABLE,
@@ -1820,11 +1820,11 @@ describe("ApartmentModel", () => {
         it("should maintain referential integrity across operations", async () => {
             await ApartmentModel.transaction(async (trx) => {
                 const apt1 = await ApartmentModel.create(
-                    mockApartmentData(testProject.id),
+                    createApartmentDto(testProject.id),
                     trx
                 );
                 const apt2 = await ApartmentModel.create(
-                    mockApartmentData(testProject.id),
+                    createApartmentDto(testProject.id),
                     trx
                 );
 
@@ -1850,7 +1850,7 @@ describe("ApartmentModel", () => {
             // Create more test data
             for (let i = 0; i < 20; i++) {
                 await ApartmentModel.create(
-                    mockApartmentData({
+                    createApartmentDto({
                         projectId: testProject.id,
                         unitNumber: `PAGE${i}`,
                         bedrooms: (i % 4) + 1,
@@ -1901,7 +1901,7 @@ describe("ApartmentModel", () => {
     describe("Publishing Workflow", () => {
         it("should prevent publishing without required media", async () => {
             const apartment = await ApartmentModel.create(
-                mockApartmentData({ projectId: testProject.id, isPublished: false })
+                createApartmentDto({ projectId: testProject.id, isPublished: false })
             );
 
             await expect(
@@ -1911,10 +1911,10 @@ describe("ApartmentModel", () => {
 
         it("should allow publishing with required media", async () => {
             const apartment = await ApartmentModel.create(
-                mockApartmentData({ projectId: testProject.id, isPublished: false })
+                createApartmentDto({ projectId: testProject.id, isPublished: false })
             );
 
-            await PhotoModel.create(mockPhotoData({ photoableId: apartment.id, isCover: true }));
+            await PhotoModel.create(createPhotoDto({ photoableId: apartment.id, isCover: true }));
 
             const published = await ApartmentModel.update(apartment.id, {
                 isPublished: true,
@@ -1925,10 +1925,10 @@ describe("ApartmentModel", () => {
 
         it("should allow unpublishing", async () => {
             const apartment = await ApartmentModel.create(
-                mockApartmentData({ projectId: testProject.id, isPublished: false })
+                createApartmentDto({ projectId: testProject.id, isPublished: false })
             );
 
-            await PhotoModel.create(mockPhotoData({ photoableId: apartment.id, isCover: true }));
+            await PhotoModel.create(createPhotoDto({ photoableId: apartment.id, isCover: true }));
             await ApartmentModel.update(apartment.id, { isPublished: true });
 
             const unpublished = await ApartmentModel.update(apartment.id, {
