@@ -286,7 +286,7 @@ const options: swaggerJsdoc.Options = {
             },
             isModelUnit: { type: "boolean", example: false },
             isPublished: { type: "boolean", example: true },
-            virtualTourUrl: { type: "string", format: "uri", nullable: true },
+            virtualVisitUrl: { type: "string", format: "uri", nullable: true },
             createdAt: { type: "string", format: "date-time" },
             updatedAt: { type: "string", format: "date-time" },
             deletedAt: { type: "string", format: "date-time", nullable: true },

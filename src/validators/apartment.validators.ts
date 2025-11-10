@@ -35,7 +35,7 @@ export const apartmentSchemas = {
       .default(ApartmentStatus.AVAILABLE),
     isModelUnit: Joi.boolean().default(false),
     isPublished: Joi.boolean().default(false),
-    virtualTourUrl: Joi.string().uri().allow(null, "").optional(),
+    virtualVisitUrl: Joi.string().uri().allow(null, "").optional(),
   }),
 
   /**
@@ -60,7 +60,7 @@ export const apartmentSchemas = {
       .optional(),
     isModelUnit: Joi.boolean().optional(),
     isPublished: Joi.boolean().optional(),
-    virtualTourUrl: Joi.string().uri().allow(null, "").optional(),
+    virtualVisitUrl: Joi.string().uri().allow(null, "").optional(),
   }).min(1),
 
   /**
@@ -123,7 +123,7 @@ export const apartmentSchemas = {
       .optional(),
     minFloor: Joi.number().integer().min(-5).optional(),
     maxFloor: Joi.number().integer().optional(),
-    hasVirtualTour: Joi.boolean().optional(),
+    hasVirtualVisit: Joi.boolean().optional(),
     search: Joi.string().max(255).optional(),
     sortBy: Joi.string().optional(),
     sortOrder: Joi.string().valid("asc", "desc").optional(),

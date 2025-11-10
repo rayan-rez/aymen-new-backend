@@ -40,23 +40,11 @@ export interface EventRegistration {
   company: string | null;
   jobTitle: string | null;
 
-  // Registration details
-  numberOfGuests: number;
-  specialRequirements: string | null;
-  notes: string | null;
-
   // Status tracking
   status: RegistrationStatus;
   registeredAt: Date;
   cancelledAt: Date | null;
   checkedInAt: Date | null;
-
-  // Marketing attribution
-  utmSource: string | null;
-  utmMedium: string | null;
-  utmCampaign: string | null;
-  utmTerm: string | null;
-  utmContent: string | null;
 
   // Communication tracking
   confirmationSent: boolean;
@@ -69,7 +57,6 @@ export interface EventRegistration {
 
   // Virtual relations
   event?: any;
-  leadMirror?: any;
 }
 
 /**
@@ -83,16 +70,8 @@ export interface CreateRegistrationDto {
   phone?: string;
   company?: string;
   jobTitle?: string;
-  numberOfGuests?: number;
-  specialRequirements?: string;
-  notes?: string;
   status?: RegistrationStatus;
   registeredAt?: Date;
-  utmSource?: string;
-  utmMedium?: string;
-  utmCampaign?: string;
-  utmTerm?: string;
-  utmContent?: string;
 }
 
 /**
@@ -111,7 +90,6 @@ export interface UpdateRegistrationDto extends Partial<CreateRegistrationDto> {
  */
 export interface RegistrationQueryOptions extends AdvancedQueryOptions {
   eventId?: number | number[];
-  leadMirrorId?: number | number[];
   status?: RegistrationStatus | RegistrationStatus[];
   email?: string;
   phone?: string;
@@ -144,24 +122,15 @@ export class EventRegistrationModel extends BaseModel<
     hiddenFields: [],
     fillable: [
       "eventId",
-      "leadMirrorId",
       "fullName",
       "email",
       "phone",
       "company",
       "jobTitle",
-      "numberOfGuests",
-      "specialRequirements",
-      "notes",
       "status",
       "registeredAt",
       "cancelledAt",
       "checkedInAt",
-      "utmSource",
-      "utmMedium",
-      "utmCampaign",
-      "utmTerm",
-      "utmContent",
       "confirmationSent",
       "reminderSent",
       "feedbackRequested",
@@ -213,11 +182,10 @@ export class EventRegistrationModel extends BaseModel<
       throw new Error("Registration deadline has passed");
     }
 
-    // Check capacity
-    const numberOfGuests = data.numberOfGuests || 1;
+ 
     const hasCapacity = await EventModel.hasAvailableCapacity(
       data.eventId,
-      numberOfGuests
+      1
     );
 
     if (!hasCapacity) {
@@ -232,11 +200,6 @@ export class EventRegistrationModel extends BaseModel<
 
     if (existing) {
       throw new Error("Email already registered for this event");
-    }
-
-    // Set defaults
-    if (!data.numberOfGuests) {
-      data.numberOfGuests = 1;
     }
 
     if (!data.status) {
@@ -632,15 +595,6 @@ export class EventRegistrationModel extends BaseModel<
       }
     }
 
-    // Lead mirror filter
-    if (options.leadMirrorId) {
-      if (Array.isArray(options.leadMirrorId)) {
-        query = query.whereIn("lead_mirror_id", options.leadMirrorId);
-      } else {
-        query = query.where("lead_mirror_id", options.leadMirrorId);
-      }
-    }
-
     // Status filter
     if (options.status) {
       if (Array.isArray(options.status)) {
@@ -706,18 +660,10 @@ export class EventRegistrationModel extends BaseModel<
       phone: record.phone,
       company: record.company,
       jobTitle: record.job_title,
-      numberOfGuests: record.number_of_guests || 1,
-      specialRequirements: record.special_requirements,
-      notes: record.notes,
       status: record.status as RegistrationStatus,
       registeredAt: new Date(record.registered_at),
       cancelledAt: record.cancelled_at ? new Date(record.cancelled_at) : null,
       checkedInAt: record.checked_in_at ? new Date(record.checked_in_at) : null,
-      utmSource: record.utm_source,
-      utmMedium: record.utm_medium,
-      utmCampaign: record.utm_campaign,
-      utmTerm: record.utm_term,
-      utmContent: record.utm_content,
       confirmationSent: Boolean(record.confirmation_sent),
       reminderSent: Boolean(record.reminder_sent),
       feedbackRequested: Boolean(record.feedback_requested),

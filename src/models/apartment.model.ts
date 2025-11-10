@@ -59,7 +59,7 @@ export interface Apartment {
   status: ApartmentStatus;
   isModelUnit: boolean;
   isPublished: boolean;
-  virtualTourUrl: string | null;
+  virtualVisitUrl: string | null;
 
   // Timestamps
   createdAt: Date;
@@ -93,7 +93,7 @@ export interface CreateApartmentDto {
   status?: ApartmentStatus;
   isModelUnit?: boolean;
   isPublished?: boolean;
-  virtualTourUrl?: string;
+  virtualVisitUrl?: string;
 }
 
 /**
@@ -120,23 +120,12 @@ export interface ApartmentQueryOptions extends AdvancedQueryOptions {
   floorNumber?: number | number[];
   minFloor?: number;
   maxFloor?: number;
-  hasVirtualTour?: boolean;
+  hasVirtualVisit?: boolean;
 
   includePhotos?: boolean;
   includeFloorPlans?: boolean;
 }
 
-/**
- * Apartment with statistics
- */
-export interface ApartmentWithStats extends Apartment {
-  stats: {
-    viewCount: number;
-    inquiryCount: number;
-    favoriteCount: number;
-    lastViewedAt: Date | null;
-  };
-}
 
 /**
  * Apartment availability summary
@@ -187,7 +176,7 @@ export class ApartmentModel extends BaseModel<
       "status",
       "isModelUnit",
       "isPublished",
-      "virtualTourUrl",
+      "virtualVisitUrl",
     ],
     guarded: ["id", "createdAt", "updatedAt", "deletedAt"],
   };
@@ -1138,12 +1127,12 @@ export class ApartmentModel extends BaseModel<
       query = query.where("floor_number", "<=", options.maxFloor);
     }
 
-    // Virtual tour filter
-    if (options.hasVirtualTour !== undefined) {
-      if (options.hasVirtualTour) {
-        query = query.whereNotNull("virtual_tour_url");
+    // Virtual visit filter
+    if (options.hasVirtualVisit !== undefined) {
+      if (options.hasVirtualVisit) {
+        query = query.whereNotNull("virtual_visit_url");
       } else {
-        query = query.whereNull("virtual_tour_url");
+        query = query.whereNull("virtual_visit_url");
       }
     }
 
@@ -1173,7 +1162,7 @@ export class ApartmentModel extends BaseModel<
       status: record.status as ApartmentStatus,
       isModelUnit: Boolean(record.is_model_unit),
       isPublished: Boolean(record.is_published),
-      virtualTourUrl: record.virtual_tour_url,
+      virtualVisitUrl: record.virtual_visit_url,
       createdAt: new Date(record.created_at),
       updatedAt: new Date(record.updated_at),
       deletedAt: record.deleted_at ? new Date(record.deleted_at) : null,

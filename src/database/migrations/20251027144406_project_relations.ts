@@ -65,7 +65,7 @@ export async function up(knex: Knex): Promise<void> {
     table.string("thumbnail_url", 500).nullable();
     
     table.withStatusEnum(
-      ["image", "video", "virtual_tour", "floor_plan", "brochure", "document"],
+      ["image", "video", "virtual_visit", "floor_plan", "brochure", "document"],
       { columnName: "media_type" }
     );
 

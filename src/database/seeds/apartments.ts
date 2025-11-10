@@ -51,7 +51,7 @@ interface NewApartment {
   status: "available" | "reserved" | "sold";
   is_model_unit: boolean;
   is_published: boolean;
-  virtual_tour_url: string | null;
+  virtual_visit_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -166,8 +166,8 @@ async function transformApartment(
     const subtitle = cleanText(legacy.sous_titre);
     const description = cleanText(legacy.text);
 
-    // Clean virtual tour URL
-    const virtualTourUrl = cleanUrl(legacy.visite_virtuelle);
+    // Clean virtual visit URL
+    const virtualVisitUrl = cleanUrl(legacy.visite_virtuelle);
 
     // Determine status
     const isModelUnit = parseBoolean(legacy.is_temoin);
@@ -193,7 +193,7 @@ async function transformApartment(
         status: "available",
         is_model_unit: isModelUnit,
         is_published: isPublished,
-        virtual_tour_url: virtualTourUrl,
+        virtual_visit_url: virtualVisitUrl,
         created_at: legacy.created_at,
         updated_at: legacy.updated_at,
       },

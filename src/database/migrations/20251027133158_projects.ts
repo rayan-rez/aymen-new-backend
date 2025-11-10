@@ -89,8 +89,8 @@ export async function up(knex: Knex): Promise<void> {
     // =================================================================
     // SEO OPTIMIZATION
     // =================================================================
-    table.string("meta_title", 255).nullable();
-    table.text("meta_description").nullable();
+    // table.string("meta_title", 255).nullable();
+    // table.text("meta_description").nullable();
 
     // =================================================================
     // AUDIT TRAIL (created_at, updated_at, deleted_at)

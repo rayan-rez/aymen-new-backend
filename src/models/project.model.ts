@@ -62,8 +62,6 @@ export interface Project {
   mainPhotoUrl: string | null;
   isFeatured: boolean;
   isPublished: boolean;
-  metaTitle: string | null;
-  metaDescription: string | null;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
@@ -98,8 +96,6 @@ export interface CreateProjectDto {
   mainPhotoUrl?: string | null;
   isFeatured?: boolean;
   isPublished?: boolean;
-  metaTitle?: string | null;
-  metaDescription?: string | null;
 }
 
 export interface UpdateProjectDto extends Partial<CreateProjectDto> {}
@@ -179,9 +175,7 @@ export class ProjectModel extends BaseModel<
       "priceMax",
       "mainPhotoUrl",
       "isFeatured",
-      "isPublished",
-      "metaTitle",
-      "metaDescription",
+      "isPublished"
     ],
     guarded: ["id", "createdAt", "updatedAt", "deletedAt"],
   };
@@ -712,8 +706,6 @@ export class ProjectModel extends BaseModel<
       mainPhotoUrl: record.main_photo_url,
       isFeatured: Boolean(record.is_featured),
       isPublished: Boolean(record.is_published),
-      metaTitle: record.meta_title,
-      metaDescription: record.meta_description,
       createdAt: new Date(record.created_at),
       updatedAt: new Date(record.updated_at),
       deletedAt: record.deleted_at ? new Date(record.deleted_at) : null,

@@ -293,17 +293,6 @@ router.get(
   eventController.getEventInfluencers
 );
 
-/**
- * @route   GET /api/events/:id/influencers/statistics
- * @desc    Get influencer statistics for an event
- * @access  Private (Admin only)
- * @param   {number} id - Event ID
- */
-router.get(
-  "/:id/influencers/statistics",
-  validate(eventSchemas.getById, "params"),
-  eventController.getInfluencerStatistics
-);
 
 // ============================================================================
 // PHOTO MANAGEMENT ROUTES
@@ -354,32 +343,6 @@ router.get(
   apiLimiter,
   validate(eventSchemas.getById, "params"),
   eventController.checkCapacity
-);
-
-/**
- * @route   POST /api/events/:id/view
- * @desc    Increment event view count (analytics)
- * @access  Public
- * @param   {number} id - Event ID
- */
-router.post(
-  "/:id/view",
-  apiLimiter,
-  validate(eventSchemas.getById, "params"),
-  eventController.incrementViewCount
-);
-
-/**
- * @route   POST /api/events/:id/click
- * @desc    Increment event click count (analytics)
- * @access  Public
- * @param   {number} id - Event ID
- */
-router.post(
-  "/:id/click",
-  apiLimiter,
-  validate(eventSchemas.getById, "params"),
-  eventController.incrementClickCount
 );
 
 export default router;

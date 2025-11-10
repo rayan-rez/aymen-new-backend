@@ -48,7 +48,7 @@ export async function up(knex: Knex): Promise<void> {
     table.text("short_description").nullable();
 
     // Multi-language support
-    table.withJsonMetadata("translations");
+    // table.withJsonMetadata("translations");
 
     // =================================================================
     // SCHEDULING
@@ -119,14 +119,14 @@ export async function up(knex: Knex): Promise<void> {
     // =================================================================
     // SEO OPTIMIZATION
     // =================================================================
-    table.string("meta_title", 255).nullable();
-    table.text("meta_description").nullable();
+    // table.string("meta_title", 255).nullable();
+    // table.text("meta_description").nullable();
 
     // =================================================================
     // ANALYTICS
     // =================================================================
-    table.integer("view_count").unsigned().defaultTo(0);
-    table.integer("click_count").unsigned().defaultTo(0);
+    // table.integer("view_count").unsigned().defaultTo(0);
+    // table.integer("click_count").unsigned().defaultTo(0);
 
     // =================================================================
     // AUDIT TRAIL
@@ -215,20 +215,20 @@ export async function up(knex: Knex): Promise<void> {
   );
 
   // Ensure view_count is non-negative
-  await addCheckConstraint(
-    knex,
-    "events",
-    "chk_events_view_count",
-    "view_count >= 0"
-  );
+  // await addCheckConstraint(
+  //   knex,
+  //   "events",
+  //   "chk_events_view_count",
+  //   "view_count >= 0"
+  // );
 
   // Ensure click_count is non-negative
-  await addCheckConstraint(
-    knex,
-    "events",
-    "chk_events_click_count",
-    "click_count >= 0"
-  );
+  // await addCheckConstraint(
+  //   knex,
+  //   "events",
+  //   "chk_events_click_count",
+  //   "click_count >= 0"
+  // );
 
   await addCheckConstraint(
     knex,
@@ -247,12 +247,13 @@ export async function up(knex: Knex): Promise<void> {
     // RELATIONSHIPS
     // =================================================================
     table.withForeignKey("event_id", "events", "id", "CASCADE");
-    table.withForeignKey("lead_mirror_id", "lead_mirrors", "id", "SET NULL");
+    // table.withForeignKey("lead_mirror_id", "lead_mirrors", "id", "SET NULL");
 
     // =================================================================
     // REGISTRANT INFORMATION
     // =================================================================
-    table.string("full_name", 255).notNullable();
+    table.string("first_name", 255).notNullable();
+    table.string("last_name", 255).notNullable();
     table.withEmailColumn({ required: true, unique: false });
     table.string("phone", 30).nullable();
     table.string("company", 255).nullable();
@@ -261,9 +262,9 @@ export async function up(knex: Knex): Promise<void> {
     // =================================================================
     // REGISTRATION DETAILS
     // =================================================================
-    table.integer("number_of_guests").unsigned().defaultTo(1);
-    table.text("special_requirements").nullable();
-    table.text("notes").nullable();
+    // table.integer("number_of_guests").unsigned().defaultTo(1);
+    // table.text("special_requirements").nullable();
+    // table.text("notes").nullable();
 
     // =================================================================
     // STATUS TRACKING
@@ -280,7 +281,7 @@ export async function up(knex: Knex): Promise<void> {
     // =================================================================
     // MARKETING ATTRIBUTION
     // =================================================================
-    table.withUtmTracking();
+    // table.withUtmTracking();
 
     // =================================================================
     // COMMUNICATION
@@ -295,7 +296,7 @@ export async function up(knex: Knex): Promise<void> {
     // INDEXES
     // =================================================================
     table.index(["event_id", "status"], "idx_event_status");
-    table.index(["lead_mirror_id", "event_id"], "idx_lead_event");
+    // table.index(["lead_mirror_id", "event_id"], "idx_lead_event");
     table.index(["email", "event_id"], "idx_email_event");
     table.index("registered_at", "idx_registered_at");
 
@@ -305,12 +306,12 @@ export async function up(knex: Knex): Promise<void> {
     configureTableEngine(table);
   });
 
-  await addCheckConstraint(
-    knex,
-    "event_registrations",
-    "chk_reg_guests",
-    "number_of_guests > 0"
-  );
+  // await addCheckConstraint(
+  //   knex,
+  //   "event_registrations",
+  //   "chk_reg_guests",
+  //   "number_of_guests > 0"
+  // );
 
   // ====================================================================
   // EVENT INFLUENCERS (JUNCTION TABLE)
@@ -368,44 +369,44 @@ export async function up(knex: Knex): Promise<void> {
       .string("role", 100)
       .nullable()
       .comment("E.g., Guest Speaker, Brand Ambassador, Host");
-    table.decimal("compensation_amount", 10, 2).nullable();
-    table.string("compensation_currency", 3).defaultTo("DZD");
-    table.text("contract_terms").nullable();
+    // table.decimal("compensation_amount", 10, 2).nullable();
+    // table.string("compensation_currency", 3).defaultTo("DZD");
+    // table.text("contract_terms").nullable();
 
     // =================================================================
     // DELIVERABLES & TRACKING
     // =================================================================
-    table
-      .integer("required_posts")
-      .unsigned()
-      .defaultTo(0)
-      .comment("Number of posts agreed upon");
-    table.integer("completed_posts").unsigned().defaultTo(0);
-    table
-      .integer("reach_achieved")
-      .unsigned()
-      .nullable()
-      .comment("Total reach from influencer posts");
-    table
-      .integer("engagement_count")
-      .unsigned()
-      .nullable()
-      .comment("Total likes, comments, shares");
+    // table
+    //   .integer("required_posts")
+    //   .unsigned()
+    //   .defaultTo(0)
+    //   .comment("Number of posts agreed upon");
+    // table.integer("completed_posts").unsigned().defaultTo(0);
+    // table
+    //   .integer("reach_achieved")
+    //   .unsigned()
+    //   .nullable()
+    //   .comment("Total reach from influencer posts");
+    // table
+    //   .integer("engagement_count")
+    //   .unsigned()
+    //   .nullable()
+    //   .comment("Total likes, comments, shares");
 
     // =================================================================
     // NOTES & METADATA
     // =================================================================
-    table.text("notes").nullable();
-    table
-      .text("internal_notes")
-      .nullable()
-      .comment("Private notes not visible to influencer");
-    table.withJsonMetadata("custom_fields");
+    // table.text("notes").nullable();
+    // table
+    //   .text("internal_notes")
+    //   .nullable()
+    //   .comment("Private notes not visible to influencer");
+    // table.withJsonMetadata("custom_fields");
 
     // =================================================================
     // DATES
     // =================================================================
-    table.timestamp("invited_at").nullable();
+    // table.timestamp("invited_at").nullable();
     table.timestamp("confirmed_at").nullable();
     table.timestamp("attended_at").nullable();
 
@@ -434,20 +435,20 @@ export async function up(knex: Knex): Promise<void> {
   // =================================================================
 
   // Ensure compensation amount is positive
-  await addCheckConstraint(
-    knex,
-    "event_influencers",
-    "chk_inf_compensation",
-    "compensation_amount IS NULL OR compensation_amount >= 0"
-  );
+  // await addCheckConstraint(
+  //   knex,
+  //   "event_influencers",
+  //   "chk_inf_compensation",
+  //   "compensation_amount IS NULL OR compensation_amount >= 0"
+  // );
 
   // Ensure completed posts don't exceed required posts
-  await addCheckConstraint(
-    knex,
-    "event_influencers",
-    "chk_inf_posts",
-    "completed_posts >= 0 AND completed_posts <= required_posts"
-  );
+  // await addCheckConstraint(
+  //   knex,
+  //   "event_influencers",
+  //   "chk_inf_posts",
+  //   "completed_posts >= 0 AND completed_posts <= required_posts"
+  // );
 
   // Ensure follower count is positive
   await addCheckConstraint(
@@ -458,20 +459,20 @@ export async function up(knex: Knex): Promise<void> {
   );
 
   // Ensure reach is positive
-  await addCheckConstraint(
-    knex,
-    "event_influencers",
-    "chk_inf_reach",
-    "reach_achieved IS NULL OR reach_achieved >= 0"
-  );
+  // await addCheckConstraint(
+  //   knex,
+  //   "event_influencers",
+  //   "chk_inf_reach",
+  //   "reach_achieved IS NULL OR reach_achieved >= 0"
+  // );
 
   // Ensure engagement is positive
-  await addCheckConstraint(
-    knex,
-    "event_influencers",
-    "chk_inf_engagement",
-    "engagement_count IS NULL OR engagement_count >= 0"
-  );
+  // await addCheckConstraint(
+  //   knex,
+  //   "event_influencers",
+  //   "chk_inf_engagement",
+  //   "engagement_count IS NULL OR engagement_count >= 0"
+  // );
 }
 
 export async function down(knex: Knex): Promise<void> {

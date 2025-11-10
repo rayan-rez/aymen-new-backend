@@ -1492,29 +1492,29 @@ describe("ApartmentModel", () => {
                 });
             });
 
-            it("should filter by virtual tour availability", async () => {
+            it("should filter by virtual visit availability", async () => {
                 await ApartmentModel.create(
                     mockApartmentData({
                         projectId: testProject.id,
-                        virtualTourUrl: "https://example.com/tour",
+                        virtualVisitUrl: "https://example.com/tour",
                     })
                 );
 
                 const withTour = await ApartmentModel.findApartments({
-                    hasVirtualTour: true,
+                    hasVirtualVisit: true,
                 });
 
                 expect(withTour.length).toBeGreaterThan(0);
                 withTour.forEach((apt) => {
-                    expect(apt.virtualTourUrl).not.toBeNull();
+                    expect(apt.virtualVisitUrl).not.toBeNull();
                 });
 
                 const withoutTour = await ApartmentModel.findApartments({
-                    hasVirtualTour: false,
+                    hasVirtualVisit: false,
                 });
 
                 withoutTour.forEach((apt) => {
-                    expect(apt.virtualTourUrl).toBeNull();
+                    expect(apt.virtualVisitUrl).toBeNull();
                 });
             });
         });
@@ -1686,11 +1686,11 @@ describe("ApartmentModel", () => {
             const apartment = await ApartmentModel.create(
                 mockApartmentData({
                     projectId: testProject.id,
-                    virtualTourUrl: "https://example.com/tour/123",
+                    virtualVisitUrl: "https://example.com/tour/123",
                 })
             );
 
-            expect(apartment.virtualTourUrl).toBe("https://example.com/tour/123");
+            expect(apartment.virtualVisitUrl).toBe("https://example.com/tour/123");
         });
 
         it("should handle zero bedrooms (studio)", async () => {

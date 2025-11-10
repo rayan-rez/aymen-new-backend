@@ -4,7 +4,6 @@
  * Property amenities and features with multi-language support
  * Used in project_features junction table for many-to-many relationships
  *
- * Translation structure: { "en": "Swimming Pool", "fr": "Piscine", "ar": "مسبح" }
  *
  * @module models/feature.model
  */
@@ -33,15 +32,6 @@ export enum FeatureCategory {
   OTHER = "other",
 }
 
-/**
- * Translations structure
- */
-export interface FeatureTranslations {
-  en?: string;
-  fr?: string;
-  ar?: string;
-  [key: string]: string | undefined;
-}
 
 /**
  * Feature entity interface
@@ -51,7 +41,6 @@ export interface Feature {
   name: string;
   slug: string;
   icon: string | null;
-  translations: FeatureTranslations | null;
   category: FeatureCategory;
   displayOrder: number;
   isActive: boolean;
@@ -69,7 +58,6 @@ export interface CreateFeatureDto {
   name: string;
   slug?: string;
   icon?: string;
-  translations?: FeatureTranslations;
   category?: FeatureCategory;
   displayOrder?: number;
   isActive?: boolean;
@@ -78,7 +66,7 @@ export interface CreateFeatureDto {
 /**
  * Update feature DTO
  */
-export interface UpdateFeatureDto extends Partial<CreateFeatureDto> {}
+export interface UpdateFeatureDto extends Partial<CreateFeatureDto> { }
 
 /**
  * Feature query options
@@ -87,7 +75,6 @@ export interface FeatureQueryOptions extends AdvancedQueryOptions {
   category?: FeatureCategory | FeatureCategory[];
   isActive?: boolean;
   hasIcon?: boolean;
-  hasTranslations?: boolean;
 }
 
 /**
@@ -121,7 +108,6 @@ export class FeatureModel extends BaseModel<
       "name",
       "slug",
       "icon",
-      "translations",
       "category",
       "displayOrder",
       "isActive",
@@ -168,11 +154,6 @@ export class FeatureModel extends BaseModel<
       data.category = FeatureCategory.AMENITY;
     }
 
-    // Validate translations format
-    if (data.translations) {
-      this.validateTranslations(data.translations);
-    }
-
     return data;
   }
 
@@ -198,11 +179,6 @@ export class FeatureModel extends BaseModel<
       if (existing && existing.id !== id) {
         throw new Error(`Feature slug "${data.slug}" already exists`);
       }
-    }
-
-    // Validate translations format
-    if (data.translations) {
-      this.validateTranslations(data.translations);
     }
 
     return data;
@@ -357,86 +333,7 @@ export class FeatureModel extends BaseModel<
     options: FeatureQueryOptions = {},
     trx?: Knex.Transaction
   ): Promise<Feature[]> {
-    return this.findFeatures({ ...options, hasTranslations: true }, trx);
-  }
-
-  // ============================================================================
-  // TRANSLATION METHODS
-  // ============================================================================
-
-  /**
-   * Gets feature name in specific language
-   */
-  getTranslatedName(
-    feature: Feature,
-    language: string,
-    fallbackToName: boolean = true
-  ): string {
-    if (
-      feature.translations &&
-      feature.translations[language] &&
-      feature.translations[language].trim() !== ""
-    ) {
-      return feature.translations[language]!;
-    }
-
-    return fallbackToName ? feature.name : "";
-  }
-
-  /**
-   * Updates translations for a feature
-   */
-  async updateTranslations(
-    id: number,
-    translations: FeatureTranslations,
-    merge: boolean = true,
-    trx?: Knex.Transaction
-  ): Promise<Feature | null> {
-    const feature = await this.findById(id, {}, trx);
-    if (!feature) return null;
-
-    let updatedTranslations: FeatureTranslations;
-
-    if (merge && feature.translations) {
-      // Merge with existing translations
-      updatedTranslations = { ...feature.translations, ...translations };
-    } else {
-      // Replace all translations
-      updatedTranslations = translations;
-    }
-
-    this.validateTranslations(updatedTranslations);
-
-    return this.update(id, { translations: updatedTranslations }, trx);
-  }
-
-  /**
-   * Adds single translation
-   */
-  async addTranslation(
-    id: number,
-    language: string,
-    translation: string,
-    trx?: Knex.Transaction
-  ): Promise<Feature | null> {
-    return this.updateTranslations(id, { [language]: translation }, true, trx);
-  }
-
-  /**
-   * Removes translation for a language
-   */
-  async removeTranslation(
-    id: number,
-    language: string,
-    trx?: Knex.Transaction
-  ): Promise<Feature | null> {
-    const feature = await this.findById(id, {}, trx);
-    if (!feature || !feature.translations) return feature;
-
-    const updatedTranslations = { ...feature.translations };
-    delete updatedTranslations[language];
-
-    return this.update(id, { translations: updatedTranslations }, trx);
+    return this.findFeatures(options, trx);
   }
 
   // ============================================================================
@@ -666,33 +563,6 @@ export class FeatureModel extends BaseModel<
   // ============================================================================
 
   /**
-   * Validates translations format
-   */
-  private validateTranslations(translations: FeatureTranslations): void {
-    if (!translations || typeof translations !== "object") {
-      throw new Error("Translations must be an object");
-    }
-
-    // Validate each translation value
-    for (const [lang, text] of Object.entries(translations)) {
-      if (text !== undefined && typeof text !== "string") {
-        throw new Error(`Translation for "${lang}" must be a string`);
-      }
-
-      if (text && text.trim() === "") {
-        throw new Error(`Translation for "${lang}" cannot be empty`);
-      }
-
-      // Validate language code format (2-3 letters)
-      if (!/^[a-z]{2,3}$/i.test(lang)) {
-        throw new Error(
-          `Invalid language code "${lang}". Must be 2-3 letters.`
-        );
-      }
-    }
-  }
-
-  /**
    * Applies feature-specific filters to query
    */
   private applyFeatureFilters(
@@ -722,15 +592,6 @@ export class FeatureModel extends BaseModel<
       }
     }
 
-    // Has translations filter
-    if (options.hasTranslations !== undefined) {
-      if (options.hasTranslations) {
-        query = query.whereNotNull("translations");
-      } else {
-        query = query.whereNull("translations");
-      }
-    }
-
     return query;
   }
 
@@ -743,7 +604,6 @@ export class FeatureModel extends BaseModel<
       name: record.name,
       slug: record.slug,
       icon: record.icon,
-      translations: this.parseJson<FeatureTranslations>(record.translations),
       category: record.category as FeatureCategory,
       displayOrder: record.display_order,
       isActive: Boolean(record.is_active),

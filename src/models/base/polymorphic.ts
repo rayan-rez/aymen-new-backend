@@ -6,7 +6,7 @@
  * 
  * @module models/base/polymorphic
  * 
- * FIXED: bulkCreateForEntity now properly maps polymorphic column names
+ * FIXED: Proper polymorphic column mapping in all operations
  */
 
 import { BaseModel, AdvancedQueryOptions, DatabaseRecord } from "./index";
@@ -71,6 +71,50 @@ export abstract class BasePolymorphicModel<
     // Map camelCase polymorphic fields to actual database columns
     this.columnMap.set('polymorphicType', this.polymorphicTypeColumn);
     this.columnMap.set('polymorphicId', this.polymorphicIdColumn);
+    this.columnMap.set('displayOrder', 'display_order');
+  }
+
+  /**
+   * Override mapToDatabase to handle polymorphic fields specially
+   * CRITICAL: Directly map polymorphic fields to their actual column names
+   */
+  protected mapToDatabase(data: any): Record<string, any> {
+    const mapped: Record<string, any> = {};
+
+    for (const [key, value] of Object.entries(data)) {
+      // Skip undefined values
+      if (value === undefined) {
+        continue;
+      }
+
+      // CRITICAL FIX: Handle polymorphic fields directly
+      let columnName: string;
+      
+      if (key === 'polymorphicType') {
+        columnName = this.polymorphicTypeColumn;
+      } else if (key === 'polymorphicId') {
+        columnName = this.polymorphicIdColumn;
+      } else if (this.columnMap.has(key)) {
+        columnName = this.columnMap.get(key)!;
+      } else {
+        columnName = this.camelToSnake(key);
+      }
+
+      // Handle value transformation
+      if (value === null) {
+        mapped[columnName] = null;
+      } else if (value instanceof Date) {
+        mapped[columnName] = value;
+      } else if (Array.isArray(value)) {
+        mapped[columnName] = JSON.stringify(value);
+      } else if (typeof value === "object") {
+        mapped[columnName] = JSON.stringify(value);
+      } else {
+        mapped[columnName] = value;
+      }
+    }
+
+    return mapped;
   }
 
   /**
@@ -109,7 +153,7 @@ export abstract class BasePolymorphicModel<
     const connection = trx || this.db;
     let query = this.buildQuery(connection, {
       ...options,
-      sortBy: options.sortBy || "display_order",
+      sortBy: options.sortBy || "displayOrder",
       sortOrder: options.sortOrder || "asc",
     });
 
@@ -196,7 +240,7 @@ export abstract class BasePolymorphicModel<
 
   /**
    * Bulk creates records for a specific entity
-   * FIXED VERSION - Properly maps all column names including polymorphic fields
+   * FIXED VERSION - Properly handles polymorphic field mapping
    */
   async bulkCreateForEntity(
     entityType: string,
@@ -212,25 +256,22 @@ export abstract class BasePolymorphicModel<
 
     // Prepare data with polymorphic fields
     const insertData = items.map((item, index) => {
-      // Step 1: Build complete item with ALL fields in camelCase
-      const itemWithPolymorphic = {
+      // Build complete object with polymorphic fields in camelCase
+      const completeItem = {
         ...item,
         polymorphicType: entityType,
         polymorphicId: entityId,
         displayOrder: (item as any).displayOrder ?? index,
-      } as any;
+      };
 
-      // Step 2: Filter fillable/guarded fields
-      const filtered = this.filterFields(itemWithPolymorphic);
+      // Filter through fillable/guarded
+      const filtered = this.filterFields(completeItem);
       
-      // Step 3: CRITICAL FIX - Map ALL fields to database column names
-      // This will convert:
-      //   polymorphicType -> testable_type (via columnMap)
-      //   polymorphicId -> testable_id (via columnMap)
-      //   displayOrder -> display_order (via camelToSnake)
+      // Map to database columns - this now uses our overridden mapToDatabase
+      // which properly handles the polymorphicType -> polymorphicTypeColumn mapping
       const dbData = this.mapToDatabase(filtered);
 
-      // Step 4: Add timestamps (already in correct format)
+      // Add timestamps
       if (this.config.timestamps) {
         dbData.created_at = connection.fn.now();
         dbData.updated_at = connection.fn.now();
@@ -239,6 +280,7 @@ export abstract class BasePolymorphicModel<
       return dbData;
     });
 
+    // Insert all records
     await connection(this.tableName).insert(insertData);
 
     // Fetch and return created records
@@ -454,26 +496,40 @@ export abstract class BasePolymorphicModel<
   // ============================================================================
 
   /**
-   * Before create hook - validates polymorphic type and entity existence
+   * Override beforeCreate to validate polymorphic type
    */
-  protected async beforePolymorphicCreate(data: any): Promise<any> {
-    const entityType = data.polymorphicType;
-    const entityId = data.polymorphicId;
+  protected async beforeCreate(data: TCreate): Promise<TCreate> {
+    const polymorphicData = data as any;
+    
+    // Validate polymorphic type if present
+    if (polymorphicData.polymorphicType) {
+      this.ensureValidType(polymorphicData.polymorphicType);
+    }
 
-    if (!entityType || !entityId) {
+    // Validate required fields
+    if (polymorphicData.polymorphicType && !polymorphicData.polymorphicId) {
       throw new Error(
-        `Missing required polymorphic fields: polymorphicType, polymorphicId`
+        `Missing required field: polymorphicId`
       );
     }
 
-    this.ensureValidType(entityType);
+    if (polymorphicData.polymorphicId && !polymorphicData.polymorphicType) {
+      throw new Error(
+        `Missing required field: polymorphicType`
+      );
+    }
 
     // Optional: Validate entity exists
-    // const exists = await this.validateEntityExists(entityType, entityId);
-    // if (!exists) {
-    //   throw new Error(
-    //     `Referenced ${entityType} with ID ${entityId} does not exist`
+    // if (polymorphicData.polymorphicType && polymorphicData.polymorphicId) {
+    //   const exists = await this.validateEntityExists(
+    //     polymorphicData.polymorphicType,
+    //     polymorphicData.polymorphicId
     //   );
+    //   if (!exists) {
+    //     throw new Error(
+    //       `Referenced ${polymorphicData.polymorphicType} with ID ${polymorphicData.polymorphicId} does not exist`
+    //     );
+    //   }
     // }
 
     return data;

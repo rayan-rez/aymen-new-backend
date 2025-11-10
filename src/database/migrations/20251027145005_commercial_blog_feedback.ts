@@ -55,8 +55,8 @@ export async function up(knex: Knex): Promise<void> {
     // =================================================================
     // SEO
     // =================================================================
-    table.string("meta_title", 255).nullable();
-    table.text("meta_description").nullable();
+    // table.string("meta_title", 255).nullable();
+    // table.text("meta_description").nullable();
 
     table.withAuditTrail();
 
@@ -120,13 +120,13 @@ export async function up(knex: Knex): Promise<void> {
     table.text("excerpt").nullable();
     table.text("content").notNullable();
     table.string("featured_image_url", 500).nullable();
-    table.integer("reading_time_minutes").unsigned().nullable();
+    // table.integer("reading_time_minutes").unsigned().nullable();
 
     // =================================================================
     // SEO
     // =================================================================
-    table.string("meta_title", 255).nullable();
-    table.text("meta_description").nullable();
+    // table.string("meta_title", 255).nullable();
+    // table.text("meta_description").nullable();
     table.withJsonMetadata("tags");
 
     // =================================================================
@@ -139,7 +139,7 @@ export async function up(knex: Knex): Promise<void> {
     // =================================================================
     // ANALYTICS
     // =================================================================
-    table.integer("view_count").unsigned().defaultTo(0);
+    // table.integer("view_count").unsigned().defaultTo(0);
 
     table.withAuditTrail();
 
@@ -155,19 +155,19 @@ export async function up(knex: Knex): Promise<void> {
     configureTableEngine(table);
   });
 
-  await addCheckConstraint(
-    knex,
-    "blog_posts",
-    "chk_blog_view_count",
-    "view_count >= 0"
-  );
+  // await addCheckConstraint(
+  //   knex,
+  //   "blog_posts",
+  //   "chk_blog_view_count",
+  //   "view_count >= 0"
+  // );
 
-  await addCheckConstraint(
-    knex,
-    "blog_posts",
-    "chk_blog_reading_time",
-    "reading_time_minutes IS NULL OR reading_time_minutes > 0"
-  );
+  // await addCheckConstraint(
+  //   knex,
+  //   "blog_posts",
+  //   "chk_blog_reading_time",
+  //   "reading_time_minutes IS NULL OR reading_time_minutes > 0"
+  // );
 
   await knex.raw(`
     ALTER TABLE blog_posts 
@@ -231,11 +231,11 @@ export async function up(knex: Knex): Promise<void> {
     // =================================================================
     // NPS RATINGS
     // =================================================================
-    table.integer("overall_satisfaction").nullable();
-    table.integer("recommendation_likelihood").nullable();
+    // table.integer("overall_satisfaction").nullable();
+    // table.integer("recommendation_likelihood").nullable();
 
-    table.text("feedback_comments").nullable();
-    table.text("suggestions").nullable();
+    // table.text("feedback_comments").nullable();
+    // table.text("suggestions").nullable();
 
     // =================================================================
     // CONTEXT
@@ -250,10 +250,10 @@ export async function up(knex: Knex): Promise<void> {
     // =================================================================
     // SENTIMENT ANALYSIS
     // =================================================================
-    table.withStatusEnum(["positive", "neutral", "negative"], {
-      columnName: "sentiment",
-    });
-    table.decimal("sentiment_score", 3, 2).nullable();
+    // table.withStatusEnum(["positive", "neutral", "negative"], {
+    //   columnName: "sentiment",
+    // });
+    // table.decimal("sentiment_score", 3, 2).nullable();
 
     table.withAuditTrail();
 
@@ -262,82 +262,82 @@ export async function up(knex: Knex): Promise<void> {
     // =================================================================
     table.index(["feedback_type", "created_at"], "idx_type_date");
     table.index(["project_id", "feedback_type"], "idx_proj_type");
-    table.index(["sentiment", "created_at"], "idx_sentiment_date");
+    // table.index(["sentiment", "created_at"], "idx_sentiment_date");
 
     configureTableEngine(table);
   });
 
-  await addCheckConstraint(
-    knex,
-    "customer_feedback",
-    "chk_feedback_satisfaction",
-    "overall_satisfaction IS NULL OR (overall_satisfaction >= 1 AND overall_satisfaction <= 10)"
-  );
+  // await addCheckConstraint(
+  //   knex,
+  //   "customer_feedback",
+  //   "chk_feedback_satisfaction",
+  //   "overall_satisfaction IS NULL OR (overall_satisfaction >= 1 AND overall_satisfaction <= 10)"
+  // );
 
-  await addCheckConstraint(
-    knex,
-    "customer_feedback",
-    "chk_feedback_nps",
-    "recommendation_likelihood IS NULL OR (recommendation_likelihood >= 1 AND recommendation_likelihood <= 10)"
-  );
+  // await addCheckConstraint(
+  //   knex,
+  //   "customer_feedback",
+  //   "chk_feedback_nps",
+  //   "recommendation_likelihood IS NULL OR (recommendation_likelihood >= 1 AND recommendation_likelihood <= 10)"
+  // );
 
-  await addCheckConstraint(
-    knex,
-    "customer_feedback",
-    "chk_feedback_sentiment_score",
-    "sentiment_score IS NULL OR (sentiment_score >= -1.00 AND sentiment_score <= 1.00)"
-  );
+  // await addCheckConstraint(
+  //   knex,
+  //   "customer_feedback",
+  //   "chk_feedback_sentiment_score",
+  //   "sentiment_score IS NULL OR (sentiment_score >= -1.00 AND sentiment_score <= 1.00)"
+  // );
 
   // ====================================================================
   // TRADE SHOW FEEDBACK
   // ====================================================================
-  await knex.schema.createTable("trade_show_feedback", (table) => {
-    table.increments("id").primary();
+  // await knex.schema.createTable("trade_show_feedback", (table) => {
+  //   table.increments("id").primary();
 
-    // =================================================================
-    // RATING SCORES
-    // =================================================================
-    table.decimal("company_satisfaction", 3, 1).notNullable();
-    table.decimal("company_recommendation", 3, 1).notNullable();
-    table.decimal("event_satisfaction", 3, 1).notNullable();
-    table.decimal("event_recommendation", 3, 1).notNullable();
+  //   // =================================================================
+  //   // RATING SCORES
+  //   // =================================================================
+  //   table.decimal("company_satisfaction", 3, 1).notNullable();
+  //   table.decimal("company_recommendation", 3, 1).notNullable();
+  //   table.decimal("event_satisfaction", 3, 1).notNullable();
+  //   table.decimal("event_recommendation", 3, 1).notNullable();
 
-    // =================================================================
-    // FEEDBACK TEXT
-    // =================================================================
-    table.text("positive_feedback").nullable();
-    table.text("improvement_suggestions").nullable();
+  //   // =================================================================
+  //   // FEEDBACK TEXT
+  //   // =================================================================
+  //   table.text("positive_feedback").nullable();
+  //   table.text("improvement_suggestions").nullable();
 
-    // =================================================================
-    // EVENT DETAILS
-    // =================================================================
-    table.string("trade_show_name", 255).notNullable().index();
-    table.date("trade_show_date").notNullable().index();
-    table.withStatusEnum(["fr", "ar", "en"], {
-      columnName: "language",
-      defaultStatus: "fr",
-    });
+  //   // =================================================================
+  //   // EVENT DETAILS
+  //   // =================================================================
+  //   table.string("trade_show_name", 255).notNullable().index();
+  //   table.date("trade_show_date").notNullable().index();
+  //   table.withStatusEnum(["fr", "ar", "en"], {
+  //     columnName: "language",
+  //     defaultStatus: "fr",
+  //   });
 
-    table.withAuditTrail();
+  //   table.withAuditTrail();
 
-    table.index(["trade_show_name", "trade_show_date"], "idx_show_date");
+  //   table.index(["trade_show_name", "trade_show_date"], "idx_show_date");
 
-    configureTableEngine(table);
-  });
+  //   configureTableEngine(table);
+  // });
 
-  await addCheckConstraint(
-    knex,
-    "trade_show_feedback",
-    "chk_trade_scores",
-    "company_satisfaction >= 0 AND company_satisfaction <= 10 AND " +
-      "company_recommendation >= 0 AND company_recommendation <= 10 AND " +
-      "event_satisfaction >= 0 AND event_satisfaction <= 10 AND " +
-      "event_recommendation >= 0 AND event_recommendation <= 10"
-  );
+  // await addCheckConstraint(
+  //   knex,
+  //   "trade_show_feedback",
+  //   "chk_trade_scores",
+  //   "company_satisfaction >= 0 AND company_satisfaction <= 10 AND " +
+  //     "company_recommendation >= 0 AND company_recommendation <= 10 AND " +
+  //     "event_satisfaction >= 0 AND event_satisfaction <= 10 AND " +
+  //     "event_recommendation >= 0 AND event_recommendation <= 10"
+  // );
 }
 
 export async function down(knex: Knex): Promise<void> {
-  await knex.schema.dropTableIfExists("trade_show_feedback");
+  // await knex.schema.dropTableIfExists("trade_show_feedback");
   await knex.schema.dropTableIfExists("customer_feedback");
   await knex.schema.dropTableIfExists("blog_post_sections");
   await knex.schema.dropTableIfExists("blog_posts");

@@ -110,8 +110,6 @@ export class FloorPlanModel extends BasePolymorphicModel<
   protected async beforeCreate(
     data: CreateFloorPlanDto
   ): Promise<CreateFloorPlanDto> {
-    // Run polymorphic validation
-    await this.beforePolymorphicCreate(data);
 
     // Validate required fields
     if (!data.name || data.name.trim().length === 0) {

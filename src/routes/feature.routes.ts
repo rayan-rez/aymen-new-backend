@@ -149,29 +149,5 @@ router.delete(
   featureController.deleteFeature
 );
 
-// ============================================================================
-// TRANSLATION MANAGEMENT ROUTES
-// ============================================================================
-
-/**
- * @route   PATCH /api/features/:id/translations
- * @desc    Update feature translations (multi-language support)
- * @access  Private (Admin only)
- * @param   {number} id - Feature ID
- * @body    {object} translations - Language translations
- * @body    {boolean} merge - Merge with existing translations (default: true)
- * @example {
- *   "translations": { "en": "Swimming Pool", "fr": "Piscine" },
- *   "merge": true
- * }
- */
-router.patch(
-  "/:id/translations",
-  validateMultiple({
-    params: featureSchemas.getById,
-    body: featureSchemas.updateTranslations,
-  }),
-  featureController.updateTranslations
-);
 
 export default router;

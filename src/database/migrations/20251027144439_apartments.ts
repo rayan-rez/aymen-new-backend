@@ -14,7 +14,7 @@ import { addCheckConstraint, configureTableEngine } from "../knex-extensions";
  * - Availability status tracking (available, reserved, sold)
  * - Publishing workflow for controlled visibility
  * - Model unit designation for show apartments
- * - Virtual tour integration
+ * - Virtual visit integration
  *
  * TYPICAL USE CASES:
  * - Display available units for a project
@@ -79,9 +79,9 @@ export async function up(knex: Knex): Promise<void> {
     table.index("is_published", "idx_is_published");
 
     // =================================================================
-    // VIRTUAL TOUR
+    // VIRTUAL VISIT
     // =================================================================
-    table.string("virtual_tour_url", 500).nullable();
+    table.string("virtual_visit_url", 500).nullable();
 
     // =================================================================
     // AUDIT TRAIL

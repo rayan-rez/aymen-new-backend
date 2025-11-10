@@ -9,7 +9,7 @@ export async function up(knex: Knex): Promise<void> {
     BEGIN
       IF NEW.status = 'confirmed' THEN
         UPDATE events 
-        SET registered_count = registered_count + NEW.number_of_guests
+        SET registered_count = registered_count + 1
         WHERE id = NEW.event_id;
       END IF;
     END;
@@ -22,11 +22,11 @@ export async function up(knex: Knex): Promise<void> {
     BEGIN
       IF OLD.status = 'confirmed' AND NEW.status = 'cancelled' THEN
         UPDATE events 
-        SET registered_count = registered_count - OLD.number_of_guests
+        SET registered_count = registered_count - 1
         WHERE id = OLD.event_id;
       ELSEIF OLD.status = 'cancelled' AND NEW.status = 'confirmed' THEN
         UPDATE events 
-        SET registered_count = registered_count + NEW.number_of_guests
+        SET registered_count = registered_count + 1
         WHERE id = NEW.event_id;
       END IF;
     END;

@@ -18,7 +18,7 @@ import { configureTableEngine } from "../knex-extensions";
  * - email: User clicks email contact
  * - gallery_view: User opens photo gallery
  * - floorplan_view: User views floor plans
- * - virtual_tour: User starts virtual tour
+ * - virtual_visit: User starts virtual visit
  * - video_play: User plays property video
  * - compare: User adds to comparison
  * - download_brochure: User downloads property brochure

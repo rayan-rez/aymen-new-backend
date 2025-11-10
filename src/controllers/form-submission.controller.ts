@@ -131,15 +131,6 @@ export class FormSubmissionController {
         lastName,
         email,
         phone,
-        formData: { message },
-        ipAddress: req.ip,
-        userAgent: req.get("user-agent"),
-        pageUrl: req.get("referer"),
-        utmSource,
-        utmMedium,
-        utmCampaign,
-        requiresOdooSync: true,
-        submittedAt: new Date(),
       });
 
       ApiResponse.created(
@@ -182,16 +173,7 @@ export class FormSubmissionController {
         firstName,
         lastName,
         email,
-        phone,
-        formData: { message, budget, preferredContactMethod },
-        ipAddress: req.ip,
-        userAgent: req.get("user-agent"),
-        pageUrl: req.get("referer"),
-        utmSource,
-        utmMedium,
-        utmCampaign,
-        requiresOdooSync: true,
-        submittedAt: new Date(),
+        phone
       });
 
       ApiResponse.created(
@@ -234,16 +216,7 @@ export class FormSubmissionController {
         firstName,
         lastName,
         email,
-        phone,
-        formData: { preferredDate, preferredTime, message },
-        ipAddress: req.ip,
-        userAgent: req.get("user-agent"),
-        pageUrl: req.get("referer"),
-        utmSource,
-        utmMedium,
-        utmCampaign,
-        requiresOdooSync: true,
-        submittedAt: new Date(),
+        phone
       });
 
       ApiResponse.created(
@@ -283,16 +256,7 @@ export class FormSubmissionController {
         firstName,
         lastName,
         email,
-        phone,
-        formData: {},
-        ipAddress: req.ip,
-        userAgent: req.get("user-agent"),
-        pageUrl: req.get("referer"),
-        utmSource,
-        utmMedium,
-        utmCampaign,
-        requiresOdooSync: true,
-        submittedAt: new Date(),
+        phone
       });
 
       ApiResponse.created(
@@ -305,71 +269,7 @@ export class FormSubmissionController {
     }
   }
 
-  /**
-   * Get form submission statistics
-   * GET /api/form-submissions/statistics
-   */
-  async getStatistics(
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> {
-    try {
-      const { dateFrom, dateTo } = req.query;
 
-      const stats = await FormSubmissionModel.getStatistics(
-        dateFrom ? new Date(dateFrom as string) : undefined,
-        dateTo ? new Date(dateTo as string) : undefined
-      );
-
-      ApiResponse.success(res, stats, "Statistics retrieved successfully");
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * Get breakdown by form type
-   * GET /api/form-submissions/breakdown
-   */
-  async getBreakdown(
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> {
-    try {
-      const { dateFrom, dateTo } = req.query;
-
-      const breakdown = await FormSubmissionModel.getBreakdownByFormType(
-        dateFrom ? new Date(dateFrom as string) : undefined,
-        dateTo ? new Date(dateTo as string) : undefined
-      );
-
-      ApiResponse.success(res, breakdown, "Breakdown retrieved successfully");
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * Get top UTM sources
-   * GET /api/form-submissions/utm-sources
-   */
-  async getTopUtmSources(
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> {
-    try {
-      const { limit = 10 } = req.query;
-
-      const sources = await FormSubmissionModel.getTopUtmSources(Number(limit));
-
-      ApiResponse.success(res, sources, "UTM sources retrieved successfully");
-    } catch (error) {
-      next(error);
-    }
-  }
 
   /**
    * Get spam submissions
@@ -401,108 +301,6 @@ export class FormSubmissionController {
     }
   }
 
-  /**
-   * Get pending Odoo sync submissions
-   * GET /api/form-submissions/pending-sync
-   */
-  async getPendingSync(
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> {
-    try {
-      const { limit = 100 } = req.query;
-
-      const submissions = await FormSubmissionModel.getPendingOdooSync(
-        Number(limit)
-      );
-
-      ApiResponse.success(
-        res,
-        submissions,
-        "Pending sync submissions retrieved successfully"
-      );
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * Mark submission as synced
-   * PATCH /api/form-submissions/:id/mark-synced
-   */
-  async markSynced(
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> {
-    try {
-      const { id } = req.params;
-
-      const submission = await FormSubmissionModel.markSyncCompleted(
-        Number(id)
-      );
-
-      if (!submission) {
-        throw new AppError("Form submission not found", 404);
-      }
-
-      ApiResponse.success(res, submission, "Submission marked as synced");
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * Reset sync status
-   * PATCH /api/form-submissions/:id/reset-sync
-   */
-  async resetSync(
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> {
-    try {
-      const { id } = req.params;
-
-      const submission = await FormSubmissionModel.resetSyncStatus(Number(id));
-
-      if (!submission) {
-        throw new AppError("Form submission not found", 404);
-      }
-
-      ApiResponse.success(res, submission, "Sync status reset successfully");
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * Mark as spam
-   * PATCH /api/form-submissions/:id/mark-spam
-   */
-  async markAsSpam(
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> {
-    try {
-      const { id } = req.params;
-
-      const submission = await FormSubmissionModel.update(Number(id), {
-        isSpam: true,
-        status: "spam" as any,
-      });
-
-      if (!submission) {
-        throw new AppError("Form submission not found", 404);
-      }
-
-      ApiResponse.success(res, submission, "Marked as spam");
-    } catch (error) {
-      next(error);
-    }
-  }
 
   /**
    * Assign to team member

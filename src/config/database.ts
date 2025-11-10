@@ -41,6 +41,7 @@ const config: Knex.Config = {
 
 // Create the database instance
 const db = knex(config);
+console.log("[ENV]: ",process.env.NODE_ENV)
 
 // Add connection validation
 if (process.env.NODE_ENV !== "test") {

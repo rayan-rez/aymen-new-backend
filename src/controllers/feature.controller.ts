@@ -201,35 +201,6 @@ export class FeatureController {
   }
 
   /**
-   * Update feature translations
-   * PATCH /api/features/:id/translations
-   */
-  async updateTranslations(
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> {
-    try {
-      const { id } = req.params;
-      const { translations, merge = true } = req.body;
-
-      const feature = await FeatureModel.updateTranslations(
-        Number(id),
-        translations,
-        merge === true
-      );
-
-      if (!feature) {
-        throw new AppError("Feature not found", 404);
-      }
-
-      ApiResponse.success(res, feature, "Translations updated successfully");
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
    * Get feature statistics
    * GET /api/features/statistics
    */

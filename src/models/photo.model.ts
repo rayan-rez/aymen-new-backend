@@ -100,8 +100,6 @@ export class PhotoModel extends BasePolymorphicModel<
   // ============================================================================
 
   protected async beforeCreate(data: CreatePhotoDto): Promise<CreatePhotoDto> {
-    // Run polymorphic validation
-    await this.beforePolymorphicCreate(data);
 
     // Validate URL
     if (!data.url || data.url.trim().length === 0) {

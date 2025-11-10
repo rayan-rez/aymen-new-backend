@@ -26,17 +26,7 @@ import {
   MigrationStats,
   TransformResult,
 } from "@/database/helpers";
-
-// Import db dynamically to ensure proper initialization
-let db: any = null;
-
-// Helper to get db instance
-function getDb() {
-  if (!db) {
-    db = require("@/config/database").default;
-  }
-  return db;
-}
+import database from "@/config/database"
 
 // Helper function for delays
 function waitFor(ms: number): Promise<void> {
@@ -87,7 +77,6 @@ describe("Database Helpers", () => {
 
   beforeAll(async () => {
     try {
-      const database = getDb();
 
       // Check if database is available
       try {
@@ -123,7 +112,6 @@ describe("Database Helpers", () => {
 
   afterAll(async () => {
     try {
-      const database = getDb();
       if (testTableExists) {
         await database("test_helpers_table").del();
       }
@@ -137,7 +125,6 @@ describe("Database Helpers", () => {
 
   beforeEach(async () => {
     try {
-      const database = getDb();
       if (testTableExists) {
         await database("test_helpers_table").del();
       }
@@ -203,16 +190,14 @@ describe("Database Helpers", () => {
   describe("ensureUniqueSlug", () => {
     it("should return slug if unique", async () => {
       skipIfNoDb();
-      
-      const database = getDb();
+
       const slug = await ensureUniqueSlug(database, "test_helpers_table", "unique-slug");
       expect(slug).toBe("unique-slug");
     });
 
     it("should append counter if slug exists", async () => {
       skipIfNoDb();
-      
-      const database = getDb();
+
       await database("test_helpers_table").insert({
         name: "Test",
         slug: "test-slug",
@@ -224,8 +209,7 @@ describe("Database Helpers", () => {
 
     it("should increment counter for multiple duplicates", async () => {
       skipIfNoDb();
-      
-      const database = getDb();
+
       await database("test_helpers_table").insert([
         { name: "Test 1", slug: "test-slug" },
         { name: "Test 2", slug: "test-slug-1" },
@@ -238,8 +222,7 @@ describe("Database Helpers", () => {
 
     it("should exclude specific ID when checking uniqueness", async () => {
       skipIfNoDb();
-      
-      const database = getDb();
+
       const [id] = await database("test_helpers_table").insert({
         name: "Test",
         slug: "test-slug",
@@ -251,8 +234,7 @@ describe("Database Helpers", () => {
 
     it("should work with different base slugs", async () => {
       skipIfNoDb();
-      
-      const database = getDb();
+
       await database("test_helpers_table").insert({
         name: "Test",
         slug: "project-a",
@@ -629,8 +611,7 @@ describe("Database Helpers", () => {
   describe("buildLookupMap", () => {
     beforeEach(async () => {
       skipIfNoDb();
-      
-      const database = getDb();
+
       await database("test_helpers_table").insert([
         { name: "Item 1", slug: "item-1", old_id: "OLD_1" },
         { name: "Item 2", slug: "item-2", old_id: "OLD_2" },
@@ -640,8 +621,7 @@ describe("Database Helpers", () => {
 
     it("should build lookup map with default value field", async () => {
       skipIfNoDb();
-      
-      const database = getDb();
+
       const map = await buildLookupMap(database, "test_helpers_table", "old_id", "id");
 
       expect(map.size).toBe(3);
@@ -652,8 +632,7 @@ describe("Database Helpers", () => {
 
     it("should build lookup map with custom value field", async () => {
       skipIfNoDb();
-      
-      const database = getDb();
+
       const map = await buildLookupMap(database, "test_helpers_table", "old_id", "slug");
 
       expect(map.get("OLD_1")).toBe("item-1");
@@ -663,8 +642,7 @@ describe("Database Helpers", () => {
 
     it("should handle empty tables", async () => {
       skipIfNoDb();
-      
-      const database = getDb();
+
       await database("test_helpers_table").del();
       const map = await buildLookupMap(database, "test_helpers_table", "old_id", "id");
 
@@ -675,8 +653,7 @@ describe("Database Helpers", () => {
   describe("buildReverseLookupMap", () => {
     beforeEach(async () => {
       skipIfNoDb();
-      
-      const database = getDb();
+
       await database("test_helpers_table").insert([
         { name: "Item 1", slug: "item-1", project_id: 1, value: 100 },
         { name: "Item 2", slug: "item-2", project_id: 1, value: 200 },
@@ -687,8 +664,7 @@ describe("Database Helpers", () => {
 
     it("should build reverse lookup map", async () => {
       skipIfNoDb();
-      
-      const database = getDb();
+
       const map = await buildReverseLookupMap(database, "test_helpers_table", "project_id", "value");
 
       expect(map.size).toBe(2);
@@ -698,8 +674,7 @@ describe("Database Helpers", () => {
 
     it("should handle keys with no values", async () => {
       skipIfNoDb();
-      
-      const database = getDb();
+
       await database("test_helpers_table").del();
       const map = await buildReverseLookupMap(database, "test_helpers_table", "project_id", "value");
 
@@ -708,8 +683,7 @@ describe("Database Helpers", () => {
 
     it("should group multiple values per key", async () => {
       skipIfNoDb();
-      
-      const database = getDb();
+
       const map = await buildReverseLookupMap(database, "test_helpers_table", "project_id", "id");
 
       expect(map.get(1)?.length).toBe(2);
@@ -819,8 +793,7 @@ describe("Database Helpers", () => {
   describe("clearTable", () => {
     beforeEach(async () => {
       skipIfNoDb();
-      
-      const database = getDb();
+
       await database("test_helpers_table").insert([
         { name: "Item 1", slug: "item-1" },
         { name: "Item 2", slug: "item-2" },
@@ -830,8 +803,7 @@ describe("Database Helpers", () => {
 
     it("should clear entire table", async () => {
       skipIfNoDb();
-      
-      const database = getDb();
+
       const count = await clearTable(database, "test_helpers_table");
       expect(count).toBe(3);
 
@@ -841,8 +813,7 @@ describe("Database Helpers", () => {
 
     it("should clear with where conditions", async () => {
       skipIfNoDb();
-      
-      const database = getDb();
+
       await database("test_helpers_table").where({ slug: "item-1" }).update({ value: 100 });
 
       const count = await clearTable(database, "test_helpers_table", {
@@ -859,16 +830,14 @@ describe("Database Helpers", () => {
   describe("shouldSeed", () => {
     it("should return true for empty table", async () => {
       skipIfNoDb();
-      
-      const database = getDb();
+
       const result = await shouldSeed(database, "test_helpers_table");
       expect(result).toBe(true);
     });
 
     it("should return false for non-empty table", async () => {
       skipIfNoDb();
-      
-      const database = getDb();
+
       await database("test_helpers_table").insert({
         name: "Item",
         slug: "item",
@@ -880,8 +849,7 @@ describe("Database Helpers", () => {
 
     it("should check against minimum record count", async () => {
       skipIfNoDb();
-      
-      const database = getDb();
+
       await database("test_helpers_table").insert([
         { name: "Item 1", slug: "item-1" },
         { name: "Item 2", slug: "item-2" },
@@ -1023,8 +991,7 @@ describe("Database Helpers", () => {
   describe("Integration: Full ETL Pipeline", () => {
     it("should perform complete ETL workflow", async () => {
       skipIfNoDb();
-      
-      const database = getDb();
+
       const sourceRecords = [
         { old_id: "OLD_1", name: "Project Alpha", status: "active" },
         { old_id: "OLD_2", name: "Project Beta", status: "active" },
@@ -1087,8 +1054,7 @@ describe("Database Helpers", () => {
 
     it("should handle slug uniqueness in batch", async () => {
       skipIfNoDb();
-      
-      const database = getDb();
+
       await database("test_helpers_table").insert({
         name: "Test Project",
         slug: "test-project",
@@ -1276,7 +1242,6 @@ describe("Database Helpers", () => {
     });
 
     it("should build large lookup maps efficiently", async () => {
-      const database = getDb();
       const records = Array.from({ length: 100 }, (_, i) => ({
         name: `Item ${i}`,
         slug: `item-${i}`,
@@ -1328,7 +1293,6 @@ describe("Database Helpers", () => {
     });
 
     it("should handle generic types in buildLookupMap", async () => {
-      const database = getDb();
       await database("test_helpers_table").insert([
         { name: "Item 1", slug: "item-1", old_id: "OLD_1", value: 100 },
         { name: "Item 2", slug: "item-2", old_id: "OLD_2", value: 200 },

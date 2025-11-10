@@ -65,7 +65,6 @@ export interface Event {
   eventType: EventType;
   description: string;
   shortDescription: string | null;
-  translations: Record<string, any> | null;
 
   // Scheduling
   startDate: Date;
@@ -109,14 +108,6 @@ export interface Event {
   isPublished: boolean;
   publishedAt: Date | null;
 
-  // SEO
-  metaTitle: string | null;
-  metaDescription: string | null;
-
-  // Analytics
-  viewCount: number;
-  clickCount: number;
-
   // Timestamps
   createdAt: Date;
   updatedAt: Date;
@@ -138,7 +129,6 @@ export interface CreateEventDto {
   eventType: EventType;
   description: string;
   shortDescription?: string;
-  translations?: Record<string, any>;
   startDate: Date;
   endDate: Date;
   timezone?: string;
@@ -164,8 +154,6 @@ export interface CreateEventDto {
   isFeatured?: boolean;
   isPublished?: boolean;
   publishedAt?: Date;
-  metaTitle?: string;
-  metaDescription?: string;
 }
 
 /**
@@ -235,7 +223,6 @@ export class EventModel extends BaseModel<
       "eventType",
       "description",
       "shortDescription",
-      "translations",
       "startDate",
       "endDate",
       "timezone",
@@ -261,11 +248,7 @@ export class EventModel extends BaseModel<
       "organizerPhone",
       "isFeatured",
       "isPublished",
-      "publishedAt",
-      "metaTitle",
-      "metaDescription",
-      "viewCount",
-      "clickCount",
+      "publishedAt"
     ],
     guarded: ["id", "createdAt", "updatedAt", "deletedAt"],
   };
@@ -780,41 +763,6 @@ export class EventModel extends BaseModel<
     };
   }
 
-  // ============================================================================
-  // ANALYTICS METHODS
-  // ============================================================================
-
-  /**
-   * Increments view count
-   */
-  async incrementViewCount(
-    id: number,
-    trx?: Knex.Transaction
-  ): Promise<boolean> {
-    const connection = trx || this.db;
-
-    const updated = await connection(this.tableName)
-      .where({ id })
-      .increment("view_count", 1);
-
-    return updated > 0;
-  }
-
-  /**
-   * Increments click count
-   */
-  async incrementClickCount(
-    id: number,
-    trx?: Knex.Transaction
-  ): Promise<boolean> {
-    const connection = trx || this.db;
-
-    const updated = await connection(this.tableName)
-      .where({ id })
-      .increment("click_count", 1);
-
-    return updated > 0;
-  }
 
   // ============================================================================
   // HELPER METHODS
@@ -952,7 +900,6 @@ export class EventModel extends BaseModel<
       eventType: record.event_type as EventType,
       description: record.description,
       shortDescription: record.short_description,
-      translations: this.parseJson(record.translations),
       startDate: new Date(record.start_date),
       endDate: new Date(record.end_date),
       timezone: record.timezone,
@@ -981,10 +928,6 @@ export class EventModel extends BaseModel<
       isFeatured: Boolean(record.is_featured),
       isPublished: Boolean(record.is_published),
       publishedAt: record.published_at ? new Date(record.published_at) : null,
-      metaTitle: record.meta_title,
-      metaDescription: record.meta_description,
-      viewCount: record.view_count || 0,
-      clickCount: record.click_count || 0,
       createdAt: new Date(record.created_at),
       updatedAt: new Date(record.updated_at),
       deletedAt: record.deleted_at ? new Date(record.deleted_at) : null,

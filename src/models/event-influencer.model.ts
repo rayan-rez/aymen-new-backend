@@ -63,23 +63,8 @@ export interface EventInfluencer {
   // Collaboration details
   status: CollaborationStatus;
   role: string | null;
-  compensationAmount: number | null;
-  compensationCurrency: string;
-  contractTerms: string | null;
-
-  // Deliverables & tracking
-  requiredPosts: number;
-  completedPosts: number;
-  reachAchieved: number | null;
-  engagementCount: number | null;
-
-  // Notes
-  notes: string | null;
-  internalNotes: string | null;
-  customFields: Record<string, any> | null;
 
   // Dates
-  invitedAt: Date | null;
   confirmedAt: Date | null;
   attendedAt: Date | null;
 
@@ -105,16 +90,6 @@ export interface CreateInfluencerDto {
   tier?: InfluencerTier;
   status?: CollaborationStatus;
   role?: string;
-  compensationAmount?: number;
-  compensationCurrency?: string;
-  contractTerms?: string;
-  requiredPosts?: number;
-  completedPosts?: number;
-  reachAchieved?: number;
-  engagementCount?: number;
-  notes?: string;
-  internalNotes?: string;
-  customFields?: Record<string, any>;
   invitedAt?: Date;
 }
 
@@ -161,7 +136,6 @@ export class EventInfluencerModel extends BaseModel<
       "influencer_handle",
       "influencer_email",
     ],
-    hiddenFields: ["internalNotes"],
     fillable: [
       "eventId",
       "influencerName",
@@ -173,17 +147,6 @@ export class EventInfluencerModel extends BaseModel<
       "tier",
       "status",
       "role",
-      "compensationAmount",
-      "compensationCurrency",
-      "contractTerms",
-      "requiredPosts",
-      "completedPosts",
-      "reachAchieved",
-      "engagementCount",
-      "notes",
-      "internalNotes",
-      "customFields",
-      "invitedAt",
       "confirmedAt",
       "attendedAt",
     ],
@@ -240,18 +203,6 @@ export class EventInfluencerModel extends BaseModel<
       data.status = CollaborationStatus.INVITED;
     }
 
-    if (!data.compensationCurrency) {
-      data.compensationCurrency = "DZD";
-    }
-
-    if (!data.requiredPosts) {
-      data.requiredPosts = 0;
-    }
-
-    if (!data.completedPosts) {
-      data.completedPosts = 0;
-    }
-
     if (!data.invitedAt) {
       data.invitedAt = new Date();
     }
@@ -294,14 +245,6 @@ export class EventInfluencerModel extends BaseModel<
       !influencer.attendedAt
     ) {
       data.attendedAt = new Date();
-    }
-
-    // Validate completed posts doesn't exceed required
-    if (data.completedPosts !== undefined) {
-      const requiredPosts = data.requiredPosts ?? influencer.requiredPosts;
-      if (data.completedPosts > requiredPosts) {
-        throw new Error("Completed posts cannot exceed required posts");
-      }
     }
 
     // Update tier if follower count changes
@@ -497,100 +440,8 @@ export class EventInfluencerModel extends BaseModel<
   }
 
   // ============================================================================
-  // DELIVERABLES TRACKING
-  // ============================================================================
-
-  /**
-   * Updates post count
-   */
-  async updatePostCount(
-    id: number,
-    completedPosts: number,
-    trx?: Knex.Transaction
-  ): Promise<EventInfluencer | null> {
-    return this.update(id, { completedPosts }, trx);
-  }
-
-  /**
-   * Increments completed posts
-   */
-  async incrementCompletedPosts(
-    id: number,
-    trx?: Knex.Transaction
-  ): Promise<EventInfluencer | null> {
-    const connection = trx || this.db;
-
-    await connection(this.tableName)
-      .where({ id })
-      .increment("completed_posts", 1);
-
-    return this.findById(id, {}, trx);
-  }
-
-  /**
-   * Updates reach and engagement
-   */
-  async updateMetrics(
-    id: number,
-    data: { reachAchieved?: number; engagementCount?: number },
-    trx?: Knex.Transaction
-  ): Promise<EventInfluencer | null> {
-    return this.update(id, data, trx);
-  }
-
-  // ============================================================================
   // STATISTICS METHODS
   // ============================================================================
-
-  /**
-   * Gets influencer statistics for an event
-   */
-  async getEventStatistics(
-    eventId: number,
-    trx?: Knex.Transaction
-  ): Promise<any> {
-    const connection = trx || this.db;
-
-    const [stats] = await connection(this.tableName)
-      .where({ event_id: eventId })
-      .select(
-        connection.raw("COUNT(*) as total"),
-        connection.raw(
-          "COUNT(CASE WHEN status = 'confirmed' THEN 1 END) as confirmed"
-        ),
-        connection.raw(
-          "COUNT(CASE WHEN status = 'attended' THEN 1 END) as attended"
-        ),
-        connection.raw(
-          "COUNT(CASE WHEN status = 'declined' THEN 1 END) as declined"
-        ),
-        connection.raw("SUM(follower_count) as totalFollowers"),
-        connection.raw("SUM(reach_achieved) as totalReach"),
-        connection.raw("SUM(engagement_count) as totalEngagement"),
-        connection.raw("SUM(required_posts) as totalRequiredPosts"),
-        connection.raw("SUM(completed_posts) as totalCompletedPosts"),
-        connection.raw("SUM(compensation_amount) as totalCompensation")
-      );
-
-    return {
-      total: Number(stats.total),
-      confirmed: Number(stats.confirmed),
-      attended: Number(stats.attended),
-      declined: Number(stats.declined),
-      totalFollowers: Number(stats.totalFollowers || 0),
-      totalReach: Number(stats.totalReach || 0),
-      totalEngagement: Number(stats.totalEngagement || 0),
-      totalRequiredPosts: Number(stats.totalRequiredPosts || 0),
-      totalCompletedPosts: Number(stats.totalCompletedPosts || 0),
-      totalCompensation: Number(stats.totalCompensation || 0),
-      deliverableCompletionRate:
-        Number(stats.totalRequiredPosts) > 0
-          ? (Number(stats.totalCompletedPosts) /
-              Number(stats.totalRequiredPosts)) *
-            100
-          : 0,
-    };
-  }
 
   /**
    * Gets tier distribution for an event
@@ -720,19 +571,6 @@ export class EventInfluencerModel extends BaseModel<
       tier: record.tier as InfluencerTier,
       status: record.status as CollaborationStatus,
       role: record.role,
-      compensationAmount: record.compensation_amount
-        ? Number(record.compensation_amount)
-        : null,
-      compensationCurrency: record.compensation_currency || "DZD",
-      contractTerms: record.contract_terms,
-      requiredPosts: record.required_posts || 0,
-      completedPosts: record.completed_posts || 0,
-      reachAchieved: record.reach_achieved,
-      engagementCount: record.engagement_count,
-      notes: record.notes,
-      internalNotes: record.internal_notes,
-      customFields: this.parseJson(record.custom_fields),
-      invitedAt: record.invited_at ? new Date(record.invited_at) : null,
       confirmedAt: record.confirmed_at ? new Date(record.confirmed_at) : null,
       attendedAt: record.attended_at ? new Date(record.attended_at) : null,
       createdAt: new Date(record.created_at),

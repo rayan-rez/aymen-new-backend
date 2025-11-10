@@ -106,27 +106,6 @@ router.post(
  */
 router.get("/", apiLimiter, formSubmissionController.getFormSubmissions);
 
-/**
- * @route   GET /api/form-submissions/statistics
- * @desc    Get submission statistics
- * @access  Private (Admin only)
- */
-router.get("/statistics", formSubmissionController.getStatistics);
-
-/**
- * @route   GET /api/form-submissions/pending-sync
- * @desc    Get submissions pending Odoo sync
- * @access  Private (Admin only)
- */
-router.get("/pending-sync", formSubmissionController.getPendingSync);
-
-/**
- * @route   PATCH /api/form-submissions/:id/mark-synced
- * @desc    Mark submission as synced
- * @access  Private (Admin only)
- */
-router.patch("/:id/mark-synced", formSubmissionController.markSynced);
-
 export { router as formSubmissionRoutes };
 
 // ============================================================================

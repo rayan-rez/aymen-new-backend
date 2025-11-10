@@ -34,14 +34,10 @@ export interface BlogPost {
   excerpt: string | null;
   content: string;
   featuredImageUrl: string | null;
-  readingTimeMinutes: number | null;
-  metaTitle: string | null;
-  metaDescription: string | null;
   tags: string[] | null;
   isPublished: boolean;
   isFeatured: boolean;
   publishedAt: Date | null;
-  viewCount: number;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
@@ -62,9 +58,6 @@ export interface CreateBlogPostDto {
   excerpt?: string;
   content: string;
   featuredImageUrl?: string;
-  readingTimeMinutes?: number;
-  metaTitle?: string;
-  metaDescription?: string;
   tags?: string[];
   isPublished?: boolean;
   isFeatured?: boolean;
@@ -90,16 +83,6 @@ export interface BlogPostQueryOptions extends AdvancedQueryOptions {
   includePhotos?: boolean;
 }
 
-/**
- * Blog post with statistics
- */
-export interface BlogPostWithStats extends BlogPost {
-  stats: {
-    sectionCount: number;
-    estimatedReadTime: string;
-    engagementRate: number;
-  };
-}
 
 // ============================================================================
 // BLOG POST MODEL CLASS
@@ -128,14 +111,10 @@ export class BlogPostModel extends BaseModel<
       "excerpt",
       "content",
       "featuredImageUrl",
-      "readingTimeMinutes",
-      "metaTitle",
-      "metaDescription",
       "tags",
       "isPublished",
       "isFeatured",
-      "publishedAt",
-      "viewCount",
+      "publishedAt"
     ],
     guarded: ["id", "createdAt", "updatedAt", "deletedAt"],
   };
@@ -243,10 +222,6 @@ export class BlogPostModel extends BaseModel<
       data.slug = `${data.slug}-${Date.now()}`;
     }
 
-    // Calculate reading time if not provided
-    if (!data.readingTimeMinutes && data.content) {
-      data.readingTimeMinutes = this.calculateReadingTime(data.content);
-    }
 
     // Set published timestamp if publishing
     if (data.isPublished && !data.publishedAt) {
@@ -281,11 +256,6 @@ export class BlogPostModel extends BaseModel<
       if (existing && existing.id !== id) {
         throw new Error(`Blog post slug "${data.slug}" already exists`);
       }
-    }
-
-    // Recalculate reading time if content changes
-    if (data.content && !data.readingTimeMinutes) {
-      data.readingTimeMinutes = this.calculateReadingTime(data.content);
     }
 
     // Set published timestamp if publishing
@@ -637,48 +607,6 @@ export class BlogPostModel extends BaseModel<
     return updated > 0;
   }
 
-  /**
-   * Gets post with statistics
-   */
-  async getWithStats(
-    id: number,
-    trx?: Knex.Transaction
-  ): Promise<BlogPostWithStats | null> {
-    const post = await this.findById(id, {}, trx);
-    if (!post) return null;
-
-    const stats = await this.getPostStats(id, trx);
-
-    return {
-      ...post,
-      stats,
-    };
-  }
-
-  /**
-   * Gets post statistics
-   */
-  async getPostStats(
-    postId: number,
-    trx?: Knex.Transaction
-  ): Promise<BlogPostWithStats["stats"]> {
-    const connection = trx || this.db;
-
-    // Get section count
-    const [sectionCount] = await connection("blog_post_sections")
-      .where({ blog_post_id: postId })
-      .count("* as count");
-
-    const post = await this.findById(postId, {}, trx);
-
-    return {
-      sectionCount: Number(sectionCount.count),
-      estimatedReadTime: post?.readingTimeMinutes
-        ? `${post.readingTimeMinutes} min read`
-        : "Unknown",
-      engagementRate: 0, // TODO: Calculate based on views, comments, shares
-    };
-  }
 
   /**
    * Gets category statistics
@@ -825,14 +753,10 @@ export class BlogPostModel extends BaseModel<
       excerpt: record.excerpt,
       content: record.content,
       featuredImageUrl: record.featured_image_url,
-      readingTimeMinutes: record.reading_time_minutes,
-      metaTitle: record.meta_title,
-      metaDescription: record.meta_description,
       tags: this.parseJsonArray<string>(record.tags),
       isPublished: Boolean(record.is_published),
       isFeatured: Boolean(record.is_featured),
       publishedAt: record.published_at ? new Date(record.published_at) : null,
-      viewCount: record.view_count || 0,
       createdAt: new Date(record.created_at),
       updatedAt: new Date(record.updated_at),
       deletedAt: record.deleted_at ? new Date(record.deleted_at) : null,

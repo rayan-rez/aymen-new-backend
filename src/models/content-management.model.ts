@@ -148,8 +148,6 @@ export interface CommercialProperty {
   mainImageUrl: string | null;
   isFeatured: boolean;
   isPublished: boolean;
-  metaTitle: string | null;
-  metaDescription: string | null;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
@@ -175,8 +173,6 @@ export interface CreateCommercialPropertyDto {
   mainImageUrl?: string;
   isFeatured?: boolean;
   isPublished?: boolean;
-  metaTitle?: string;
-  metaDescription?: string;
 }
 
 export interface UpdateCommercialPropertyDto
@@ -226,9 +222,7 @@ export class CommercialPropertyModel extends BaseModel<
       "status",
       "mainImageUrl",
       "isFeatured",
-      "isPublished",
-      "metaTitle",
-      "metaDescription",
+      "isPublished"
     ],
     guarded: ["id", "createdAt", "updatedAt", "deletedAt"],
   };
@@ -491,8 +485,6 @@ export class CommercialPropertyModel extends BaseModel<
       mainImageUrl: record.main_image_url,
       isFeatured: Boolean(record.is_featured),
       isPublished: Boolean(record.is_published),
-      metaTitle: record.meta_title,
-      metaDescription: record.meta_description,
       createdAt: new Date(record.created_at),
       updatedAt: new Date(record.updated_at),
       deletedAt: record.deleted_at ? new Date(record.deleted_at) : null,
@@ -518,27 +510,15 @@ export enum FeedbackLanguage {
   EN = "en",
 }
 
-export enum SentimentType {
-  POSITIVE = "positive",
-  NEUTRAL = "neutral",
-  NEGATIVE = "negative",
-}
-
 export interface CustomerFeedback {
   id: number;
   fullName: string | null;
   email: string | null;
   phone: string | null;
   feedbackType: FeedbackType;
-  overallSatisfaction: number | null;
-  recommendationLikelihood: number | null;
-  feedbackComments: string | null;
-  suggestions: string | null;
   projectId: number | null;
   relatedEvent: string | null;
   language: FeedbackLanguage;
-  sentiment: SentimentType;
-  sentimentScore: number | null;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
@@ -551,26 +531,17 @@ export interface CreateFeedbackDto {
   email?: string;
   phone?: string;
   feedbackType: FeedbackType;
-  overallSatisfaction?: number;
-  recommendationLikelihood?: number;
-  feedbackComments?: string;
-  suggestions?: string;
   projectId?: number;
   relatedEvent?: string;
   language?: FeedbackLanguage;
-  sentiment?: SentimentType;
-  sentimentScore?: number;
 }
 
 export interface UpdateFeedbackDto extends Partial<CreateFeedbackDto> {}
 
 export interface FeedbackQueryOptions extends AdvancedQueryOptions {
   feedbackType?: FeedbackType | FeedbackType[];
-  sentiment?: SentimentType | SentimentType[];
   language?: FeedbackLanguage | FeedbackLanguage[];
   projectId?: number | number[];
-  minSatisfaction?: number;
-  maxSatisfaction?: number;
   dateFrom?: Date;
   dateTo?: Date;
 }
@@ -590,24 +561,16 @@ export class CustomerFeedbackModel extends BaseModel<
     defaultSortOrder: "desc" as const,
     searchableColumns: [
       "full_name",
-      "email",
-      "feedback_comments",
-      "suggestions",
+      "email"
     ],
     fillable: [
       "fullName",
       "email",
       "phone",
       "feedbackType",
-      "overallSatisfaction",
-      "recommendationLikelihood",
-      "feedbackComments",
-      "suggestions",
       "projectId",
       "relatedEvent",
-      "language",
-      "sentiment",
-      "sentimentScore",
+      "language"
     ],
     guarded: ["id", "createdAt", "updatedAt", "deletedAt"],
   };
@@ -626,10 +589,6 @@ export class CustomerFeedbackModel extends BaseModel<
   ): Promise<CreateFeedbackDto> {
     if (!data.language) {
       data.language = FeedbackLanguage.FR;
-    }
-
-    if (!data.sentiment && data.feedbackComments) {
-      data.sentiment = this.detectSentiment(data.feedbackComments);
     }
 
     return data;
@@ -708,39 +667,6 @@ export class CustomerFeedbackModel extends BaseModel<
     };
   }
 
-  private detectSentiment(text: string): SentimentType {
-    const lowerText = text.toLowerCase();
-    const positiveWords = [
-      "excellent",
-      "great",
-      "good",
-      "happy",
-      "satisfied",
-      "parfait",
-      "bien",
-      "content",
-    ];
-    const negativeWords = [
-      "bad",
-      "poor",
-      "terrible",
-      "disappointed",
-      "mauvais",
-      "déçu",
-    ];
-
-    const positiveCount = positiveWords.filter((word) =>
-      lowerText.includes(word)
-    ).length;
-    const negativeCount = negativeWords.filter((word) =>
-      lowerText.includes(word)
-    ).length;
-
-    if (positiveCount > negativeCount) return SentimentType.POSITIVE;
-    if (negativeCount > positiveCount) return SentimentType.NEGATIVE;
-    return SentimentType.NEUTRAL;
-  }
-
   private applyFeedbackFilters(
     query: Knex.QueryBuilder,
     options: FeedbackQueryOptions
@@ -750,14 +676,6 @@ export class CustomerFeedbackModel extends BaseModel<
         query = query.whereIn("feedback_type", options.feedbackType);
       } else {
         query = query.where("feedback_type", options.feedbackType);
-      }
-    }
-
-    if (options.sentiment) {
-      if (Array.isArray(options.sentiment)) {
-        query = query.whereIn("sentiment", options.sentiment);
-      } else {
-        query = query.where("sentiment", options.sentiment);
       }
     }
 
@@ -775,22 +693,6 @@ export class CustomerFeedbackModel extends BaseModel<
       } else {
         query = query.where("project_id", options.projectId);
       }
-    }
-
-    if (options.minSatisfaction !== undefined) {
-      query = query.where(
-        "overall_satisfaction",
-        ">=",
-        options.minSatisfaction
-      );
-    }
-
-    if (options.maxSatisfaction !== undefined) {
-      query = query.where(
-        "overall_satisfaction",
-        "<=",
-        options.maxSatisfaction
-      );
     }
 
     if (options.dateFrom) {
@@ -811,179 +713,8 @@ export class CustomerFeedbackModel extends BaseModel<
       email: record.email,
       phone: record.phone,
       feedbackType: record.feedback_type as FeedbackType,
-      overallSatisfaction: record.overall_satisfaction,
-      recommendationLikelihood: record.recommendation_likelihood,
-      feedbackComments: record.feedback_comments,
-      suggestions: record.suggestions,
       projectId: record.project_id,
       relatedEvent: record.related_event,
-      language: record.language as FeedbackLanguage,
-      sentiment: record.sentiment as SentimentType,
-      sentimentScore: record.sentiment_score
-        ? Number(record.sentiment_score)
-        : null,
-      createdAt: new Date(record.created_at),
-      updatedAt: new Date(record.updated_at),
-      deletedAt: record.deleted_at ? new Date(record.deleted_at) : null,
-    };
-  }
-}
-
-// ============================================================================
-// TRADE SHOW FEEDBACK MODEL
-// ============================================================================
-
-export interface TradeShowFeedback {
-  id: number;
-  companySatisfaction: number;
-  companyRecommendation: number;
-  eventSatisfaction: number;
-  eventRecommendation: number;
-  positiveFeedback: string | null;
-  improvementSuggestions: string | null;
-  tradeShowName: string;
-  tradeShowDate: Date;
-  language: FeedbackLanguage;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt: Date | null;
-}
-
-export interface CreateTradeShowFeedbackDto {
-  companySatisfaction: number;
-  companyRecommendation: number;
-  eventSatisfaction: number;
-  eventRecommendation: number;
-  positiveFeedback?: string;
-  improvementSuggestions?: string;
-  tradeShowName: string;
-  tradeShowDate: Date;
-  language?: FeedbackLanguage;
-}
-
-export interface UpdateTradeShowFeedbackDto
-  extends Partial<CreateTradeShowFeedbackDto> {}
-
-export class TradeShowFeedbackModel extends BaseModel<
-  TradeShowFeedback,
-  CreateTradeShowFeedbackDto,
-  UpdateTradeShowFeedbackDto
-> {
-  protected tableName = "trade_show_feedback";
-  protected primaryKey = "id";
-
-  protected config = {
-    softDelete: true,
-    timestamps: true,
-    defaultSortColumn: "created_at",
-    defaultSortOrder: "desc" as const,
-    searchableColumns: [
-      "positive_feedback",
-      "improvement_suggestions",
-      "trade_show_name",
-    ],
-    fillable: [
-      "companySatisfaction",
-      "companyRecommendation",
-      "eventSatisfaction",
-      "eventRecommendation",
-      "positiveFeedback",
-      "improvementSuggestions",
-      "tradeShowName",
-      "tradeShowDate",
-      "language",
-    ],
-    guarded: ["id", "createdAt", "updatedAt", "deletedAt"],
-  };
-
-  protected async beforeCreate(
-    data: CreateTradeShowFeedbackDto
-  ): Promise<CreateTradeShowFeedbackDto> {
-    if (!data.language) {
-      data.language = FeedbackLanguage.FR;
-    }
-
-    // Validate scores
-    const scores = [
-      data.companySatisfaction,
-      data.companyRecommendation,
-      data.eventSatisfaction,
-      data.eventRecommendation,
-    ];
-
-    for (const score of scores) {
-      if (score < 0 || score > 10) {
-        throw new Error("All scores must be between 0 and 10");
-      }
-    }
-
-    return data;
-  }
-
-  async findByTradeShow(
-    tradeShowName: string,
-    tradeShowDate?: Date,
-    trx?: Knex.Transaction
-  ): Promise<TradeShowFeedback[]> {
-    const connection = trx || this.db;
-    let query = connection(this.tableName)
-      .where({ trade_show_name: tradeShowName })
-      .whereNull("deleted_at");
-
-    if (tradeShowDate) {
-      query = query.where({ trade_show_date: tradeShowDate });
-    }
-
-    const records = await query;
-    return records.map((r: DatabaseRecord) => this.mapToEntity(r));
-  }
-
-  async getTradeShowStatistics(
-    tradeShowName: string,
-    tradeShowDate?: Date,
-    trx?: Knex.Transaction
-  ): Promise<any> {
-    const connection = trx || this.db;
-    let query = connection(this.tableName)
-      .where({ trade_show_name: tradeShowName })
-      .whereNull("deleted_at");
-
-    if (tradeShowDate) {
-      query = query.where({ trade_show_date: tradeShowDate });
-    }
-
-    const [stats] = await query.select(
-      connection.raw("COUNT(*) as total"),
-      connection.raw("AVG(company_satisfaction) as avgCompanySatisfaction"),
-      connection.raw("AVG(company_recommendation) as avgCompanyRecommendation"),
-      connection.raw("AVG(event_satisfaction) as avgEventSatisfaction"),
-      connection.raw("AVG(event_recommendation) as avgEventRecommendation")
-    );
-
-    return {
-      total: Number(stats.total),
-      company: {
-        avgSatisfaction: Number(stats.avgCompanySatisfaction),
-        avgRecommendation: Number(stats.avgCompanyRecommendation),
-      },
-      event: {
-        avgSatisfaction: Number(stats.avgEventSatisfaction),
-        avgRecommendation: Number(stats.avgEventRecommendation),
-      },
-    };
-  }
-
-  protected mapToEntity(record: DatabaseRecord): TradeShowFeedback {
-    return {
-      id: record.id,
-      companySatisfaction: Number(record.company_satisfaction),
-      companyRecommendation: Number(record.company_recommendation),
-      eventSatisfaction: Number(record.event_satisfaction),
-      eventRecommendation: Number(record.event_recommendation),
-      positiveFeedback: record.positive_feedback,
-      improvementSuggestions: record.improvement_suggestions,
-      tradeShowName: record.trade_show_name,
-      tradeShowDate: new Date(record.trade_show_date),
       language: record.language as FeedbackLanguage,
       createdAt: new Date(record.created_at),
       updatedAt: new Date(record.updated_at),
@@ -996,11 +727,9 @@ export class TradeShowFeedbackModel extends BaseModel<
 export const blogPostSectionModel = new BlogPostSectionModel();
 export const commercialPropertyModel = new CommercialPropertyModel();
 export const customerFeedbackModel = new CustomerFeedbackModel();
-export const tradeShowFeedbackModel = new TradeShowFeedbackModel();
 
 export default {
   blogPostSectionModel,
   commercialPropertyModel,
-  customerFeedbackModel,
-  tradeShowFeedbackModel,
+  customerFeedbackModel
 };

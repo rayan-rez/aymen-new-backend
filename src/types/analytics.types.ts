@@ -264,8 +264,8 @@ export enum InteractionAction {
   REMOVE_FROM_FAVORITES = "remove_from_favorites",
   COMPARE = "compare",
   SHARE = "share",
-  VIRTUAL_TOUR_START = "virtual_tour_start",
-  VIRTUAL_TOUR_END = "virtual_tour_end",
+  VIRTUAL_VISIT_START = "virtual_visit_start",
+  VIRTUAL_VISIT_END = "virtual_visit_end",
   VIDEO_PLAY = "video_play",
   GALLERY_VIEW = "gallery_view",
   CALL_CLICK = "call_click",
@@ -325,7 +325,7 @@ export interface VideoInteractionValue {
   completion_percent: number;
 }
 
-export interface VirtualTourInteractionValue {
+export interface VirtualVisitInteractionValue {
   duration_seconds: number;
   rooms_visited: string[];
   interaction_count: number;

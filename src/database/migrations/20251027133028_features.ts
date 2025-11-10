@@ -49,7 +49,7 @@ export async function up(knex: Knex): Promise<void> {
     // =================================================================
     // JSON object with language codes as keys
     // Example: {"en":"Swimming Pool","fr":"Piscine","ar":"مسبح"}
-    table.withJsonMetadata("translations");
+    // table.withJsonMetadata("translations");
 
     // =================================================================
     // CATEGORIZATION

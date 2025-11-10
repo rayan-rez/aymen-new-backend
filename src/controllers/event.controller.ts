@@ -492,30 +492,6 @@ export class EventController {
     }
   }
 
-  /**
-   * Get influencer statistics for event
-   * GET /api/events/:id/influencers/statistics
-   */
-  async getInfluencerStatistics(
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> {
-    try {
-      const { id } = req.params;
-
-      const stats = await EventInfluencerModel.getEventStatistics(Number(id));
-
-      ApiResponse.success(
-        res,
-        stats,
-        "Influencer statistics retrieved successfully"
-      );
-    } catch (error) {
-      next(error);
-    }
-  }
-
   // ============================================================================
   // PHOTO MANAGEMENT (Following Project Controller Pattern)
   // ============================================================================
@@ -590,46 +566,6 @@ export class EventController {
   // ============================================================================
   // ANALYTICS
   // ============================================================================
-
-  /**
-   * Increment view count
-   * POST /api/events/:id/view
-   */
-  async incrementViewCount(
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> {
-    try {
-      const { id } = req.params;
-
-      await EventModel.incrementViewCount(Number(id));
-
-      ApiResponse.success(res, null, "View count incremented");
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * Increment click count
-   * POST /api/events/:id/click
-   */
-  async incrementClickCount(
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> {
-    try {
-      const { id } = req.params;
-
-      await EventModel.incrementClickCount(Number(id));
-
-      ApiResponse.success(res, null, "Click count incremented");
-    } catch (error) {
-      next(error);
-    }
-  }
 
   // ============================================================================
   // CAPACITY & AVAILABILITY
