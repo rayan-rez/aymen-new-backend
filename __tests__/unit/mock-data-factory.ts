@@ -1,9 +1,16 @@
 import {
+    Project,
+    CreateProjectDto,
+    PlannableType,
+    CreateFloorPlanDto,
+    PhotoableType,
+    CreatePhotoDto,
     ApartmentStatus,
     CreateApartmentDto,
-} from "@/models/apartment.model";
-import { PhotoableType, CreatePhotoDto } from "@/models/photo.model";
-import { PlannableType, CreateFloorPlanDto } from "@/models/floor-plan.model";
+    ProjectModel,
+    ProjectStatus
+} from "@/models";
+import { uniqueSlug } from "@tests/helpers";
 
 
 // ============================================================================
@@ -33,7 +40,7 @@ export const mockApartmentData = (
     ...overrides
 } as CreateApartmentDto);
 
-export const mockPhotoData = (overrides: Partial<CreatePhotoDto> = {}):CreatePhotoDto => ({
+export const mockPhotoData = (overrides: Partial<CreatePhotoDto> = {}): CreatePhotoDto => ({
     url: `https://example.com/photo-${Date.now()}.jpg`,
     caption: "Test Photo",
     isCover: false,
@@ -42,10 +49,25 @@ export const mockPhotoData = (overrides: Partial<CreatePhotoDto> = {}):CreatePho
     ...overrides
 } as CreatePhotoDto);
 
-export const mockFloorPlanData = (overrides: Partial<CreateFloorPlanDto> = {}):CreateFloorPlanDto => ({
+export const mockFloorPlanData = (overrides: Partial<CreateFloorPlanDto> = {}): CreateFloorPlanDto => ({
     pdfUrl: `https://example.com/plan-${Date.now()}.pdf`,
     name: "Floor Plan",
     plannableType: PlannableType.APARTMENT,
     plannableId: 2,
     ...overrides
 } as CreateFloorPlanDto);
+
+
+/**
+ * Creates a test project
+ */
+export const createTestProjectData = async (overrides: Partial<CreateProjectDto> = {}): Promise<Project> => {
+    const slug = uniqueSlug("test-project");
+    return await ProjectModel.create({
+        name: "Test Project",
+        slug,
+        address: "123 Test St",
+        status: ProjectStatus.PLANNING,
+        ...overrides,
+    });
+}

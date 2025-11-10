@@ -88,20 +88,6 @@ export function waitFor(ms: number): Promise<void> {
 }
 
 /**
- * Creates a test project
- */
-export async function createTestProject(overrides: any = {}) {
-  const slug = uniqueSlug("test-project");
-  return await ProjectModel.create({
-    name: "Test Project",
-    slug,
-    address: "123 Test St",
-    status: ProjectStatus.PLANNING,
-    ...overrides,
-  });
-}
-
-/**
  * Cleans up specific tables in correct order (respects FK constraints)
  */
 export async function cleanupTables(tables: string[]): Promise<void> {

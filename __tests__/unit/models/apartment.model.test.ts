@@ -16,10 +16,9 @@ import db from "@/config/database";
 import {
     cleanupTables,
     closeDatabase,
-    uniqueSlug,
-    createTestProject
+    uniqueSlug
 } from "@tests/helpers";
-import { mockApartmentData, mockFloorPlanData, mockPhotoData } from "../mock-data-factory"
+import { mockApartmentData, mockFloorPlanData, mockPhotoData, createTestProjectData } from "../mock-data-factory"
 
 
 
@@ -50,7 +49,7 @@ describe("ApartmentModel", () => {
         ]);
 
         // Create test project
-        testProject = await createTestProject({
+        testProject = await createTestProjectData({
             name: "Test Project for Apartments",
             slug: uniqueSlug("test-project"),
             status: ProjectStatus.PLANNING,
@@ -141,7 +140,7 @@ describe("ApartmentModel", () => {
             });
 
             it("should allow same unit number in different projects", async () => {
-                const project2 = await createTestProject({
+                const project2 = await createTestProjectData({
                     name: "Another Project",
                     slug: uniqueSlug("another-project"),
                 });
@@ -750,7 +749,7 @@ describe("ApartmentModel", () => {
             });
 
             it("should return empty array for project with no apartments", async () => {
-                const project2 = await createTestProject({
+                const project2 = await createTestProjectData({
                     name: "Empty Project",
                     slug: uniqueSlug("empty"),
                 });
@@ -1035,7 +1034,7 @@ describe("ApartmentModel", () => {
             });
 
             it("should handle project with no apartments", async () => {
-                const project2 = await createTestProject({
+                const project2 = await createTestProjectData({
                     name: "Empty Project",
                     slug: uniqueSlug("empty"),
                 });
@@ -1156,7 +1155,7 @@ describe("ApartmentModel", () => {
             });
 
             it("should return empty array for project with no apartments", async () => {
-                const project2 = await createTestProject({
+                const project2 = await createTestProjectData({
                     name: "Empty Project",
                     slug: uniqueSlug("empty"),
                 });

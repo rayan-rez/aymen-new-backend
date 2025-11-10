@@ -37,9 +37,6 @@ export * from "./apartment.model";
 export { default as FormSubmissionModel } from "./form-submission.model";
 export * from "./form-submission.model";
 
-export { default as LeadMirrorModel } from "./lead-mirror.model";
-export * from "./lead-mirror.model";
-
 // ============================================================================
 // EVENT MANAGEMENT
 // ============================================================================
@@ -63,6 +60,14 @@ export * from "./blog-post.model";
 
 // Commercial & Feedback (from combined file)
 export * from "./content-management.model";
+
+// polymorphic photo
+export { default as PhotoModel } from "./photo.model";
+export * from "./photo.model";
+
+// polymorphic floor plan
+export { default as FloorPlanModel } from "./floor-plan.model";
+export * from "./floor-plan.model";
 
 // ============================================================================
 // USAGE EXAMPLES
