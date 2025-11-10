@@ -186,17 +186,7 @@ export abstract class BaseModel<T, TCreate = Partial<T>, TUpdate = Partial<T>> {
 
   constructor(connection?: Knex) {
     this.db = connection || db;
-    this.validateConnection();
     this.initializeColumnMap();
-  }
-
-  private async validateConnection(): Promise<void> {
-    try {
-      await this.db.raw("SELECT 1");
-    } catch (error) {
-      console.error(`[${this.tableName}] Database connection failed:`, error);
-      throw new Error("Database connection unavailable");
-    }
   }
 
   // ------------------------------------------------------------------------

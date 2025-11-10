@@ -4,7 +4,7 @@
  * Runs before each test file
  */
 import "tsconfig-paths/register";
-import { uniqueEmail, uniqueSlug } from "./helpers";
+import { uniqueEmail, uniqueSlug, waitFor } from "./helpers";
 
 // Increase timeout for all tests
 jest.setTimeout(3000);
@@ -24,13 +24,6 @@ declare global {
     isDatabaseAvailable: () => boolean;
     getDb: () => any;
   };
-}
-
-/**
- * Wait for specified milliseconds
- */
-function waitFor(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -218,6 +211,41 @@ beforeAll(async () => {
 
         table.index(["testable_type", "testable_id"]);
       });
+
+      // Create photos table (polymorphic for apartments, projects, etc.)
+      const photosTableExists = await database.schema.hasTable("photos");
+      if (!photosTableExists) {
+        await database.schema.createTable("photos", (table: any) => {
+          table.increments("id").primary();
+          table.string("photoable_type").notNullable(); // 'project', 'apartment', etc.
+          table.integer("photoable_id").notNullable();
+          table.string("url").notNullable();
+          table.text("caption").nullable();
+          table.boolean("is_cover").defaultTo(false);
+          table.integer("display_order").defaultTo(0);
+          table.timestamps(true, true);
+          table.timestamp("deleted_at").nullable();
+
+          table.index(["photoable_type", "photoable_id"]);
+        });
+      }
+
+      // Create floor_plans table (polymorphic for apartments, projects, etc.)
+      const floorPlansTableExists = await database.schema.hasTable("floor_plans");
+      if (!floorPlansTableExists) {
+        await database.schema.createTable("floor_plans", (table: any) => {
+          table.increments("id").primary();
+          table.string("plannable_type").notNullable(); // 'project', 'apartment', etc.
+          table.integer("plannable_id").notNullable();
+          table.string("url").notNullable();
+          table.text("caption").nullable();
+          table.integer("display_order").defaultTo(0);
+          table.timestamps(true, true);
+          table.timestamp("deleted_at").nullable();
+
+          table.index(["plannable_type", "plannable_id"]);
+        });
+      }
 
       dbInitialized = true;
       console.log("✅ Test environment ready");
