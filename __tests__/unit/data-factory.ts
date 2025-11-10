@@ -11,45 +11,29 @@ import {
   ProjectStatus,
   ApartmentModel,
   ApartmentStatus,
-  
+
   // Location
   LocationModel,
   LocationType,
-  
+
   // Features
   FeatureModel,
   FeatureCategory,
-  
+
   // Media (Polymorphic)
   PhotoModel,
   PhotoableType,
   FloorPlanModel,
   PlannableType,
-  
-  // Events
-  EventModel,
-  EventType,
-  EventsLocationType,
-  EventStatus,
-  EventRegistrationModel,
-  RegistrationStatus,
-  EventInfluencerModel,
-  InfluencerTier,
-  CollaborationStatus,
-  
+
   // Content
   BlogPostModel,
   blogPostSectionModel,
-  commercialPropertyModel,
-  CommercialPropertyType,
-  CommercialPropertyStatus,
-  customerFeedbackModel,
-  FeedbackType,
-  FeedbackLanguage,
-  
+
   // Forms
   FormSubmissionModel,
-  FormType,
+  FormType
+
 } from "@/models";
 
 // ============================================================================
@@ -414,141 +398,6 @@ export const createFloorPlansForEntity = async (
 };
 
 // ============================================================================
-// EVENT FACTORIES
-// ============================================================================
-
-/**
- * Creates an Event DTO with random data
- */
-export const createEventDto = (overrides: Partial<import("@/models").CreateEventDto> = {}): import("@/models").CreateEventDto => {
-  const startDate = overrides.startDate || futureDate(30);
-  const endDate = overrides.endDate || new Date(startDate.getTime() + 86400000);
-
-  return {
-    name: `Event ${randomInt(1, 1000)}`,
-    slug: uniqueSlug('event'),
-    eventType: randomChoice(Object.values(EventType)),
-    description: 'An exciting event for potential buyers and investors',
-    shortDescription: 'Join us for an unforgettable experience',
-    startDate,
-    endDate,
-    timezone: 'Africa/Algiers',
-    locationType: randomChoice(Object.values(EventsLocationType)),
-    venueName: 'Convention Center',
-    venueAddress: '123 Event Street',
-    latitude: randomFloat(36.0, 37.0, 4),
-    longitude: randomFloat(2.0, 4.0, 4),
-    locationId: overrides.locationId,
-    onlineMeetingUrl: 'https://meet.example.com/event',
-    maxCapacity: randomInt(50, 500),
-    requiresRegistration: true,
-    isRegistrationOpen: true,
-    registrationDeadline: futureDate(28),
-    projectId: overrides.projectId,
-    status: EventStatus.SCHEDULED,
-    featuredImageUrl: `https://picsum.photos/seed/${Date.now()}/1200/600`,
-    organizerName: 'Event Team',
-    email: 'organizer@example.com',
-    organizerPhone: '+213555123456',
-    isFeatured: randomBool(),
-    isPublished: true,
-    ...overrides,
-  };
-};
-
-/**
- * Creates and persists an Event entity
- */
-export const createEvent = async (
-  overrides: Partial<import("@/models").CreateEventDto> = {}
-): Promise<import("@/models").Event> => {
-  const dto = createEventDto(overrides);
-  return await EventModel.create(dto);
-};
-
-// ============================================================================
-// EVENT REGISTRATION FACTORIES
-// ============================================================================
-
-/**
- * Creates an Event Registration DTO with random data
- */
-export const createEventRegistrationDto = (overrides: Partial<import("@/models").CreateRegistrationDto> = {}): import("@/models").CreateRegistrationDto => ({
-  eventId: overrides.eventId || 1,
-  fullName: randomName(),
-  email: randomEmail(),
-  phone: randomPhone(),
-  company: randomBool() ? 'Tech Corp' : undefined,
-  jobTitle: randomBool() ? 'Manager' : undefined,
-  status: RegistrationStatus.CONFIRMED,
-  registeredAt: new Date(),
-  ...overrides,
-});
-
-/**
- * Creates and persists an Event Registration entity
- */
-export const createEventRegistration = async (
-  overrides: Partial<import("@/models").CreateRegistrationDto> = {}
-): Promise<import("@/models").EventRegistration> => {
-  const dto = createEventRegistrationDto(overrides);
-  return await EventRegistrationModel.create(dto);
-};
-
-/**
- * Creates multiple registrations for an event
- */
-export const createRegistrationsForEvent = async (
-  eventId: number,
-  count: number = 10
-): Promise<import("@/models").EventRegistration[]> => {
-  return await Promise.all(
-    Array.from({ length: count }, (_, i) =>
-      createEventRegistration({
-        eventId,
-        fullName: `Attendee ${i + 1}`,
-        email: `attendee${i + 1}@example.com`,
-        status: i < 8 ? RegistrationStatus.CONFIRMED : RegistrationStatus.PENDING,
-      })
-    )
-  );
-};
-
-// ============================================================================
-// EVENT INFLUENCER FACTORIES
-// ============================================================================
-
-/**
- * Creates an Event Influencer DTO with random data
- */
-export const createEventInfluencerDto = (overrides: Partial<import("@/models").CreateInfluencerDto> = {}): import("@/models").CreateInfluencerDto => ({
-  eventId: overrides.eventId || 1,
-  influencerName: 'Social Media Star',
-  influencerHandle: `@influencer${Date.now()}`,
-  influencerEmail: randomEmail(),
-  influencerPhone: randomPhone(),
-  socialLinks: {
-    instagram: 'https://instagram.com/influencer',
-    youtube: 'https://youtube.com/@influencer',
-  },
-  followerCount: randomInt(10000, 1000000),
-  tier: randomChoice(Object.values(InfluencerTier)),
-  status: CollaborationStatus.INVITED,
-  role: randomBool() ? 'Brand Ambassador' : 'Content Creator',
-  ...overrides,
-});
-
-/**
- * Creates and persists an Event Influencer entity
- */
-export const createEventInfluencer = async (
-  overrides: Partial<import("@/models").CreateInfluencerDto> = {}
-): Promise<import("@/models").EventInfluencer> => {
-  const dto = createEventInfluencerDto(overrides);
-  return await EventInfluencerModel.create(dto);
-};
-
-// ============================================================================
 // BLOG POST FACTORIES
 // ============================================================================
 
@@ -605,71 +454,6 @@ export const createBlogPostWithSections = async (
 };
 
 // ============================================================================
-// COMMERCIAL PROPERTY FACTORIES
-// ============================================================================
-
-/**
- * Creates a Commercial Property DTO with random data
- */
-export const createCommercialPropertyDto = (overrides: Partial<import("@/models/content-management.model").CreateCommercialPropertyDto> = {}): import("@/models/content-management.model").CreateCommercialPropertyDto => ({
-  title: `Commercial Property ${randomInt(1, 1000)}`,
-  slug: uniqueSlug('commercial'),
-  subtitle: 'Prime location for your business',
-  description: 'Excellent commercial space in a high-traffic area',
-  cardDescription: 'Modern commercial property',
-  address: `${randomInt(1, 999)} Business Ave`,
-  latitude: randomFloat(36.0, 37.0, 4),
-  longitude: randomFloat(2.0, 4.0, 4),
-  locationId: overrides.locationId,
-  propertyType: randomChoice(Object.values(CommercialPropertyType)),
-  areaSqm: randomInt(50, 500),
-  price: randomInt(100000, 2000000),
-  status: randomChoice(Object.values(CommercialPropertyStatus)),
-  mainImageUrl: `https://picsum.photos/seed/${Date.now()}/1200/800`,
-  isFeatured: randomBool(),
-  isPublished: true,
-  ...overrides,
-});
-
-/**
- * Creates and persists a Commercial Property entity
- */
-export const createCommercialProperty = async (
-  overrides: Partial<import("@/models/content-management.model").CreateCommercialPropertyDto> = {}
-): Promise<import("@/models/content-management.model").CommercialProperty> => {
-  const dto = createCommercialPropertyDto(overrides);
-  return await commercialPropertyModel.create(dto);
-};
-
-// ============================================================================
-// CUSTOMER FEEDBACK FACTORIES
-// ============================================================================
-
-/**
- * Creates a Customer Feedback DTO with random data
- */
-export const createCustomerFeedbackDto = (overrides: Partial<import("@/models/content-management.model").CreateFeedbackDto> = {}): import("@/models/content-management.model").CreateFeedbackDto => ({
-  fullName: randomName(),
-  email: randomEmail(),
-  phone: randomPhone(),
-  feedbackType: randomChoice(Object.values(FeedbackType)),
-  projectId: overrides.projectId,
-  relatedEvent: randomBool() ? 'Grand Opening Event' : undefined,
-  language: randomChoice(Object.values(FeedbackLanguage)),
-  ...overrides,
-});
-
-/**
- * Creates and persists a Customer Feedback entity
- */
-export const createCustomerFeedback = async (
-  overrides: Partial<import("@/models/content-management.model").CreateFeedbackDto> = {}
-): Promise<import("@/models/content-management.model").CustomerFeedback> => {
-  const dto = createCustomerFeedbackDto(overrides);
-  return await customerFeedbackModel.create(dto);
-};
-
-// ============================================================================
 // FORM SUBMISSION FACTORIES
 // ============================================================================
 
@@ -678,7 +462,7 @@ export const createCustomerFeedback = async (
  */
 export const createFormSubmissionDto = (overrides: Partial<import("@/models").CreateFormSubmissionDto> = {}): import("@/models").CreateFormSubmissionDto => {
   const name = randomName().split(' ');
-  
+
   return {
     formType: randomChoice(Object.values(FormType)),
     formId: `form_${Date.now()}`,
@@ -767,29 +551,6 @@ export const createFullProject = async (
   };
 };
 
-/**
- * Creates a complete event with registrations and influencers
- */
-export const createFullEvent = async (
-  eventOverrides: Partial<import("@/models").CreateEventDto> = {},
-  options: {
-    registrationCount?: number;
-    influencerCount?: number;
-  } = {}
-) => {
-  const { registrationCount = 10, influencerCount = 5 } = options;
-
-  const event = await createEvent(eventOverrides);
-  const registrations = await createRegistrationsForEvent(event.id, registrationCount);
-  
-  const influencers = await Promise.all(
-    Array.from({ length: influencerCount }, () =>
-      createEventInfluencer({ eventId: event.id })
-    )
-  );
-
-  return { event, registrations, influencers };
-};
 
 // ============================================================================
 // EXPORTS
@@ -826,31 +587,10 @@ export default {
   createFloorPlan,
   createFloorPlansForEntity,
 
-  // Event
-  createEventDto,
-  createEvent,
-
-  // Event Registration
-  createEventRegistrationDto,
-  createEventRegistration,
-  createRegistrationsForEvent,
-
-  // Event Influencer
-  createEventInfluencerDto,
-  createEventInfluencer,
-
   // Blog Post
   createBlogPostDto,
   createBlogPost,
   createBlogPostWithSections,
-
-  // Commercial Property
-  createCommercialPropertyDto,
-  createCommercialProperty,
-
-  // Customer Feedback
-  createCustomerFeedbackDto,
-  createCustomerFeedback,
 
   // Form Submission
   createFormSubmissionDto,
@@ -858,7 +598,6 @@ export default {
 
   // Complex Scenarios
   createFullProject,
-  createFullEvent,
 
   // Utilities
   randomInt,

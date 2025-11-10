@@ -16,7 +16,7 @@ import {
 import { generateSlug } from "@/database/helpers";
 import PhotoModel, { PhotoableType, Photo } from "./photo.model";
 import { Knex } from "knex";
-import type { BlogPostSection } from "./content-management.model";
+import type { BlogPostSection } from "./blog-post-section.model";
 
 // ============================================================================
 // TYPE DEFINITIONS

@@ -38,19 +38,6 @@ export { default as FormSubmissionModel } from "./form-submission.model";
 export * from "./form-submission.model";
 
 // ============================================================================
-// EVENT MANAGEMENT
-// ============================================================================
-
-export { default as EventModel } from "./event.model";
-export * from "./event.model";
-
-export { default as EventRegistrationModel } from "./event-registration.model";
-export * from "./event-registration.model";
-
-export { default as EventInfluencerModel } from "./event-influencer.model";
-export * from "./event-influencer.model";
-
-// ============================================================================
 // CONTENT MANAGEMENT
 // ============================================================================
 
@@ -59,7 +46,7 @@ export { default as BlogPostModel } from "./blog-post.model";
 export * from "./blog-post.model";
 
 // Commercial & Feedback (from combined file)
-export * from "./content-management.model";
+export * from "./blog-post-section.model";
 
 // polymorphic photo
 export { default as PhotoModel } from "./photo.model";
