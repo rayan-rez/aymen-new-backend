@@ -67,23 +67,26 @@ export async function up(knex: Knex): Promise<void> {
   );
 
   await knex.raw(`
-    CREATE TRIGGER trg_locations_path_consistency
-    BEFORE INSERT ON locations
-    FOR EACH ROW
-    BEGIN
-      IF NEW.parent_id IS NOT NULL THEN
-        SET NEW.path = CONCAT(
-          (SELECT path FROM locations WHERE id = NEW.parent_id),
-          NEW.id,
-          '/'
-        );
-        SET NEW.depth = (SELECT depth + 1 FROM locations WHERE id = NEW.parent_id);
-      ELSE
-        SET NEW.path = CONCAT('/', NEW.id, '/');
-        SET NEW.depth = 0;
-      END IF;
-    END;
-  `);
+  CREATE TRIGGER trg_locations_path_consistency
+  BEFORE INSERT ON locations
+  FOR EACH ROW
+  BEGIN
+    IF @disable_triggers = 1 THEN
+      -- During seeding, skip automatic path calculation
+      SET NEW.path = IFNULL(NEW.path, '/');
+    ELSEIF NEW.parent_id IS NOT NULL THEN
+      SET NEW.path = CONCAT(
+        (SELECT path FROM locations WHERE id = NEW.parent_id),
+        NEW.id,
+        '/'
+      );
+      SET NEW.depth = (SELECT depth + 1 FROM locations WHERE id = NEW.parent_id);
+    ELSE
+      SET NEW.path = CONCAT('/', NEW.id, '/');
+      SET NEW.depth = 0;
+    END IF;
+  END;
+`);
 }
 
 export async function down(knex: Knex): Promise<void> {

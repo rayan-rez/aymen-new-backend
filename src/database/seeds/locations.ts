@@ -116,107 +116,94 @@ async function transformLocation(
 export async function seed(knex: Knex): Promise<void> {
   console.log("\n🌍 Starting Locations Migration...\n");
 
-  // Clear existing data
+  // CRITICAL FIX: Temporarily drop trigger to prevent interference
+  await knex.raw('DROP TRIGGER IF EXISTS trg_locations_path_consistency');
+  console.log("✓ Temporarily dropped path consistency trigger");
+
   await clearTable(knex, "locations");
   console.log("✓ Cleared locations table");
 
-  // 1. Create root country (Algeria) - WITHOUT TRIGGER
-  // We'll set path manually to avoid trigger execution during insert
+  // Create hierarchy manually without trigger
   await knex.raw(`SET @disable_triggers = 1`);
 
   const [algeriaResult] = await knex("locations").insert({
     name: "Algeria",
     slug: "algeria",
     parent_id: null,
-    path: null, // Will be set by trigger
+    path: '/1/',
     depth: 0,
     type: "country",
     display_order: 0,
     is_active: true,
   });
+  const algeriaId = typeof algeriaResult === "number" ? algeriaResult : (algeriaResult as any).insertId || 1;
 
-  // Extract the actual ID (Knex returns array with insertId)
-  const algeriaId =
-    typeof algeriaResult === "number"
-      ? algeriaResult
-      : (algeriaResult as any).insertId || 1;
-
-  // Update path manually for root node
-  await knex("locations")
-    .where("id", algeriaId)
-    .update({ path: `/${algeriaId}/` });
-
-  console.log(`✓ Created root location: Algeria (ID: ${algeriaId})`);
-
-  // 2. Create Algiers region
   const [algiersResult] = await knex("locations").insert({
     name: "Algiers",
     slug: "algiers",
     parent_id: algeriaId,
-    path: null, // Will be set by trigger
+    path: `/${algeriaId}/2/`,
     depth: 1,
     type: "region",
     display_order: 0,
     is_active: true,
   });
-
-  const algiersRegionId =
-    typeof algiersResult === "number"
-      ? algiersResult
-      : (algiersResult as any).insertId || 2;
-
-  // Update path manually
-  await knex("locations")
-    .where("id", algiersRegionId)
-    .update({ path: `/${algeriaId}/${algiersRegionId}/` });
-
-  console.log(`✓ Created region: Algiers (ID: ${algiersRegionId})`);
+  const algiersRegionId = typeof algiersResult === "number" ? algiersResult : (algiersResult as any).insertId || 2;
 
   await knex.raw(`SET @disable_triggers = 0`);
+  console.log(`✓ Created root location: Algeria (ID: ${algeriaId})`);
+  console.log(`✓ Created region: Algiers (ID: ${algiersRegionId})`);
 
-  // 3. Fetch legacy locations
+  // Process legacy locations
   const legacyLocations = await fetchLegacyRecords<LegacyLocation>("localites");
   console.log(`✓ Fetched ${legacyLocations.length} legacy locations\n`);
 
   if (legacyLocations.length === 0) {
     console.log("⊗ No legacy locations found, skipping migration\n");
+    await recreateTrigger(knex);
     return;
   }
 
-  // 4. Process and insert locations
   const existingSlugs = new Set<string>(["algeria", "algiers"]);
-
   const stats = await processBatch(
     legacyLocations,
     (record) => transformLocation(record, algiersRegionId, existingSlugs),
     async (batch) => {
-      if (batch.length > 0) {
-        await knex("locations").insert(batch);
-      }
+      await knex("locations").insert(batch);
     },
     { batchSize: 50, tableName: "locations" }
   );
 
-  // 5. Print statistics
   printMigrationStats(stats);
 
-  // 6. Verify migration
+  // CRITICAL FIX: Recreate trigger for normal operation
+  await recreateTrigger(knex);
+  console.log("✓ Recreated path consistency trigger\n");
+
   const totalCount = await knex("locations").count("* as count").first();
-  console.log(
-    `✓ Migration complete. Total locations in new DB: ${totalCount?.count}\n`
-  );
+  console.log(`✓ Migration complete. Total locations: ${totalCount?.count}\n`);
+}
 
-  // 7. Show location hierarchy
-  const hierarchy = await knex("locations")
-    .select("id", "name", "type", "depth", "path")
-    .orderBy("depth")
-    .orderBy("name")
-    .limit(10);
-
-  console.log("Location hierarchy (first 10):");
-  hierarchy.forEach((loc: any) => {
-    const indent = "  ".repeat(loc.depth);
-    console.log(`${indent}${loc.name} (${loc.type}) - ${loc.path}`);
-  });
-  console.log("");
+// Helper to recreate trigger after seeding
+async function recreateTrigger(knex: Knex) {
+  await knex.raw(`
+    CREATE TRIGGER trg_locations_path_consistency
+    BEFORE INSERT ON locations
+    FOR EACH ROW
+    BEGIN
+      IF @disable_triggers = 1 THEN
+        SET NEW.path = IFNULL(NEW.path, '/');
+      ELSEIF NEW.parent_id IS NOT NULL THEN
+        SET NEW.path = CONCAT(
+          (SELECT path FROM locations WHERE id = NEW.parent_id),
+          NEW.id,
+          '/'
+        );
+        SET NEW.depth = (SELECT depth + 1 FROM locations WHERE id = NEW.parent_id);
+      ELSE
+        SET NEW.path = CONCAT('/', NEW.id, '/');
+        SET NEW.depth = 0;
+      END IF;
+    END;
+  `);
 }

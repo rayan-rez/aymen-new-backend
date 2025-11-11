@@ -213,11 +213,13 @@ async function transformApartment(
 export async function seed(knex: Knex): Promise<void> {
   console.log("\n🏠 Starting Apartments Migration...\n");
 
-  // Clear existing data
   await clearTable(knex, "apartments");
   console.log("✓ Cleared apartments table");
 
-  // Fetch legacy apartments
+  // Validate projects exist first
+  const projectCount = await knex("projects").count("* as count").first();
+  console.log(`✓ Found ${projectCount?.count} parent projects\n`);
+
   const legacyApartments = await fetchLegacyRecords<LegacyApartment>(
     "appartements",
     { orderBy: "projet_id" }
@@ -229,22 +231,30 @@ export async function seed(knex: Knex): Promise<void> {
     return;
   }
 
-  // Process and insert apartments
+  // Validate project_id references
+  const validProjectIds = await knex("projects").pluck("id");
+  const validProjectSet = new Set(validProjectIds);
+  
+  const invalidRefs = legacyApartments.filter(a => !validProjectSet.has(a.projet_id));
+  if (invalidRefs.length > 0) {
+    console.log(`⚠️  Found ${invalidRefs.length} apartments referencing non-existent projects`);
+    console.log(`   Sample invalid project_ids: ${invalidRefs.slice(0, 3).map(a => a.projet_id).join(', ')}\n`);
+  }
+
   const stats = await processBatch(
-    legacyApartments,
+    legacyApartments.filter(a => validProjectSet.has(a.projet_id)), // Filter out invalid
     transformApartment,
     async (batch) => {
-      await knex("apartments").insert(batch);
+      await knex("apartments").insert(batch).onConflict().ignore();
     },
     { batchSize: 50, tableName: "apartments" }
   );
 
-  // Print statistics
   printMigrationStats(stats);
 
-  // Update project total_units
+  // Update project stats
   console.log("\n✓ Updating project total_units...");
-  await knex.raw(`
+  const updatedProjects = await knex.raw(`
     UPDATE projects p
     SET total_units = (
       SELECT COUNT(*) FROM apartments a
@@ -252,13 +262,10 @@ export async function seed(knex: Knex): Promise<void> {
     )
   `);
 
-  // Verify migration
   const totalCount = await knex("apartments").count("* as count").first();
-  console.log(
-    `✓ Migration complete. Total apartments in new DB: ${totalCount?.count}\n`
-  );
+  console.log(`✓ Migration complete. Total apartments: ${totalCount?.count}\n`);
 
-  // Show apartment distribution by project
+  // Show distribution
   const distribution = await knex("apartments")
     .select("project_id")
     .count("* as count")

@@ -5,7 +5,6 @@ import {
   fetchLegacyRecords,
   generateSlug,
   sanitizeString,
-  cleanUrl,
   parseDecimal,
   parseInteger,
   buildLookupMap,
@@ -164,11 +163,8 @@ async function transformProject(
     const totalBlocks = parseInteger(legacy.blocs);
     const completionPercentage = Math.min(100, Math.max(0, legacy.etat_avance || 0));
 
-    // Clean photo URL
-    const mainPhotoUrl = cleanUrl(legacy.photo);
-
-    // Determine publishing status
-    const isPublished = status === "completed" || status === "under_construction";
+    // CRITICAL: Set is_published to false initially
+    // Will be updated to true AFTER photos are migrated in the photos seeder
     const isFeatured = completionPercentage === 100;
 
     return {
@@ -189,9 +185,9 @@ async function transformProject(
         actual_completion_date: status === "completed" ? new Date().toISOString().slice(0, 10) : null,
         total_blocks: totalBlocks,
         total_units: null, // Will be calculated from apartments
-        main_photo_url: mainPhotoUrl,
+        main_photo_url: null, // Will be updated from photos table
         is_featured: isFeatured,
-        is_published: isPublished,
+        is_published: false, // IMPORTANT: Start as unpublished, will be updated after photos
         created_at: legacy.created_at,
         updated_at: legacy.updated_at,
       },
@@ -211,17 +207,15 @@ async function transformProject(
 // ============================================================================
 
 export async function seed(knex: Knex): Promise<void> {
-  console.log("\n🏗️  Starting Projects Migration...\n");
+  console.log("\n🗃️  Starting Projects Migration...\n");
 
-  // Clear existing data (cascade deletes will handle related records)
   await clearTable(knex, "projects");
   console.log("✓ Cleared projects table");
 
-  // Build location lookup map
+  // Build location map with better error handling
   const locationMap = await buildLookupMap(knex, "locations", "slug", "id");
   console.log(`✓ Built location lookup map (${locationMap.size} locations)`);
 
-  // Fetch legacy projects from projet_filtre table
   const legacyProjects = await fetchLegacyRecords<LegacyProject>(
     "projet_filtre",
     { orderBy: "projet_id" }
@@ -233,24 +227,39 @@ export async function seed(knex: Knex): Promise<void> {
     return;
   }
 
-  // Process and insert projects
+  // Validate location mapping coverage
+  const projectsWithLocations = legacyProjects.filter(p => p.localite);
+  const mappedLocations = projectsWithLocations.filter(p => 
+    locationMap.has(generateSlug(p.localite!))
+  );
+  console.log(`✓ Location mapping coverage: ${mappedLocations.length}/${projectsWithLocations.length} projects\n`);
+
   const existingSlugs = new Set<string>();
 
   const stats = await processBatch(
     legacyProjects,
     (record) => transformProject(record, locationMap, existingSlugs),
     async (batch) => {
-      await knex("projects").insert(batch);
+      // Use IGNORE to handle any edge cases
+      await knex("projects").insert(batch).onConflict().ignore();
     },
     { batchSize: 20, tableName: "projects" }
   );
 
-  // Print statistics
   printMigrationStats(stats);
 
-  // Verify migration
+  // Post-migration verification
   const totalCount = await knex("projects").count("* as count").first();
-  console.log(
-    `✓ Migration complete. Total projects in new DB: ${totalCount?.count}\n`
-  );
+  const unpublishedCount = await knex("projects")
+    .where("is_published", false)
+    .count("* as count")
+    .first();
+
+  console.log("\n" + "=".repeat(60));
+  console.log("Projects Migration Summary");
+  console.log("=".repeat(60));
+  console.log(`Total projects: ${totalCount?.count}`);
+  console.log(`Currently unpublished: ${unpublishedCount?.count}`);
+  console.log("\nNote: Projects will be published after photos migration");
+  console.log("=".repeat(60) + "\n");
 }
