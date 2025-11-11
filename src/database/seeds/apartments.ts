@@ -58,23 +58,15 @@ interface NewApartment {
 // AREA PARSING
 // ============================================================================
 
-/**
- * Parse area from legacy format: "de 55 à 77 m²" or "121 m²"
- * Returns average area
- */
 function parseArea(surface: string | null): number | null {
   if (!surface) return null;
 
-  // Remove non-numeric except spaces and hyphens
   const cleaned = surface.replace(/[^0-9\s-]/g, " ").trim();
-
-  // Extract all numbers
   const numbers = cleaned.split(/\s+/).map((n) => parseFloat(n)).filter((n) => !isNaN(n));
 
   if (numbers.length === 0) return null;
   if (numbers.length === 1) return numbers[0];
 
-  // Return average if range
   return numbers.reduce((a, b) => a + b, 0) / numbers.length;
 }
 
@@ -82,44 +74,30 @@ function parseArea(surface: string | null): number | null {
 // ROOM COUNT EXTRACTION
 // ============================================================================
 
-/**
- * Extract bedroom count from apartment name: "F2", "F3", "F4", etc.
- */
 function extractBedrooms(name: string): number | null {
   const match = name.match(/F(\d+)/i);
   if (match) {
     const rooms = parseInt(match[1], 10);
-    // F2 = 1 bedroom, F3 = 2 bedrooms, etc.
     return Math.max(0, rooms - 1);
   }
   return null;
 }
 
-/**
- * Estimate bathrooms based on bedrooms
- */
 function estimateBathrooms(bedrooms: number | null): number | null {
   if (bedrooms === null) return 1;
-  if (bedrooms === 0) return 1; // Studio
+  if (bedrooms === 0) return 1;
   if (bedrooms <= 2) return 1;
   if (bedrooms <= 3) return 2;
-  return 2; // 2+ for larger apartments
+  return 2;
 }
 
 // ============================================================================
 // PRICE ESTIMATION
 // ============================================================================
 
-/**
- * Estimate price based on area and location
- * Prices in DZD (Algerian Dinar)
- */
 function estimatePrice(areaSqm: number, projectId: number): number {
-  // Base price per sqm in DZD
-  const basePricePerSqm = 200000; // ~1500 USD/sqm
-
-  // Adjust for specific projects (high-end projects)
-  const premiumProjects = [2, 3, 13, 14]; // Corail, Béryl, Celestine, Coquelicot
+  const basePricePerSqm = 200000;
+  const premiumProjects = [2, 3, 13, 14];
   const multiplier = premiumProjects.includes(projectId) ? 1.3 : 1.0;
 
   return Math.round(areaSqm * basePricePerSqm * multiplier);
@@ -133,13 +111,11 @@ async function transformApartment(
   legacy: LegacyApartment
 ): Promise<TransformResult<NewApartment>> {
   try {
-    // Clean name
     const name = cleanText(legacy.nom_appartement);
     if (!name) {
       return { data: null, skip: true, error: "Empty apartment name" };
     }
 
-    // Parse area
     const areaSqm = parseArea(legacy.surface);
     if (!areaSqm || areaSqm < 10) {
       return {
@@ -149,27 +125,22 @@ async function transformApartment(
       };
     }
 
-    // Extract room counts
     const bedrooms = extractBedrooms(name);
     const bathrooms = estimateBathrooms(bedrooms);
     const livingRooms = bedrooms && bedrooms > 0 ? 1 : null;
     const kitchens = 1;
     const balconies = bedrooms && bedrooms > 1 ? 1 : null;
 
-    // Estimate price
     const price = estimatePrice(areaSqm, legacy.projet_id);
 
-    // Clean description fields
     const title = cleanText(legacy.titre);
     const subtitle = cleanText(legacy.sous_titre);
     const description = cleanText(legacy.text);
 
-    // Clean virtual visit URL
     const virtualVisitUrl = cleanUrl(legacy.visite_virtuelle);
 
-    // Determine status
     const isModelUnit = parseBoolean(legacy.is_temoin);
-    const isPublished = isModelUnit || !!description; // Publish if it's a model unit or has description
+    const isPublished = isModelUnit || !!description;
 
     return {
       data: {
@@ -216,7 +187,6 @@ export async function seed(knex: Knex): Promise<void> {
   await clearTable(knex, "apartments");
   console.log("✓ Cleared apartments table");
 
-  // Validate projects exist first
   const projectCount = await knex("projects").count("* as count").first();
   console.log(`✓ Found ${projectCount?.count} parent projects\n`);
 
@@ -231,7 +201,6 @@ export async function seed(knex: Knex): Promise<void> {
     return;
   }
 
-  // Validate project_id references
   const validProjectIds = await knex("projects").pluck("id");
   const validProjectSet = new Set(validProjectIds);
   
@@ -242,7 +211,7 @@ export async function seed(knex: Knex): Promise<void> {
   }
 
   const stats = await processBatch(
-    legacyApartments.filter(a => validProjectSet.has(a.projet_id)), // Filter out invalid
+    legacyApartments.filter(a => validProjectSet.has(a.projet_id)),
     transformApartment,
     async (batch) => {
       await knex("apartments").insert(batch).onConflict().ignore();
@@ -252,20 +221,34 @@ export async function seed(knex: Knex): Promise<void> {
 
   printMigrationStats(stats);
 
-  // Update project stats
+  // CRITICAL FIX: Update project total_units with NULL for projects with 0 apartments
   console.log("\n✓ Updating project total_units...");
-  const updatedProjects = await knex.raw(`
+  
+  await knex.raw(`
     UPDATE projects p
     SET total_units = (
       SELECT COUNT(*) FROM apartments a
       WHERE a.project_id = p.id AND a.deleted_at IS NULL
     )
+    WHERE (
+      SELECT COUNT(*) FROM apartments a
+      WHERE a.project_id = p.id AND a.deleted_at IS NULL
+    ) > 0
+  `);
+
+  // Set NULL for projects with 0 apartments to avoid constraint violation
+  await knex.raw(`
+    UPDATE projects p
+    SET total_units = NULL
+    WHERE (
+      SELECT COUNT(*) FROM apartments a
+      WHERE a.project_id = p.id AND a.deleted_at IS NULL
+    ) = 0
   `);
 
   const totalCount = await knex("apartments").count("* as count").first();
   console.log(`✓ Migration complete. Total apartments: ${totalCount?.count}\n`);
 
-  // Show distribution
   const distribution = await knex("apartments")
     .select("project_id")
     .count("* as count")
