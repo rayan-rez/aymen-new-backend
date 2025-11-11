@@ -41,44 +41,62 @@ export async function seed(knex: Knex): Promise<void> {
   const phases = [
     {
       name: "Reference Data",
-      seeders: ["locations", "features"],
+      seeders: [
+        { name: "locations", table: "locations" },
+        { name: "features", table: "features" }
+      ],
     },
     {
       name: "Core Entities",
-      seeders: ["projects", "apartments"],
+      seeders: [
+        { name: "projects", table: "projects" },
+        { name: "apartments", table: "apartments" }
+      ],
     },
     {
       name: "Relationships",
-      seeders: ["project_features"],
+      seeders: [
+        { name: "project_features", table: "project_features" }
+      ],
     },
     {
       name: "Polymorphic Media",
-      seeders: ["photos", "floor_plans"],
+      seeders: [
+        { name: "photos", table: "photos" },
+        { name: "floor_plans", table: "floor_plans" }
+      ],
     },
     {
       name: "Content",
-      seeders: ["blog_posts"],
+      seeders: [
+        { name: "blog_posts", table: "blog_posts" }
+      ],
     },
   ];
 
   for (const phase of phases) {
     console.log(`\n📋 PHASE: ${phase.name}\n`);
 
-    for (const seederName of phase.seeders) {
+    for (const { name: seederName, table: tableName } of phase.seeders) {
       const seederStart = Date.now();
       try {
         const { seed } = await import(`./${seederName}`);
         await seed(knex);
         
-        // Get record count
-        const tableName = seederName.replace('_', ''); // Simple mapping
-        const count = await knex(tableName).count("* as count").first();
+        // Get record count - use correct table name
+        let count = 0;
+        try {
+          const result = await knex(tableName).count("* as count").first();
+          count = result?.count as number || 0;
+        } catch (error: any) {
+          console.warn(`⚠️  Could not count records in ${tableName}: ${error.message}`);
+        }
         
         migrationLog.push({
           seeder: seederName,
           duration: Date.now() - seederStart,
           status: "✓ SUCCESS",
-          records: count?.count as number,
+          records: count,
         });
       } catch (error: any) {
         migrationLog.push({
@@ -100,7 +118,7 @@ export async function seed(knex: Knex): Promise<void> {
 
   migrationLog.forEach((log) => {
     const duration = (log.duration / 1000).toFixed(2);
-    const records = log.records ? `(${log.records} records)` : "";
+    const records = log.records !== undefined ? `(${log.records} records)` : "";
     console.log(`${log.status.padEnd(10)} ${log.seeder.padEnd(30)} ${duration}s ${records}`);
   });
 
@@ -165,6 +183,24 @@ async function runVerification(knex: Knex) {
 
   if ((orphanPhotos?.count as number) > 0) {
     console.log(`  ⚠️  Found ${orphanPhotos?.count} orphan photos`);
+  } else {
+    console.log(`  ✓ No orphan photos found`);
+  }
+
+  // Check projects without photos
+  const projectsWithoutPhotos = await knex("projects")
+    .leftJoin("photos", function() {
+      this.on("projects.id", "=", "photos.photoable_id")
+        .andOn("photos.photoable_type", "=", knex.raw("?", ["project"]));
+    })
+    .whereNull("photos.id")
+    .count("* as count")
+    .first();
+
+  if ((projectsWithoutPhotos?.count as number) > 0) {
+    console.log(`  ⚠️  Found ${projectsWithoutPhotos?.count} projects without photos`);
+  } else {
+    console.log(`  ✓ All projects have photos`);
   }
 
   console.log("\n✅ Migration Complete!\n");
