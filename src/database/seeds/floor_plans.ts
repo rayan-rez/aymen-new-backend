@@ -4,7 +4,7 @@ import { Knex } from "knex";
 import {
   fetchLegacyRecords,
   cleanUrl,
-  cleanText,
+  sanitizeString,
   processBatch,
   printMigrationStats,
   clearTable,
@@ -46,7 +46,7 @@ async function transformFloorPlan(
   displayOrder: number
 ): Promise<TransformResult<NewFloorPlan>> {
   try {
-    const name = cleanText(legacy.nom_plan);
+    const name = sanitizeString(legacy.nom_plan);
     if (!name) {
       return { data: null, skip: true, error: "Empty floor plan name" };
     }

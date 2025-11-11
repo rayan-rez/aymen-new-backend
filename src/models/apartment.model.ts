@@ -1,9 +1,5 @@
 /**
- * Apartment Model
- *
- * Individual residential units within projects
- * Tracks availability, specifications, and sales pipeline
- * Price changes automatically update project price range (via database trigger)
+ * Apartment Model - FIXED TO MATCH MIGRATION
  *
  * @module models/apartment.model
  */
@@ -68,8 +64,8 @@ export interface Apartment {
 
   // Virtual relations
   project?: any;
-  photos?: any[];
-  floorPlans?: any[];
+  photos?: Photo[];
+  floorPlans?: FloorPlan[];
 }
 
 /**
@@ -99,7 +95,7 @@ export interface CreateApartmentDto {
 /**
  * Update apartment DTO
  */
-export interface UpdateApartmentDto extends Partial<CreateApartmentDto> {}
+export interface UpdateApartmentDto extends Partial<CreateApartmentDto> { }
 
 /**
  * Apartment query options
@@ -121,7 +117,6 @@ export interface ApartmentQueryOptions extends AdvancedQueryOptions {
   minFloor?: number;
   maxFloor?: number;
   hasVirtualVisit?: boolean;
-
   includePhotos?: boolean;
   includeFloorPlans?: boolean;
 }
@@ -196,33 +191,17 @@ export class ApartmentModel extends BaseModel<
   // ============================================================================
 
   /**
-   * Loads photos for an apartment
-   */
-  async loadPhotos(
-    apartmentId: number,
-    trx?: Knex.Transaction
-  ): Promise<Photo[]> {
-    return PhotoModel.getForEntity(
-      PhotoableType.APARTMENT,
-      apartmentId,
-      {},
-      trx
-    );
+ * Loads photos for an apartment
+ */
+  async loadPhotos(apartmentId: number, trx?: Knex.Transaction): Promise<Photo[]> {
+    return PhotoModel.getForEntity(PhotoableType.APARTMENT, apartmentId, {}, trx);
   }
 
   /**
    * Loads floor plans for an apartment
    */
-  async loadFloorPlans(
-    apartmentId: number,
-    trx?: Knex.Transaction
-  ): Promise<FloorPlan[]> {
-    return FloorPlanModel.getForEntity(
-      PlannableType.APARTMENT,
-      apartmentId,
-      {},
-      trx
-    );
+  async loadFloorPlans(apartmentId: number, trx?: Knex.Transaction): Promise<FloorPlan[]> {
+    return FloorPlanModel.getForEntity(PlannableType.APARTMENT, apartmentId, {}, trx);
   }
 
   /**
@@ -236,7 +215,6 @@ export class ApartmentModel extends BaseModel<
       this.loadPhotos(apartmentId, trx),
       this.loadFloorPlans(apartmentId, trx),
     ]);
-
     return { photos, floorPlans };
   }
 
@@ -250,10 +228,7 @@ export class ApartmentModel extends BaseModel<
     if (apartmentIds.length === 0) return new Map();
 
     const photos = await PhotoModel.findPhotos(
-      {
-        polymorphicType: PhotoableType.APARTMENT,
-        polymorphicId: apartmentIds,
-      },
+      { polymorphicType: PhotoableType.APARTMENT, polymorphicId: apartmentIds },
       trx
     );
 
@@ -264,7 +239,6 @@ export class ApartmentModel extends BaseModel<
       }
       photosByApartment.get(photo.photoableId)!.push(photo);
     }
-
     return photosByApartment;
   }
 
@@ -278,10 +252,7 @@ export class ApartmentModel extends BaseModel<
     if (apartmentIds.length === 0) return new Map();
 
     const floorPlans = await FloorPlanModel.findFloorPlans(
-      {
-        polymorphicType: PlannableType.APARTMENT,
-        polymorphicId: apartmentIds,
-      },
+      { polymorphicType: PlannableType.APARTMENT, polymorphicId: apartmentIds },
       trx
     );
 
@@ -292,93 +263,7 @@ export class ApartmentModel extends BaseModel<
       }
       plansByApartment.get(plan.plannableId)!.push(plan);
     }
-
     return plansByApartment;
-  }
-
-  /**
-   * Finds apartment by ID with optional media
-   * NEW METHOD - Add this
-   */
-  async findByIdWithMedia(
-    id: number,
-    options: {
-      includePhotos?: boolean;
-      includeFloorPlans?: boolean;
-      includeRelations?: string[];
-    } = {},
-    trx?: Knex.Transaction
-  ): Promise<Apartment | null> {
-    const apartment = await this.findById(
-      id,
-      { relations: options.includeRelations },
-      trx
-    );
-
-    if (!apartment) return null;
-
-    // Load media if requested
-    if (options.includePhotos || options.includeFloorPlans) {
-      const media = await this.loadMedia(id, trx);
-
-      return {
-        ...apartment,
-        ...(options.includePhotos && { photos: media.photos }),
-        ...(options.includeFloorPlans && { floorPlans: media.floorPlans }),
-      };
-    }
-
-    return apartment;
-  }
-
-  /**
-   * Validates required media before publishing
-   * NEW METHOD - Add this
-   */
-  async validateMediaForPublishing(
-    apartmentId: number,
-    trx?: Knex.Transaction
-  ): Promise<{ valid: boolean; errors: string[] }> {
-    const errors: string[] = [];
-
-    // Check for at least one photo
-    const photoCount = await PhotoModel.countForEntity(
-      PhotoableType.APARTMENT,
-      apartmentId,
-      trx
-    );
-
-    if (photoCount === 0) {
-      errors.push("At least one photo is required");
-    }
-
-    // Check for cover photo
-    const coverPhoto = await PhotoModel.getCoverPhoto(
-      PhotoableType.APARTMENT,
-      apartmentId,
-      trx
-    );
-
-    if (!coverPhoto) {
-      errors.push("Cover photo is required");
-    }
-
-    // Check for floor plan (optional but recommended)
-    const floorPlanCount = await FloorPlanModel.countForEntity(
-      PlannableType.APARTMENT,
-      apartmentId,
-      trx
-    );
-
-    if (floorPlanCount === 0) {
-      // Warning only, not an error
-      console.warn(`⚠️ Apartment ${apartmentId} has no floor plans`);
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors,
-    };
   }
 
   // ============================================================================
@@ -388,10 +273,7 @@ export class ApartmentModel extends BaseModel<
   /**
    * Before create hook - validate specifications
    */
-  protected async beforeCreate(
-    data: CreateApartmentDto
-  ): Promise<CreateApartmentDto> {
-    // Validate project exists
+  protected async beforeCreate(data: CreateApartmentDto): Promise<CreateApartmentDto> {
     const project = await this.db("projects")
       .where("id", data.projectId)
       .whereNull("deleted_at")
@@ -401,38 +283,28 @@ export class ApartmentModel extends BaseModel<
       throw new Error(`Project with ID ${data.projectId} not found`);
     }
 
-    // Validate area
     if (data.areaSqm <= 0) {
       throw new Error("Area must be greater than 0");
     }
 
-    // Validate price
     if (data.price <= 0) {
       throw new Error("Price must be greater than 0");
     }
 
-    // Validate counts are non-negative
     this.validateRoomCounts(data);
 
-    // Set default status
     if (!data.status) {
       data.status = ApartmentStatus.AVAILABLE;
     }
 
-    // Validate unit number uniqueness within project
     if (data.unitNumber) {
       const existing = await this.db(this.tableName)
-        .where({
-          project_id: data.projectId,
-          unit_number: data.unitNumber,
-        })
+        .where({ project_id: data.projectId, unit_number: data.unitNumber })
         .whereNull("deleted_at")
         .first();
 
       if (existing) {
-        throw new Error(
-          `Unit number "${data.unitNumber}" already exists in this project`
-        );
+        throw new Error(`Unit number "${data.unitNumber}" already exists in this project`);
       }
     }
 
@@ -443,55 +315,40 @@ export class ApartmentModel extends BaseModel<
    * After create hook - project price range is auto-updated by trigger
    */
   protected async afterCreate(entity: Apartment): Promise<void> {
-    console.log(
-      `✅ Apartment created: ${entity.name} (Project: ${entity.projectId}, Status: ${entity.status})`
-    );
+    console.log(`✅ Apartment created: ${entity.name} (Project: ${entity.projectId})`);
   }
 
   /**
    * Before update hook - validate changes
    */
-  protected async beforeUpdate(
-    id: number,
-    data: UpdateApartmentDto
-  ): Promise<UpdateApartmentDto> {
+  protected async beforeUpdate(id: number, data: UpdateApartmentDto): Promise<UpdateApartmentDto> {
     const apartment = await this.findById(id);
     if (!apartment) {
       throw new Error("Apartment not found");
     }
 
-    // Validate area if provided
     if (data.areaSqm !== undefined && data.areaSqm <= 0) {
       throw new Error("Area must be greater than 0");
     }
 
-    // Validate price if provided
     if (data.price !== undefined && data.price <= 0) {
       throw new Error("Price must be greater than 0");
     }
 
-    // Validate room counts
     this.validateRoomCounts(data);
 
-    // Validate unit number uniqueness if changing
     if (data.unitNumber && data.unitNumber !== apartment.unitNumber) {
       const existing = await this.db(this.tableName)
-        .where({
-          project_id: apartment.projectId,
-          unit_number: data.unitNumber,
-        })
+        .where({ project_id: apartment.projectId, unit_number: data.unitNumber })
         .where("id", "!=", id)
         .whereNull("deleted_at")
         .first();
 
       if (existing) {
-        throw new Error(
-          `Unit number "${data.unitNumber}" already exists in this project`
-        );
+        throw new Error(`Unit number "${data.unitNumber}" already exists in this project`);
       }
     }
 
-    // If changing project, validate new project exists
     if (data.projectId && data.projectId !== apartment.projectId) {
       const project = await this.db("projects")
         .where("id", data.projectId)
@@ -503,24 +360,7 @@ export class ApartmentModel extends BaseModel<
       }
     }
 
-    // If publishing, validate media
-    if (data.isPublished && !apartment.isPublished) {
-      const mediaValidation = await this.validateMediaForPublishing(id);
-      if (!mediaValidation.valid) {
-        throw new Error(
-          `Cannot publish apartment: ${mediaValidation.errors.join(", ")}`
-        );
-      }
-    }
-
     return data;
-  }
-
-  /**
-   * After update hook - price trigger handles project price range update
-   */
-  protected async afterUpdate(entity: Apartment): Promise<void> {
-    console.log(`✅ Apartment updated: ${entity.name} (ID: ${entity.id})`);
   }
 
   // ============================================================================
@@ -536,41 +376,27 @@ export class ApartmentModel extends BaseModel<
   ): Promise<Apartment[]> {
     const connection = trx || this.db;
     let query = this.buildQuery(connection, options);
-
-    // Apply apartment-specific filters
     query = this.applyApartmentFilters(query, options);
 
     const records = await query;
     let entities = records.map((r: DatabaseRecord) => this.mapToEntity(r));
 
-    // Load standard relations if requested
     if (options.relations && options.relations.length > 0) {
-      entities = await this.loadRelationsForMany(
-        entities,
-        options.relations,
-        trx
-      );
+      entities = await this.loadRelationsForMany(entities, options.relations, trx);
     }
 
-    // Load photos if requested
     if (options.includePhotos) {
       const apartmentIds = entities.map((e: DatabaseRecord) => e.id);
       const photosByApartment = await this.loadPhotosForMany(apartmentIds, trx);
-
       entities = entities.map((entity: DatabaseRecord) => ({
         ...entity,
         photos: photosByApartment.get(entity.id) || [],
       }));
     }
 
-    // Load floor plans if requested
     if (options.includeFloorPlans) {
       const apartmentIds = entities.map((e: DatabaseRecord) => e.id);
-      const plansByApartment = await this.loadFloorPlansForMany(
-        apartmentIds,
-        trx
-      );
-
+      const plansByApartment = await this.loadFloorPlansForMany(apartmentIds, trx);
       entities = entities.map((entity: DatabaseRecord) => ({
         ...entity,
         floorPlans: plansByApartment.get(entity.id) || [],
@@ -588,7 +414,6 @@ export class ApartmentModel extends BaseModel<
     trx?: Knex.Transaction
   ): Promise<PaginatedResult<Apartment>> {
     const { page, limit } = options;
-
     const [items, total] = await Promise.all([
       this.findApartments(options, trx),
       this.countApartments(options, trx),
@@ -654,69 +479,19 @@ export class ApartmentModel extends BaseModel<
       isPublished: true,
     };
 
-    if (projectId) {
-      queryOptions.projectId = projectId;
-    }
-
+    if (projectId) queryOptions.projectId = projectId;
     return this.findApartments(queryOptions, trx);
   }
 
   /**
    * Finds sold apartments
    */
-  async findSold(
-    projectId?: number,
-    options: ApartmentQueryOptions = {},
-    trx?: Knex.Transaction
-  ): Promise<Apartment[]> {
-    const queryOptions: ApartmentQueryOptions = {
-      ...options,
-      status: ApartmentStatus.SOLD,
-    };
-
-    if (projectId) {
-      queryOptions.projectId = projectId;
-    }
-
-    return this.findApartments(queryOptions, trx);
-  }
-
-  /**
-   * Finds reserved apartments
-   */
-  async findReserved(
-    projectId?: number,
-    options: ApartmentQueryOptions = {},
-    trx?: Knex.Transaction
-  ): Promise<Apartment[]> {
-    const queryOptions: ApartmentQueryOptions = {
-      ...options,
-      status: ApartmentStatus.RESERVED,
-    };
-
-    if (projectId) {
-      queryOptions.projectId = projectId;
-    }
-
-    return this.findApartments(queryOptions, trx);
-  }
-
-  /**
-   * Finds model units
-   */
-  async findModelUnits(
-    projectId?: number,
-    trx?: Knex.Transaction
-  ): Promise<Apartment[]> {
+  async findModelUnits(projectId?: number, trx?: Knex.Transaction): Promise<Apartment[]> {
     const options: ApartmentQueryOptions = {
       isModelUnit: true,
       isPublished: true,
     };
-
-    if (projectId) {
-      options.projectId = projectId;
-    }
-
+    if (projectId) options.projectId = projectId;
     return this.findApartments(options, trx);
   }
 
@@ -744,9 +519,7 @@ export class ApartmentModel extends BaseModel<
       .where("unit_number", unitNumber)
       .whereNull("deleted_at");
 
-    if (projectId) {
-      query = query.where("project_id", projectId);
-    }
+    if (projectId) query = query.where("project_id", projectId);
 
     const records = await query;
     return records.map((r: DatabaseRecord) => this.mapToEntity(r));
@@ -770,30 +543,21 @@ export class ApartmentModel extends BaseModel<
   /**
    * Marks apartment as sold
    */
-  async markAsSold(
-    id: number,
-    trx?: Knex.Transaction
-  ): Promise<Apartment | null> {
+  async markAsSold(id: number, trx?: Knex.Transaction): Promise<Apartment | null> {
     return this.updateStatus(id, ApartmentStatus.SOLD, trx);
   }
-
+  
   /**
    * Marks apartment as reserved
    */
-  async markAsReserved(
-    id: number,
-    trx?: Knex.Transaction
-  ): Promise<Apartment | null> {
+  async markAsReserved(id: number, trx?: Knex.Transaction): Promise<Apartment | null> {
     return this.updateStatus(id, ApartmentStatus.RESERVED, trx);
   }
 
   /**
    * Marks apartment as available
    */
-  async markAsAvailable(
-    id: number,
-    trx?: Knex.Transaction
-  ): Promise<Apartment | null> {
+  async markAsAvailable(id: number, trx?: Knex.Transaction): Promise<Apartment | null> {
     return this.updateStatus(id, ApartmentStatus.AVAILABLE, trx);
   }
 
@@ -806,20 +570,14 @@ export class ApartmentModel extends BaseModel<
     trx?: Knex.Transaction
   ): Promise<number> {
     const connection = trx || this.db;
-
-    const updated = await connection(this.tableName)
+    return await connection(this.tableName)
       .whereIn("id", ids)
       .whereNull("deleted_at")
-      .update({
-        status,
-        updated_at: connection.fn.now(),
-      });
-
-    return updated;
+      .update({ status, updated_at: connection.fn.now() });
   }
 
   // ============================================================================
-  // STATISTICS & ANALYTICS
+  // STATISTICS
   // ============================================================================
 
   /**
@@ -836,12 +594,8 @@ export class ApartmentModel extends BaseModel<
       .whereNull("deleted_at")
       .select(
         connection.raw("COUNT(*) as total"),
-        connection.raw(
-          "COUNT(CASE WHEN status = 'available' THEN 1 END) as available"
-        ),
-        connection.raw(
-          "COUNT(CASE WHEN status = 'reserved' THEN 1 END) as reserved"
-        ),
+        connection.raw("COUNT(CASE WHEN status = 'available' THEN 1 END) as available"),
+        connection.raw("COUNT(CASE WHEN status = 'reserved' THEN 1 END) as reserved"),
         connection.raw("COUNT(CASE WHEN status = 'sold' THEN 1 END) as sold")
       );
 
@@ -862,10 +616,7 @@ export class ApartmentModel extends BaseModel<
   /**
    * Gets apartment statistics by project
    */
-  async getProjectStatistics(
-    projectId: number,
-    trx?: Knex.Transaction
-  ): Promise<any> {
+  async getProjectStatistics(projectId: number, trx?: Knex.Transaction): Promise<any> {
     const connection = trx || this.db;
 
     const [stats] = await connection(this.tableName)
@@ -873,49 +624,27 @@ export class ApartmentModel extends BaseModel<
       .whereNull("deleted_at")
       .select(
         connection.raw("COUNT(*) as total"),
-        connection.raw(
-          "COUNT(CASE WHEN status = 'available' THEN 1 END) as available"
-        ),
-        connection.raw(
-          "COUNT(CASE WHEN status = 'reserved' THEN 1 END) as reserved"
-        ),
+        connection.raw("COUNT(CASE WHEN status = 'available' THEN 1 END) as available"),
         connection.raw("COUNT(CASE WHEN status = 'sold' THEN 1 END) as sold"),
-        connection.raw(
-          "COUNT(CASE WHEN is_published = true THEN 1 END) as published"
-        ),
-        connection.raw(
-          "COUNT(CASE WHEN is_model_unit = true THEN 1 END) as modelUnits"
-        ),
+        connection.raw("COUNT(CASE WHEN is_published = true THEN 1 END) as published"),
         connection.raw("MIN(price) as minPrice"),
         connection.raw("MAX(price) as maxPrice"),
         connection.raw("AVG(price) as avgPrice"),
-        connection.raw("MIN(area_sqm) as minArea"),
-        connection.raw("MAX(area_sqm) as maxArea"),
-        connection.raw("AVG(area_sqm) as avgArea"),
-        connection.raw("MIN(floor_number) as minFloor"),
-        connection.raw("MAX(floor_number) as maxFloor")
+        connection.raw("AVG(area_sqm) as avgArea")
       );
 
     return {
       total: Number(stats.total),
       available: Number(stats.available),
-      reserved: Number(stats.reserved),
       sold: Number(stats.sold),
       published: Number(stats.published),
-      modelUnits: Number(stats.modelUnits),
       pricing: {
         min: stats.minPrice ? Number(stats.minPrice) : null,
         max: stats.maxPrice ? Number(stats.maxPrice) : null,
         avg: stats.avgPrice ? Number(stats.avgPrice) : null,
       },
       area: {
-        min: stats.minArea ? Number(stats.minArea) : null,
-        max: stats.maxArea ? Number(stats.maxArea) : null,
         avg: stats.avgArea ? Number(stats.avgArea) : null,
-      },
-      floors: {
-        min: stats.minFloor,
-        max: stats.maxFloor,
       },
     };
   }
@@ -923,12 +652,8 @@ export class ApartmentModel extends BaseModel<
   /**
    * Gets floor distribution for a project
    */
-  async getFloorDistribution(
-    projectId: number,
-    trx?: Knex.Transaction
-  ): Promise<any[]> {
+  async getFloorDistribution(projectId: number, trx?: Knex.Transaction): Promise<any[]> {
     const connection = trx || this.db;
-
     return connection(this.tableName)
       .where("project_id", projectId)
       .whereNull("deleted_at")
@@ -941,12 +666,8 @@ export class ApartmentModel extends BaseModel<
   /**
    * Gets bedroom distribution for a project
    */
-  async getBedroomDistribution(
-    projectId: number,
-    trx?: Knex.Transaction
-  ): Promise<any[]> {
+  async getBedroomDistribution(projectId: number, trx?: Knex.Transaction): Promise<any[]> {
     const connection = trx || this.db;
-
     return connection(this.tableName)
       .where("project_id", projectId)
       .whereNull("deleted_at")
@@ -954,54 +675,6 @@ export class ApartmentModel extends BaseModel<
       .count("* as count")
       .groupBy("bedrooms")
       .orderBy("bedrooms", "asc");
-  }
-
-  /**
-   * Gets price distribution for a project
-   */
-  async getPriceDistribution(
-    projectId: number,
-    bucketCount: number = 5,
-    trx?: Knex.Transaction
-  ): Promise<any[]> {
-    const connection = trx || this.db;
-
-    // Get price range
-    const [range] = await connection(this.tableName)
-      .where("project_id", projectId)
-      .whereNull("deleted_at")
-      .select(
-        connection.raw("MIN(price) as minPrice"),
-        connection.raw("MAX(price) as maxPrice")
-      );
-
-    if (!range.minPrice || !range.maxPrice) return [];
-
-    const minPrice = Number(range.minPrice);
-    const maxPrice = Number(range.maxPrice);
-    const bucketSize = (maxPrice - minPrice) / bucketCount;
-
-    const buckets = [];
-    for (let i = 0; i < bucketCount; i++) {
-      const bucketMin = minPrice + i * bucketSize;
-      const bucketMax =
-        i === bucketCount - 1 ? maxPrice : bucketMin + bucketSize;
-
-      const [count] = await connection(this.tableName)
-        .where("project_id", projectId)
-        .where("price", ">=", bucketMin)
-        .where("price", "<=", bucketMax)
-        .whereNull("deleted_at")
-        .count("* as count");
-
-      buckets.push({
-        min: Math.round(bucketMin),
-        max: Math.round(bucketMax),
-        count: Number(count.count),
-      });
-    }
-
-    return buckets;
   }
 
   // ============================================================================
@@ -1012,13 +685,7 @@ export class ApartmentModel extends BaseModel<
    * Validates room counts are non-negative
    */
   private validateRoomCounts(data: Partial<CreateApartmentDto>): void {
-    const fields = [
-      "bedrooms",
-      "bathrooms",
-      "livingRooms",
-      "kitchens",
-      "balconies",
-    ];
+    const fields = ["bedrooms", "bathrooms", "livingRooms", "kitchens", "balconies"];
 
     for (const field of fields) {
       const value = (data as any)[field];
@@ -1027,13 +694,12 @@ export class ApartmentModel extends BaseModel<
       }
     }
 
-    // Validate floor number allows basements
     if (
       data.floorNumber !== undefined &&
       data.floorNumber !== null &&
       data.floorNumber < -5
     ) {
-      throw new Error("Floor number cannot be less than -5 (basement levels)");
+      throw new Error("Floor number cannot be less than -5");
     }
   }
 
@@ -1044,7 +710,6 @@ export class ApartmentModel extends BaseModel<
     query: Knex.QueryBuilder,
     options: ApartmentQueryOptions
   ): Knex.QueryBuilder {
-    // Project filter
     if (options.projectId) {
       if (Array.isArray(options.projectId)) {
         query = query.whereIn("project_id", options.projectId);
@@ -1053,7 +718,6 @@ export class ApartmentModel extends BaseModel<
       }
     }
 
-    // Status filter
     if (options.status) {
       if (Array.isArray(options.status)) {
         query = query.whereIn("status", options.status);
@@ -1062,17 +726,14 @@ export class ApartmentModel extends BaseModel<
       }
     }
 
-    // Model unit filter
     if (options.isModelUnit !== undefined) {
       query = query.where("is_model_unit", options.isModelUnit);
     }
 
-    // Published filter
     if (options.isPublished !== undefined) {
       query = query.where("is_published", options.isPublished);
     }
 
-    // Price range filters
     if (options.minPrice !== undefined) {
       query = query.where("price", ">=", options.minPrice);
     }
@@ -1080,7 +741,6 @@ export class ApartmentModel extends BaseModel<
       query = query.where("price", "<=", options.maxPrice);
     }
 
-    // Bedroom filters
     if (options.bedrooms) {
       if (Array.isArray(options.bedrooms)) {
         query = query.whereIn("bedrooms", options.bedrooms);
@@ -1088,23 +748,7 @@ export class ApartmentModel extends BaseModel<
         query = query.where("bedrooms", options.bedrooms);
       }
     }
-    if (options.minBedrooms !== undefined) {
-      query = query.where("bedrooms", ">=", options.minBedrooms);
-    }
-    if (options.maxBedrooms !== undefined) {
-      query = query.where("bedrooms", "<=", options.maxBedrooms);
-    }
 
-    // Bathroom filters
-    if (options.bathrooms) {
-      if (Array.isArray(options.bathrooms)) {
-        query = query.whereIn("bathrooms", options.bathrooms);
-      } else {
-        query = query.where("bathrooms", options.bathrooms);
-      }
-    }
-
-    // Area filters
     if (options.minArea !== undefined) {
       query = query.where("area_sqm", ">=", options.minArea);
     }
@@ -1112,7 +756,6 @@ export class ApartmentModel extends BaseModel<
       query = query.where("area_sqm", "<=", options.maxArea);
     }
 
-    // Floor filters
     if (options.floorNumber) {
       if (Array.isArray(options.floorNumber)) {
         query = query.whereIn("floor_number", options.floorNumber);
@@ -1120,14 +763,7 @@ export class ApartmentModel extends BaseModel<
         query = query.where("floor_number", options.floorNumber);
       }
     }
-    if (options.minFloor !== undefined) {
-      query = query.where("floor_number", ">=", options.minFloor);
-    }
-    if (options.maxFloor !== undefined) {
-      query = query.where("floor_number", "<=", options.maxFloor);
-    }
 
-    // Virtual visit filter
     if (options.hasVirtualVisit !== undefined) {
       if (options.hasVirtualVisit) {
         query = query.whereNotNull("virtual_visit_url");
@@ -1170,5 +806,4 @@ export class ApartmentModel extends BaseModel<
   }
 }
 
-// Export singleton instance
 export default new ApartmentModel();

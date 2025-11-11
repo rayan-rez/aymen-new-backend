@@ -4,7 +4,7 @@ import { Knex } from "knex";
 import {
   fetchLegacyRecords,
   generateSlug,
-  cleanText,
+  sanitizeString,
   cleanUrl,
   processBatch,
   printMigrationStats,
@@ -115,7 +115,7 @@ async function transformFeature(
 ): Promise<TransformResult<NewFeature>> {
   try {
     // Clean name
-    const name = cleanText(legacy.nom_caracteristique);
+    const name = sanitizeString(legacy.nom_caracteristique);
     if (!name) {
       return { data: null, skip: true, error: "Empty feature name" };
     }

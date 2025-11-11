@@ -4,7 +4,7 @@ import { Knex } from "knex";
 import {
   fetchLegacyRecords,
   generateSlug,
-  cleanText,
+  sanitizeString,
   cleanUrl,
   parseDate,
   parseInteger,
@@ -102,7 +102,7 @@ async function transformBlogPost(
 > {
   try {
     // Clean title
-    const title = cleanText(legacy.titre);
+    const title = sanitizeString(legacy.titre);
     if (!title) {
       return { data: null, skip: true, error: "Empty blog title" };
     }
@@ -119,7 +119,7 @@ async function transformBlogPost(
     existingSlugs.add(slug);
 
     // Clean content
-    const content = cleanText(legacy.contenu) || "";
+    const content = sanitizeString(legacy.contenu) || "";
     if (!content) {
       return { data: null, skip: true, error: "Empty blog content" };
     }
@@ -127,8 +127,8 @@ async function transformBlogPost(
     // Extract metadata
     const excerpt = extractExcerpt(content);
     const readingTime = estimateReadingTime(content);
-    const category = cleanText(legacy.categorie);
-    const authorName = cleanText(legacy.auteur) || "Aymen Promotion";
+    const category = sanitizeString(legacy.categorie as string);
+    const authorName = sanitizeString(legacy.auteur) || "Aymen Promotion";
 
     // Parse publication date
     const publishedAt = parseDate(legacy.date_publication);
@@ -137,10 +137,6 @@ async function transformBlogPost(
 
     // Clean image URL
     const featuredImageUrl = cleanUrl(legacy.photo_principale_path);
-
-    // SEO metadata
-    const metaTitle = title;
-    const metaDescription = excerpt;
 
     // Create blog post
     const post: NewBlogPost = {
@@ -167,11 +163,11 @@ async function transformBlogPost(
 
     // Section 1
     if (legacy.contenu1) {
-      const sectionContent = cleanText(legacy.contenu1);
+      const sectionContent = sanitizeString(legacy.contenu1);
       if (sectionContent) {
         sections.push({
           blog_post_id: legacy.id,
-          section_title: cleanText(legacy.titre1),
+          section_title: sanitizeString(legacy.titre1 as string),
           section_content: sectionContent,
           section_image_url: cleanUrl(legacy.photo1),
           display_order: 0,
@@ -181,11 +177,11 @@ async function transformBlogPost(
 
     // Section 2
     if (legacy.contenu2) {
-      const sectionContent = cleanText(legacy.contenu2);
+      const sectionContent = sanitizeString(legacy.contenu2);
       if (sectionContent) {
         sections.push({
           blog_post_id: legacy.id,
-          section_title: cleanText(legacy.titre2),
+          section_title: sanitizeString(legacy.titre2 as string),
           section_content: sectionContent,
           section_image_url: cleanUrl(legacy.photo2),
           display_order: 1,
@@ -195,11 +191,11 @@ async function transformBlogPost(
 
     // Section 3
     if (legacy.contenu3) {
-      const sectionContent = cleanText(legacy.contenu3);
+      const sectionContent = sanitizeString(legacy.contenu3);
       if (sectionContent) {
         sections.push({
           blog_post_id: legacy.id,
-          section_title: cleanText(legacy.titre3),
+          section_title: sanitizeString(legacy.titre3 as string),
           section_content: sectionContent,
           section_image_url: cleanUrl(legacy.photo3),
           display_order: 2,
@@ -209,11 +205,11 @@ async function transformBlogPost(
 
     // Section 4
     if (legacy.contenu4) {
-      const sectionContent = cleanText(legacy.contenu4);
+      const sectionContent = sanitizeString(legacy.contenu4);
       if (sectionContent) {
         sections.push({
           blog_post_id: legacy.id,
-          section_title: cleanText(legacy.titre4),
+          section_title: sanitizeString(legacy.titre4 as string),
           section_content: sectionContent,
           section_image_url: cleanUrl(legacy.photo4),
           display_order: 3,

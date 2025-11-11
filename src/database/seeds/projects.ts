@@ -4,11 +4,10 @@ import { Knex } from "knex";
 import {
   fetchLegacyRecords,
   generateSlug,
-  cleanText,
+  sanitizeString,
   cleanUrl,
   parseDecimal,
   parseInteger,
-  parseBoolean,
   buildLookupMap,
   processBatch,
   printMigrationStats,
@@ -124,7 +123,7 @@ async function transformProject(
 ): Promise<TransformResult<NewProject>> {
   try {
     // Clean name
-    const name = cleanText(legacy.nom_projet);
+    const name = sanitizeString(legacy.nom_projet);
     if (!name) {
       return { data: null, skip: true, error: "Empty project name" };
     }
@@ -147,8 +146,8 @@ async function transformProject(
     const projectType = detectProjectType(name, legacy.description);
 
     // Clean description
-    const description = cleanText(legacy.description);
-    const descriptionSecondary = cleanText(legacy.description2);
+    const description = sanitizeString(legacy.description as string);
+    const descriptionSecondary = sanitizeString(legacy.description2 as string);
 
     // Parse coordinates
     const latitude = parseDecimal(legacy.latitude);
@@ -171,12 +170,6 @@ async function transformProject(
     // Determine publishing status
     const isPublished = status === "completed" || status === "under_construction";
     const isFeatured = completionPercentage === 100;
-
-    // SEO metadata
-    const metaTitle = name;
-    const metaDescription = description
-      ? description.substring(0, 160)
-      : `Découvrez ${name} - Projet immobilier de qualité`;
 
     return {
       data: {

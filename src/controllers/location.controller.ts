@@ -1,18 +1,14 @@
 /**
- * Location Controllers
- * Handles location hierarchy
+ * Location Controller
+ * Handles location hierarchy management
  *
- * @module controllers/location.controllers
+ * @module controllers/location.controller
  */
 
 import { Request, Response, NextFunction } from "express";
 import { ApiResponse } from "@/utils/response.util";
-import LocationModel, { LocationType } from "@models/location.model";
+import LocationModel from "@models/location.model";
 import { AppError } from "@/middlewares/error-handler.middleware";
-
-// ============================================================================
-// LOCATION CONTROLLER
-// ============================================================================
 
 /**
  * Location Controller Class
@@ -290,7 +286,6 @@ export class LocationController {
       next(error);
     }
   }
-
 }
 
 export default new LocationController();

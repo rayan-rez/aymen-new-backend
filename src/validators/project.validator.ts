@@ -1,20 +1,14 @@
+
+
 /**
- * Project Validation Schemas
- * Joi schemas for validating project requests
  * 
- * @module validators/project.validators
+ * Project Validator
  */
 
 import Joi from "joi";
 import { ProjectType, ProjectStatus } from "@models/project.model";
 
-/**
- * Common project schemas
- */
 export const projectSchemas = {
-  /**
-   * Create project schema
-   */
   create: Joi.object({
     name: Joi.string().min(2).max(255).required(),
     slug: Joi.string().pattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).optional(),
@@ -38,13 +32,9 @@ export const projectSchemas = {
     mainPhotoUrl: Joi.string().uri().allow(null, "").optional(),
     isFeatured: Joi.boolean().default(false),
     isPublished: Joi.boolean().default(false),
-    metaTitle: Joi.string().max(255).allow(null, "").optional(),
-    metaDescription: Joi.string().max(500).allow(null, "").optional(),
+    // REMOVED: metaTitle, metaDescription
   }),
 
-  /**
-   * Update project schema
-   */
   update: Joi.object({
     name: Joi.string().min(2).max(255).optional(),
     slug: Joi.string().pattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).optional(),
@@ -68,27 +58,17 @@ export const projectSchemas = {
     mainPhotoUrl: Joi.string().uri().allow(null, "").optional(),
     isFeatured: Joi.boolean().optional(),
     isPublished: Joi.boolean().optional(),
-    metaTitle: Joi.string().max(255).allow(null, "").optional(),
-    metaDescription: Joi.string().max(500).allow(null, "").optional(),
+    // REMOVED: metaTitle, metaDescription
   }).min(1),
 
-  /**
-   * Get by ID params schema
-   */
   getById: Joi.object({
     id: Joi.number().integer().positive().required(),
   }),
 
-  /**
-   * Get by slug params schema
-   */
   getBySlug: Joi.object({
     slug: Joi.string().required(),
   }),
 
-  /**
-   * Query filters schema
-   */
   filters: Joi.object({
     page: Joi.number().integer().min(1).default(1),
     limit: Joi.number().integer().min(1).max(100).default(10),
@@ -123,18 +103,12 @@ export const projectSchemas = {
     relations: Joi.string().optional(),
   }),
 
-  /**
-   * Search query schema
-   */
   search: Joi.object({
     q: Joi.string().min(2).required(),
     page: Joi.number().integer().min(1).default(1),
     limit: Joi.number().integer().min(1).max(100).default(10),
   }),
 
-  /**
-   * Add/sync features schema
-   */
   features: Joi.object({
     featureIds: Joi.array()
       .items(Joi.number().integer().positive())

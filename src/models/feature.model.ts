@@ -1,11 +1,7 @@
 /**
- * Feature Model
- *
- * Property amenities and features with multi-language support
- * Used in project_features junction table for many-to-many relationships
- *
- *
- * @module models/feature.model
+ * Feature Model - FIXED TO MATCH DATABASE SCHEMA
+ * 
+ * Removed: translations field (commented out in migration)
  */
 
 import {
@@ -63,9 +59,6 @@ export interface CreateFeatureDto {
   isActive?: boolean;
 }
 
-/**
- * Update feature DTO
- */
 export interface UpdateFeatureDto extends Partial<CreateFeatureDto> { }
 
 /**
@@ -98,7 +91,7 @@ export class FeatureModel extends BaseModel<
   protected primaryKey = "id";
 
   protected config = {
-    softDelete: false, // Reference data doesn't use soft deletes
+    softDelete: false,
     timestamps: true,
     defaultSortColumn: "display_order",
     defaultSortOrder: "asc" as const,
@@ -135,21 +128,16 @@ export class FeatureModel extends BaseModel<
   /**
    * Before create hook - validate and generate slug
    */
-  protected async beforeCreate(
-    data: CreateFeatureDto
-  ): Promise<CreateFeatureDto> {
-    // Generate slug if not provided
+  protected async beforeCreate(data: CreateFeatureDto): Promise<CreateFeatureDto> {
     if (!data.slug) {
       data.slug = generateSlug(data.name);
     }
 
-    // Validate slug uniqueness
     const existing = await this.findOne({ slug: data.slug }, {});
     if (existing) {
       throw new Error(`Feature slug "${data.slug}" already exists`);
     }
 
-    // Set default category
     if (!data.category) {
       data.category = FeatureCategory.AMENITY;
     }
@@ -161,9 +149,7 @@ export class FeatureModel extends BaseModel<
    * After create hook
    */
   protected async afterCreate(entity: Feature): Promise<void> {
-    console.log(
-      `✅ Feature created: ${entity.name} (Category: ${entity.category})`
-    );
+    console.log(`✅ Feature created: ${entity.name} (Category: ${entity.category})`);
   }
 
   /**
@@ -173,7 +159,6 @@ export class FeatureModel extends BaseModel<
     id: number,
     data: UpdateFeatureDto
   ): Promise<UpdateFeatureDto> {
-    // Validate slug uniqueness if changing
     if (data.slug) {
       const existing = await this.findOne({ slug: data.slug }, {});
       if (existing && existing.id !== id) {
@@ -188,7 +173,6 @@ export class FeatureModel extends BaseModel<
    * Before delete hook - check usage
    */
   protected async beforeDelete(id: number): Promise<void> {
-    // Check if feature is used in any projects
     const usageCount = await this.db("project_features")
       .where("feature_id", id)
       .count("* as count")
@@ -215,13 +199,11 @@ export class FeatureModel extends BaseModel<
     const connection = trx || this.db;
     let query = this.buildQuery(connection, options);
 
-    // Apply feature-specific filters
     query = this.applyFeatureFilters(query, options);
 
     const records = await query;
     let entities = records.map((r: DatabaseRecord) => this.mapToEntity(r));
 
-    // Load relations if requested
     if (options.relations && options.relations.length > 0) {
       entities = await this.loadRelationsForMany(
         entities,
@@ -317,16 +299,6 @@ export class FeatureModel extends BaseModel<
   }
 
   /**
-   * Finds features with icons
-   */
-  async findWithIcons(
-    options: FeatureQueryOptions = {},
-    trx?: Knex.Transaction
-  ): Promise<Feature[]> {
-    return this.findFeatures({ ...options, hasIcon: true }, trx);
-  }
-
-  /**
    * Finds features with translations
    */
   async findWithTranslations(
@@ -368,14 +340,12 @@ export class FeatureModel extends BaseModel<
   ): Promise<{ projectCount: number; usagePercentage: number }> {
     const connection = trx || this.db;
 
-    // Count projects using this feature
     const [featureUsage] = await connection("project_features")
       .where("feature_id", id)
       .count("DISTINCT project_id as count");
 
     const projectCount = Number(featureUsage.count);
 
-    // Count total projects
     const [totalProjects] = await connection("projects")
       .whereNull("deleted_at")
       .count("* as count");
@@ -492,12 +462,7 @@ export class FeatureModel extends BaseModel<
     const [stats] = await connection(this.tableName).select(
       connection.raw("COUNT(*) as total"),
       connection.raw("COUNT(CASE WHEN is_active = true THEN 1 END) as active"),
-      connection.raw(
-        "COUNT(CASE WHEN icon IS NOT NULL THEN 1 END) as withIcon"
-      ),
-      connection.raw(
-        "COUNT(CASE WHEN translations IS NOT NULL THEN 1 END) as withTranslations"
-      )
+      connection.raw("COUNT(CASE WHEN icon IS NOT NULL THEN 1 END) as withIcon")
     );
 
     return {
@@ -505,7 +470,6 @@ export class FeatureModel extends BaseModel<
       active: Number(stats.active),
       inactive: Number(stats.total) - Number(stats.active),
       withIcon: Number(stats.withIcon),
-      withTranslations: Number(stats.withTranslations),
     };
   }
 
@@ -516,10 +480,7 @@ export class FeatureModel extends BaseModel<
   /**
    * Reorders features
    */
-  async reorder(
-    featureIds: number[],
-    trx?: Knex.Transaction
-  ): Promise<boolean> {
+  async reorder(featureIds: number[], trx?: Knex.Transaction): Promise<boolean> {
     const connection = trx || this.db;
 
     await connection.transaction(async (localTrx) => {
@@ -569,7 +530,6 @@ export class FeatureModel extends BaseModel<
     query: Knex.QueryBuilder,
     options: FeatureQueryOptions
   ): Knex.QueryBuilder {
-    // Category filter
     if (options.category) {
       if (Array.isArray(options.category)) {
         query = query.whereIn("category", options.category);
@@ -578,12 +538,10 @@ export class FeatureModel extends BaseModel<
       }
     }
 
-    // Active filter
     if (options.isActive !== undefined) {
       query = query.where("is_active", options.isActive);
     }
 
-    // Has icon filter
     if (options.hasIcon !== undefined) {
       if (options.hasIcon) {
         query = query.whereNotNull("icon");
@@ -613,5 +571,4 @@ export class FeatureModel extends BaseModel<
   }
 }
 
-// Export singleton instance
 export default new FeatureModel();

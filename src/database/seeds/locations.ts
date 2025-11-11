@@ -4,7 +4,7 @@ import { Knex } from "knex";
 import {
   fetchLegacyRecords,
   generateSlug,
-  cleanText,
+  sanitizeString,
   processBatch,
   printMigrationStats,
   clearTable,
@@ -66,7 +66,7 @@ async function transformLocation(
 ): Promise<TransformResult<NewLocation>> {
   try {
     // Clean name
-    const name = cleanText(legacy.name);
+    const name = sanitizeString(legacy.name);
     if (!name) {
       return { data: null, skip: true, error: "Empty location name" };
     }

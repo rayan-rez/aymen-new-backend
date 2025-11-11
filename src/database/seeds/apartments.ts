@@ -5,8 +5,6 @@ import {
   fetchLegacyRecords,
   cleanText,
   cleanUrl,
-  parseDecimal,
-  parseInteger,
   parseBoolean,
   processBatch,
   printMigrationStats,

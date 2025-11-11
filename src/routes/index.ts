@@ -14,8 +14,8 @@ import apartmentRoutes from "./apartment.routes";
 import locationRoutes from "./location.routes";
 import featureRoutes from "./feature.routes";
 import photoRoutes from "./photo.routes";
-import { formSubmissionRoutes } from "./form-submission.routes";
-
+import floorPlanRoutes from "./floor-plan.routes";
+import formSubmissionRoutes from "./form-submission.routes";
 
 const router = Router();
 
@@ -91,6 +91,9 @@ router.use("/photos", photoRoutes);
 
 // Feedback & forms
 router.use("/forms", formSubmissionRoutes);
+
+router.use("/floor-plans", floorPlanRoutes);
+
 
 // ============================================================================
 // 404 HANDLER

@@ -8,8 +8,7 @@
 import { Request, Response, NextFunction } from "express";
 import { ApiResponse } from "@/utils/response.util";
 import FormSubmissionModel, {
-  FormType,
-  ProcessingStatus,
+  FormType
 } from "@models/form-submission.model";
 import { AppError } from "@/middlewares/error-handler.middleware";
 

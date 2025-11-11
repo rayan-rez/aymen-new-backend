@@ -1,10 +1,8 @@
 /**
- * Blog Post Model
- *
- * Manages blog posts with sections, SEO, and analytics
- * Supports featured posts, categories, tags, and view tracking
- *
- * @module models/blog-post.model
+ * Blog Post Model - FIXED TO MATCH DATABASE SCHEMA
+ * 
+ * Removed fields that don't exist in migration:
+ * - readingTimeMinutes, viewCount, metaTitle, metaDescription
  */
 
 import {
@@ -179,12 +177,10 @@ export class BlogPostModel extends BaseModel<
       return { valid: false, errors };
     }
 
-    // Check for featured image
     if (!post.featuredImageUrl) {
       errors.push("Featured image is required");
     }
 
-    // Optional: Check for additional photos
     const photoCount = await PhotoModel.countForEntity(
       PhotoableType.BLOG_POST,
       postId,
@@ -211,19 +207,15 @@ export class BlogPostModel extends BaseModel<
   protected async beforeCreate(
     data: CreateBlogPostDto
   ): Promise<CreateBlogPostDto> {
-    // Generate slug if not provided
     if (!data.slug) {
       data.slug = generateSlug(data.title);
     }
 
-    // Validate slug uniqueness
     const existing = await this.findBySlug(data.slug);
     if (existing) {
       data.slug = `${data.slug}-${Date.now()}`;
     }
 
-
-    // Set published timestamp if publishing
     if (data.isPublished && !data.publishedAt) {
       data.publishedAt = new Date();
     }
@@ -231,16 +223,10 @@ export class BlogPostModel extends BaseModel<
     return data;
   }
 
-  /**
-   * After create hook
-   */
   protected async afterCreate(entity: BlogPost): Promise<void> {
     console.log(`✅ Blog post created: ${entity.title}`);
   }
 
-  /**
-   * Before update hook
-   */
   protected async beforeUpdate(
     id: number,
     data: UpdateBlogPostDto
@@ -250,7 +236,6 @@ export class BlogPostModel extends BaseModel<
       throw new Error("Blog post not found");
     }
 
-    // Validate slug uniqueness if changing
     if (data.slug && data.slug !== post.slug) {
       const existing = await this.findBySlug(data.slug);
       if (existing && existing.id !== id) {
@@ -258,12 +243,10 @@ export class BlogPostModel extends BaseModel<
       }
     }
 
-    // Set published timestamp if publishing
     if (data.isPublished && !post.isPublished && !data.publishedAt) {
       data.publishedAt = new Date();
     }
 
-    // If publishing, validate media
     if (data.isPublished && !post.isPublished) {
       const mediaValidation = await this.validateMediaForPublishing(id);
       if (!mediaValidation.valid) {
@@ -295,7 +278,6 @@ export class BlogPostModel extends BaseModel<
     const records = await query;
     let entities = records.map((r: DatabaseRecord) => this.mapToEntity(r));
 
-    // Load standard relations
     if (options.relations && options.relations.length > 0) {
       entities = await this.loadRelationsForMany(
         entities,
@@ -304,7 +286,6 @@ export class BlogPostModel extends BaseModel<
       );
     }
 
-    // Load photos if requested
     if (options.includePhotos) {
       const postIds = entities.map((e: DatabaseRecord) => e.id);
       const photosByPost = await this.loadPhotosForMany(postIds, trx);
@@ -318,9 +299,6 @@ export class BlogPostModel extends BaseModel<
     return entities;
   }
 
-  /**
-   * Gets paginated blog posts
-   */
   async paginateBlogPosts(
     options: BlogPostQueryOptions & { page: number; limit: number },
     trx?: Knex.Transaction
@@ -382,7 +360,6 @@ export class BlogPostModel extends BaseModel<
     const post = await this.findOne({ slug }, options, trx);
     if (!post) return null;
 
-    // Load photos if requested
     if (options.includePhotos) {
       const photos = await this.loadPhotos(post.id, trx);
       return {
@@ -475,16 +452,13 @@ export class BlogPostModel extends BaseModel<
     const connection = trx || this.db;
     let query = this.buildQuery(connection, options);
 
-    // Apply blog-specific filters
     query = this.applyBlogFilters(query, options);
 
-    // Use MySQL MATCH AGAINST for full-text search
     query = query.whereRaw(
       `MATCH(title, excerpt, content) AGAINST(? IN BOOLEAN MODE)`,
       [`${searchTerm}*`]
     );
 
-    // Order by relevance
     query = query.orderByRaw(
       `MATCH(title, excerpt, content) AGAINST(? IN BOOLEAN MODE) DESC`,
       [`${searchTerm}*`]
@@ -505,24 +479,6 @@ export class BlogPostModel extends BaseModel<
       {
         isPublished: true,
         sortBy: "published_at",
-        sortOrder: "desc",
-        limit,
-      },
-      trx
-    );
-  }
-
-  /**
-   * Gets popular posts (by view count)
-   */
-  async getPopular(
-    limit: number = 5,
-    trx?: Knex.Transaction
-  ): Promise<BlogPost[]> {
-    return this.findBlogPosts(
-      {
-        isPublished: true,
-        sortBy: "view_count",
         sortOrder: "desc",
         limit,
       },
@@ -587,27 +543,6 @@ export class BlogPostModel extends BaseModel<
     return this.update(id, { isFeatured: !post.isFeatured }, trx);
   }
 
-  // ============================================================================
-  // ANALYTICS METHODS
-  // ============================================================================
-
-  /**
-   * Increments view count
-   */
-  async incrementViewCount(
-    id: number,
-    trx?: Knex.Transaction
-  ): Promise<boolean> {
-    const connection = trx || this.db;
-
-    const updated = await connection(this.tableName)
-      .where({ id })
-      .increment("view_count", 1);
-
-    return updated > 0;
-  }
-
-
   /**
    * Gets category statistics
    */
@@ -619,7 +554,6 @@ export class BlogPostModel extends BaseModel<
       .whereNull("deleted_at")
       .select("category")
       .count("* as postCount")
-      .sum("view_count as totalViews")
       .groupBy("category")
       .orderBy("postCount", "desc");
   }
@@ -635,7 +569,6 @@ export class BlogPostModel extends BaseModel<
       .whereNull("deleted_at")
       .select("author_name")
       .count("* as postCount")
-      .sum("view_count as totalViews")
       .groupBy("author_name")
       .orderBy("postCount", "desc");
   }
@@ -676,21 +609,6 @@ export class BlogPostModel extends BaseModel<
     return Array.from(allTags).sort();
   }
 
-  // ============================================================================
-  // HELPER METHODS
-  // ============================================================================
-
-  /**
-   * Calculates reading time based on content
-   * Average reading speed: 200 words per minute
-   */
-  private calculateReadingTime(content: string): number {
-    const wordsPerMinute = 200;
-    const wordCount = content.trim().split(/\s+/).length;
-    const minutes = Math.ceil(wordCount / wordsPerMinute);
-    return Math.max(1, minutes); // At least 1 minute
-  }
-
   /**
    * Applies blog-specific filters to query
    */
@@ -698,7 +616,6 @@ export class BlogPostModel extends BaseModel<
     query: Knex.QueryBuilder,
     options: BlogPostQueryOptions
   ): Knex.QueryBuilder {
-    // Category filter
     if (options.category) {
       if (Array.isArray(options.category)) {
         query = query.whereIn("category", options.category);
@@ -707,29 +624,24 @@ export class BlogPostModel extends BaseModel<
       }
     }
 
-    // Published filter
     if (options.isPublished !== undefined) {
       query = query.where("is_published", options.isPublished);
     }
 
-    // Featured filter
     if (options.isFeatured !== undefined) {
       query = query.where("is_featured", options.isFeatured);
     }
 
-    // Author filter
     if (options.authorName) {
       query = query.where("author_name", "like", `%${options.authorName}%`);
     }
 
-    // Tag filter (JSON search)
     if (options.hasTag) {
       query = query.whereRaw("JSON_SEARCH(tags, 'one', ?) IS NOT NULL", [
         options.hasTag,
       ]);
     }
 
-    // Published date range
     if (options.publishedAfter) {
       query = query.where("published_at", ">=", options.publishedAfter);
     }
@@ -764,5 +676,4 @@ export class BlogPostModel extends BaseModel<
   }
 }
 
-// Export singleton instance
 export default new BlogPostModel();

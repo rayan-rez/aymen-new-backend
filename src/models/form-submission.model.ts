@@ -1,10 +1,11 @@
 /**
- * Form Submission Model
- *
- * Central table for ALL form submissions on the website.
- * Handles validation, Odoo sync queue management, and spam detection.
- *
- * @module models/form-submission.model
+ * Form Submission Model - FIXED TO MATCH DATABASE SCHEMA
+ * 
+ * Removed all commented-out fields from migration:
+ * - visitor_id, session_id, submitted_at, page_url, referrer_url
+ * - ip_address, user_agent, utm tracking, referrer tracking
+ * - status, completion_time_seconds, odoo sync fields
+ * - validation_errors, is_spam, spam_score, form_data
  */
 
 import {
@@ -33,16 +34,6 @@ export enum FormType {
 }
 
 /**
- * Processing status enumeration
- */
-export enum ProcessingStatus {
-  PENDING = "pending",
-  PROCESSING = "processing",
-  COMPLETED = "completed",
-  FAILED = "failed",
-}
-
-/**
  * Form submission entity interface
  */
 export interface FormSubmission {
@@ -56,7 +47,7 @@ export interface FormSubmission {
   phone: string | null;
   firstName: string | null;
   lastName: string | null;
-  note: string;
+  note: string | null;
 
   // Timestamps
   createdAt: Date;
@@ -98,12 +89,7 @@ export interface FormSubmissionQueryOptions extends AdvancedQueryOptions {
   dateFrom?: Date;
   dateTo?: Date;
   hasProject?: boolean;
-  hasSyncError?: boolean;
 }
-
-// ============================================================================
-// FORM SUBMISSION MODEL CLASS
-// ============================================================================
 
 export class FormSubmissionModel extends BaseModel<
   FormSubmission,
@@ -116,7 +102,7 @@ export class FormSubmissionModel extends BaseModel<
   protected config = {
     softDelete: false, // Form submissions are never deleted
     timestamps: true,
-    defaultSortColumn: "submitted_at",
+    defaultSortColumn: "created_at",
     defaultSortOrder: "desc" as const,
     searchableColumns: ["email", "phone", "first_name", "last_name"],
     hiddenFields: [],
@@ -129,8 +115,6 @@ export class FormSubmissionModel extends BaseModel<
       "firstName",
       "lastName",
       "note",
-      "status",
-      "formData",
     ],
     guarded: ["id", "createdAt", "updatedAt"],
   };
@@ -141,12 +125,6 @@ export class FormSubmissionModel extends BaseModel<
       type: "belongsTo" as const,
       model: () => require("./project.model").default,
       foreignKey: "projectId",
-      localKey: "id",
-    },
-    leadMirror: {
-      type: "hasOne" as const,
-      model: () => require("./lead-mirror.model").default,
-      foreignKey: "formSubmissionId",
       localKey: "id",
     },
   };
@@ -162,11 +140,6 @@ export class FormSubmissionModel extends BaseModel<
     console.log(
       `✅ Form submission created: ${entity.formType} (ID: ${entity.id})`
     );
-
-    // TODO: Trigger event for async processing
-    // - Send email notifications
-    // - Queue for Odoo sync
-    // - Track analytics event
   }
 
   // ============================================================================
@@ -183,13 +156,11 @@ export class FormSubmissionModel extends BaseModel<
     const connection = trx || this.db;
     let query = this.buildQuery(connection, options);
 
-    // Apply submission-specific filters
     query = this.applySubmissionFilters(query, options);
 
     const records = await query;
     let entities = records.map((r: DatabaseRecord) => this.mapToEntity(r));
 
-    // Load relations if requested
     if (options.relations && options.relations.length > 0) {
       entities = await this.loadRelationsForMany(
         entities,
@@ -240,7 +211,6 @@ export class FormSubmissionModel extends BaseModel<
     const connection = trx || this.db;
     let query = connection(this.tableName);
 
-    // Apply filters
     query = this.applySubmissionFilters(query, options);
 
     const result = await query.count(`${this.primaryKey} as count`).first();
@@ -292,7 +262,6 @@ export class FormSubmissionModel extends BaseModel<
     query: Knex.QueryBuilder,
     options: FormSubmissionQueryOptions
   ): Knex.QueryBuilder {
-    // Form type filter
     if (options.formType) {
       if (Array.isArray(options.formType)) {
         query = query.whereIn("form_type", options.formType);
@@ -311,39 +280,26 @@ export class FormSubmissionModel extends BaseModel<
       }
     }
 
-    // Email filter
     if (options.email) {
       query = query.where("email", "like", `%${options.email}%`);
     }
 
-    // Phone filter
     if (options.phone) {
       query = query.where("phone", "like", `%${options.phone}%`);
     }
 
-    // Date range filter
     if (options.dateFrom) {
-      query = query.where("submitted_at", ">=", options.dateFrom);
+      query = query.where("created_at", ">=", options.dateFrom);
     }
     if (options.dateTo) {
-      query = query.where("submitted_at", "<=", options.dateTo);
+      query = query.where("created_at", "<=", options.dateTo);
     }
 
-    // Has project filter
     if (options.hasProject !== undefined) {
       if (options.hasProject) {
         query = query.whereNotNull("project_id");
       } else {
         query = query.whereNull("project_id");
-      }
-    }
-
-    // Has sync error filter
-    if (options.hasSyncError !== undefined) {
-      if (options.hasSyncError) {
-        query = query.whereNotNull("odoo_sync_error");
-      } else {
-        query = query.whereNull("odoo_sync_error");
       }
     }
 
@@ -360,15 +316,14 @@ export class FormSubmissionModel extends BaseModel<
       formId: record.form_id,
       projectId: record.project_id,
       email: record.email,
-      note: record.note,
       phone: record.phone,
       firstName: record.first_name,
       lastName: record.last_name,
+      note: record.note,
       createdAt: new Date(record.created_at),
       updatedAt: new Date(record.updated_at),
     };
   }
 }
 
-// Export singleton instance
 export default new FormSubmissionModel();

@@ -4,7 +4,7 @@ import { Knex } from "knex";
 import {
   fetchLegacyRecords,
   cleanUrl,
-  cleanText,
+  sanitizeString,
   processBatch,
   printMigrationStats,
   clearTable,
@@ -119,8 +119,8 @@ async function transformProjectMedia(
     }
 
     const mediaType = detectMediaType(mediaUrl, legacy.type);
-    const title = cleanText(legacy.titre);
-    const description = cleanText(legacy.description);
+    const title = sanitizeString(legacy.titre as string);
+    const description = sanitizeString(legacy.description as string);
 
     return {
       data: {

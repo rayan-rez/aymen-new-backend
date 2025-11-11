@@ -1,146 +1,131 @@
 /**
- * Floor Plan Routes (Polymorphic)
- * Handles floor plan management for projects and apartments
+ * Photo Routes (Polymorphic)
+ * Handles photo management for projects, apartments, and blog posts
  *
- * @module routes/floor-plan.routes
+ * @module routes/photo.routes
  */
 
 import { Router } from "express";
-import floorPlanController from "@/controllers/floor-plan.controller";
+import photoController from "@/controllers/photo.controller";
 import { validate } from "@/middlewares/validation.middleware";
-import floorPlanSchemas from "@/validators/floor-plan.validator";
+import photoSchemas from "@/validators/photo.validators";
 import { apiLimiter } from "@/middlewares/rate-limit.middleware";
 
 const router = Router();
 
 // ============================================================================
-// POLYMORPHIC FLOOR PLAN ROUTES
+// POLYMORPHIC PHOTO ROUTES
 // ============================================================================
 
 /**
- * @route   GET /api/:entityType/:id/floor-plans
- * @desc    Get all floor plans for any entity (projects, apartments)
+ * @route   GET /api/:entityType/:id/photos
+ * @desc    Get all photos for any entity (projects, apartments, blog-posts)
  * @access  Public
- * @param   {string} entityType - Entity type (projects, apartments)
+ * @param   {string} entityType - Entity type (projects, apartments, blog-posts)
  * @param   {number} id - Entity ID
- * @query   {boolean} hasPdf - Filter plans with PDF only
- * @query   {string} searchName - Search by name
- * @example GET /api/projects/123/floor-plans
- * @example GET /api/apartments/456/floor-plans?hasPdf=true
+ * @query   {boolean} isCover - Filter cover photos only
+ * @query   {boolean} hasCaption - Filter photos with captions
+ * @example GET /api/projects/123/photos
+ * @example GET /api/apartments/456/photos?isCover=true
  */
 router.get(
-  "/:entityType/:id/floor-plans",
+  "/:entityType/:id/photos",
   apiLimiter,
-  floorPlanController.getFloorPlansForEntity
+  photoController.getPhotosForEntity
 );
 
 /**
- * @route   GET /api/floor-plans/:floorPlanId
- * @desc    Get single floor plan by ID
+ * @route   GET /api/photos/:photoId
+ * @desc    Get single photo by ID
  * @access  Public
- * @param   {number} floorPlanId - Floor plan ID
+ * @param   {number} photoId - Photo ID
  */
-router.get("/:floorPlanId", apiLimiter, floorPlanController.getFloorPlanById);
+router.get("/:photoId", apiLimiter, photoController.getPhotoById);
 
 /**
- * @route   GET /api/:entityType/:id/floor-plans/by-name/:name
- * @desc    Get floor plan by name within an entity
+ * @route   GET /api/:entityType/:id/photos/cover
+ * @desc    Get cover photo for an entity
  * @access  Public
  * @param   {string} entityType - Entity type
  * @param   {number} id - Entity ID
- * @param   {string} name - Floor plan name
  */
 router.get(
-  "/:entityType/:id/floor-plans/by-name/:name",
+  "/:entityType/:id/photos/cover",
   apiLimiter,
-  floorPlanController.getFloorPlanByName
+  photoController.getCoverPhoto
 );
 
 /**
- * @route   POST /api/:entityType/:id/floor-plans
- * @desc    Add floor plans to any entity
+ * @route   POST /api/:entityType/:id/photos
+ * @desc    Add photos to any entity
  * @access  Private (Admin only)
  * @param   {string} entityType - Entity type
  * @param   {number} id - Entity ID
- * @body    {array} floorPlans - Array of floor plan objects
- * @example POST /api/projects/123/floor-plans
- * @body { floorPlans: [{ name: "Ground Floor", imageUrl: "...", pdfUrl: "..." }] }
+ * @body    {array} photos - Array of photo objects
+ * @example POST /api/projects/123/photos
+ * @body { photos: [{ url: "...", caption: "...", isCover: true }] }
  */
 router.post(
-  "/:entityType/:id/floor-plans",
-  validate(floorPlanSchemas.addFloorPlans, "body"),
-  floorPlanController.addFloorPlans
+  "/:entityType/:id/photos",
+  validate(photoSchemas.addPhotos, "body"),
+  photoController.addPhotos
 );
 
 /**
- * @route   PATCH /api/floor-plans/:floorPlanId
- * @desc    Update a floor plan
+ * @route   PATCH /api/photos/:photoId
+ * @desc    Update a photo
  * @access  Private (Admin only)
- * @param   {number} floorPlanId - Floor plan ID
- * @body    {object} updates - Floor plan updates
+ * @param   {number} photoId - Photo ID
+ * @body    {object} updates - Photo updates
  */
 router.patch(
-  "/:floorPlanId",
-  validate(floorPlanSchemas.updateFloorPlan, "body"),
-  floorPlanController.updateFloorPlan
+  "/:photoId",
+  validate(photoSchemas.updatePhoto, "body"),
+  photoController.updatePhoto
 );
 
 /**
- * @route   PATCH /api/floor-plans/:floorPlanId/files
- * @desc    Update floor plan files (image and/or PDF)
+ * @route   PATCH /api/photos/:photoId/set-cover
+ * @desc    Set photo as cover (unsets others)
  * @access  Private (Admin only)
- * @param   {number} floorPlanId - Floor plan ID
- * @body    {string} imageUrl - Image URL (optional)
- * @body    {string} pdfUrl - PDF URL (optional)
+ * @param   {number} photoId - Photo ID
  */
-router.patch(
-  "/:floorPlanId/files",
-  validate(floorPlanSchemas.updateFiles, "body"),
-  floorPlanController.updateFloorPlanFiles
-);
+router.patch("/:photoId/set-cover", photoController.setCoverPhoto);
 
 /**
- * @route   DELETE /api/floor-plans/:floorPlanId/pdf
- * @desc    Remove PDF from floor plan
+ * @route   DELETE /api/photos/:photoId
+ * @desc    Delete a photo
  * @access  Private (Admin only)
- * @param   {number} floorPlanId - Floor plan ID
+ * @param   {number} photoId - Photo ID
  */
-router.delete("/:floorPlanId/pdf", floorPlanController.removePdf);
+router.delete("/:photoId", photoController.deletePhoto);
 
 /**
- * @route   DELETE /api/floor-plans/:floorPlanId
- * @desc    Delete a floor plan
- * @access  Private (Admin only)
- * @param   {number} floorPlanId - Floor plan ID
- */
-router.delete("/:floorPlanId", floorPlanController.deleteFloorPlan);
-
-/**
- * @route   DELETE /api/:entityType/:id/floor-plans
- * @desc    Delete multiple floor plans for an entity
+ * @route   DELETE /api/:entityType/:id/photos
+ * @desc    Delete multiple photos for an entity
  * @access  Private (Admin only)
  * @param   {string} entityType - Entity type
  * @param   {number} id - Entity ID
- * @body    {array} floorPlanIds - Array of floor plan IDs (optional - deletes all if not provided)
+ * @body    {array} photoIds - Array of photo IDs (optional - deletes all if not provided)
  */
 router.delete(
-  "/:entityType/:id/floor-plans",
-  validate(floorPlanSchemas.deleteFloorPlans, "body"),
-  floorPlanController.deleteFloorPlans
+  "/:entityType/:id/photos",
+  validate(photoSchemas.deletePhotos, "body"),
+  photoController.deletePhotos
 );
 
 /**
- * @route   POST /api/:entityType/:id/floor-plans/reorder
- * @desc    Reorder floor plans for an entity
+ * @route   POST /api/:entityType/:id/photos/reorder
+ * @desc    Reorder photos for an entity
  * @access  Private (Admin only)
  * @param   {string} entityType - Entity type
  * @param   {number} id - Entity ID
- * @body    {array} floorPlanIds - Ordered array of floor plan IDs
+ * @body    {array} photoIds - Ordered array of photo IDs
  */
 router.post(
-  "/:entityType/:id/floor-plans/reorder",
-  validate(floorPlanSchemas.reorderFloorPlans, "body"),
-  floorPlanController.reorderFloorPlans
+  "/:entityType/:id/photos/reorder",
+  validate(photoSchemas.reorderPhotos, "body"),
+  photoController.reorderPhotos
 );
 
 // ============================================================================
@@ -148,81 +133,66 @@ router.post(
 // ============================================================================
 
 /**
- * @route   GET /api/:entityType/:id/floor-plans/with-pdf
- * @desc    Get floor plans with PDF only
+ * @route   GET /api/:entityType/:id/photos/external
+ * @desc    Get photos with external URLs only
  * @access  Public
  * @param   {string} entityType - Entity type
  * @param   {number} id - Entity ID
  */
 router.get(
-  "/:entityType/:id/floor-plans/with-pdf",
+  "/:entityType/:id/photos/external",
   apiLimiter,
-  floorPlanController.getFloorPlansWithPdf
+  photoController.getPhotosWithExternalUrls
 );
 
 /**
- * @route   GET /api/:entityType/:id/floor-plans/search
- * @desc    Search floor plans by name
+ * @route   GET /api/:entityType/:id/photos/captioned
+ * @desc    Get photos with captions
  * @access  Public
  * @param   {string} entityType - Entity type
  * @param   {number} id - Entity ID
- * @query   {string} name - Search term
  */
 router.get(
-  "/:entityType/:id/floor-plans/search",
+  "/:entityType/:id/photos/captioned",
   apiLimiter,
-  validate(floorPlanSchemas.searchQuery, "query"),
-  floorPlanController.searchFloorPlansByName
+  photoController.getPhotosWithCaptions
 );
 
 /**
- * @route   POST /api/floor-plans/duplicate
- * @desc    Duplicate floor plans from one entity to another
+ * @route   POST /api/photos/duplicate
+ * @desc    Duplicate photos from one entity to another
  * @access  Private (Admin only)
  * @body    {string} sourceType - Source entity type
  * @body    {number} sourceId - Source entity ID
  * @body    {string} targetType - Target entity type
  * @body    {number} targetId - Target entity ID
  */
-router.post("/duplicate", floorPlanController.duplicateFloorPlans);
+router.post("/duplicate", photoController.duplicatePhotos);
 
 /**
- * @route   GET /api/:entityType/:id/floor-plans/statistics
- * @desc    Get floor plan statistics for an entity
+ * @route   GET /api/:entityType/:id/photos/count
+ * @desc    Get photo count for an entity
  * @access  Public
  * @param   {string} entityType - Entity type
  * @param   {number} id - Entity ID
  */
 router.get(
-  "/:entityType/:id/floor-plans/statistics",
+  "/:entityType/:id/photos/count",
   apiLimiter,
-  floorPlanController.getStatistics
+  photoController.countPhotos
 );
 
 /**
- * @route   GET /api/:entityType/:id/floor-plans/count
- * @desc    Get floor plan count for an entity
+ * @route   GET /api/:entityType/:id/photos/has-photos
+ * @desc    Check if entity has photos
  * @access  Public
  * @param   {string} entityType - Entity type
  * @param   {number} id - Entity ID
  */
 router.get(
-  "/:entityType/:id/floor-plans/count",
+  "/:entityType/:id/photos/has-photos",
   apiLimiter,
-  floorPlanController.countFloorPlans
-);
-
-/**
- * @route   GET /api/:entityType/:id/floor-plans/has-floor-plans
- * @desc    Check if entity has floor plans
- * @access  Public
- * @param   {string} entityType - Entity type
- * @param   {number} id - Entity ID
- */
-router.get(
-  "/:entityType/:id/floor-plans/has-floor-plans",
-  apiLimiter,
-  floorPlanController.hasFloorPlans
+  photoController.hasPhotos
 );
 
 // ============================================================================
@@ -230,59 +200,40 @@ router.get(
 // ============================================================================
 
 /**
- * @route   PATCH /api/floor-plans/bulk
- * @desc    Bulk update floor plans
+ * @route   PATCH /api/photos/bulk
+ * @desc    Bulk update photos
  * @access  Private (Admin only)
  * @body    {array} updates - Array of { id, data } objects
  */
-router.patch("/bulk", floorPlanController.bulkUpdateFloorPlans);
+router.patch("/bulk", photoController.bulkUpdatePhotos);
 
 /**
- * @route   DELETE /api/floor-plans/bulk
- * @desc    Bulk delete floor plans by IDs
+ * @route   DELETE /api/photos/bulk
+ * @desc    Bulk delete photos by IDs
  * @access  Private (Admin only)
- * @body    {array} floorPlanIds - Array of floor plan IDs
+ * @body    {array} photoIds - Array of photo IDs
  * @body    {boolean} force - Force delete (optional)
  */
-router.delete("/bulk", floorPlanController.bulkDeleteFloorPlans);
+router.delete("/bulk", photoController.bulkDeletePhotos);
 
 // ============================================================================
 // ANALYTICS & ADMIN ROUTES
 // ============================================================================
 
 /**
- * @route   GET /api/floor-plans
- * @desc    Get all floor plans across entities (admin dashboard)
- * @access  Private (Admin only)
- * @query   {number} page - Page number
- * @query   {number} limit - Items per page
- * @query   {boolean} hasPdf - Filter by PDF presence
- * @query   {string} entityType - Filter by entity type
- */
-router.get("/", apiLimiter, floorPlanController.getAllFloorPlans);
-
-/**
- * @route   GET /api/floor-plans/grouped
- * @desc    Get floor plans grouped by entity type
+ * @route   GET /api/photos/grouped
+ * @desc    Get photos grouped by entity type
  * @access  Private (Admin only)
  * @query   {string} entityType - Filter by entity type
  * @query   {string} entityIds - Comma-separated entity IDs
  */
-router.get("/grouped", floorPlanController.getFloorPlansGroupedByType);
+router.get("/grouped", photoController.getPhotosGroupedByType);
 
 /**
- * @route   GET /api/floor-plans/count-by-type
- * @desc    Get floor plan count by entity type
+ * @route   GET /api/photos/count-by-type
+ * @desc    Get photo count by entity type
  * @access  Private (Admin only)
  */
-router.get("/count-by-type", floorPlanController.getCountByType);
-
-/**
- * @route   POST /api/floor-plans/batch-download
- * @desc    Prepare batch download of floor plan PDFs
- * @access  Private (Admin only)
- * @body    {array} floorPlanIds - Array of floor plan IDs
- */
-router.post("/batch-download", floorPlanController.batchDownload);
+router.get("/count-by-type", photoController.getCountByType);
 
 export default router;

@@ -274,4 +274,4 @@ locationRouter.delete(
  */
 locationRouter.get("/statistics", locationController.getStatistics);
 
-export { locationRouter as locationRoutes };
+export default locationRouter;
