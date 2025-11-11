@@ -56,7 +56,6 @@ async function transformFloorPlan(
       return { data: null, skip: true, error: "Empty image URL" };
     }
 
-    // Determine polymorphic type
     const plannableType = legacy.appartement_id ? "apartment" : "project";
     const plannableId = legacy.appartement_id || legacy.projet_id;
 
@@ -99,25 +98,78 @@ async function transformFloorPlan(
 export async function seed(knex: Knex): Promise<void> {
   console.log("\n📐 Starting Floor Plans Migration...\n");
 
-  // Clear existing data
   await clearTable(knex, "floor_plans");
   console.log("✓ Cleared floor_plans table");
 
-  // Fetch legacy floor plans
-  // ADJUST TABLE NAME based on your legacy database
-  const legacyFloorPlans = await fetchLegacyRecords<LegacyFloorPlan>(
-    "plans_etage" // Or your actual legacy table name
-  );
-  console.log(`✓ Fetched ${legacyFloorPlans.length} legacy floor plans`);
+  // CRITICAL FIX: Check if table exists in legacy database
+  let legacyTableExists = false;
+  try {
+    await fetchLegacyRecords<LegacyFloorPlan>("plans_etage", { limit: 1 });
+    legacyTableExists = true;
+  } catch (error: any) {
+    if (error.message.includes("doesn't exist")) {
+      console.log("⚠️  Legacy table 'plans_etage' does not exist");
+      console.log("ℹ️  Checking for alternative table names...\n");
+    } else {
+      throw error;
+    }
+  }
 
-  if (legacyFloorPlans.length === 0) {
-    console.log("⊗ No legacy floor plans found, skipping migration\n");
+  // Try alternative table names if main table doesn't exist
+  const possibleTables = ["plans_etage", "plan", "plans"];
+  let legacyFloorPlans: LegacyFloorPlan[] = [];
+  let foundTable: string | null = null;
+
+  for (const tableName of possibleTables) {
+    try {
+      legacyFloorPlans = await fetchLegacyRecords<LegacyFloorPlan>(tableName);
+      foundTable = tableName;
+      console.log(`✓ Found floor plans in table: ${tableName}`);
+      break;
+    } catch (error: any) {
+      // Continue to next table
+      continue;
+    }
+  }
+
+  if (!foundTable || legacyFloorPlans.length === 0) {
+    console.log("⊗ No legacy floor plans found in any table");
+    console.log("✓ Skipping floor plans migration (no data to migrate)\n");
+    return;
+  }
+
+  console.log(`✓ Fetched ${legacyFloorPlans.length} legacy floor plans from ${foundTable}`);
+
+  // Get valid project and apartment IDs
+  const validProjectIds = new Set(await knex("projects").pluck("id"));
+  const validApartmentIds = new Set(await knex("apartments").pluck("id"));
+
+  console.log(`✓ Found ${validProjectIds.size} valid projects`);
+  console.log(`✓ Found ${validApartmentIds.size} valid apartments\n`);
+
+  // Filter out invalid floor plans
+  const validFloorPlans = legacyFloorPlans.filter(plan => {
+    const plannableId = plan.appartement_id || plan.projet_id;
+    if (!plannableId) return false;
+    
+    if (plan.appartement_id) {
+      return validApartmentIds.has(plan.appartement_id);
+    } else if (plan.projet_id) {
+      return validProjectIds.has(plan.projet_id);
+    }
+    return false;
+  });
+
+  console.log(`✓ Filtered to ${validFloorPlans.length} valid floor plans\n`);
+
+  if (validFloorPlans.length === 0) {
+    console.log("⊗ No valid floor plans to migrate (all reference non-existent entities)\n");
     return;
   }
 
   // Group by entity to assign display_order
   const plansByEntity = new Map<string, LegacyFloorPlan[]>();
-  legacyFloorPlans.forEach((plan) => {
+  validFloorPlans.forEach((plan) => {
     const key = plan.appartement_id
       ? `apartment-${plan.appartement_id}`
       : `project-${plan.projet_id}`;
@@ -140,7 +192,9 @@ export async function seed(knex: Knex): Promise<void> {
     plansWithOrder,
     ({ plan, order }) => transformFloorPlan(plan, order),
     async (batch) => {
-      await knex("floor_plans").insert(batch);
+      if (batch.length > 0) {
+        await knex("floor_plans").insert(batch);
+      }
     },
     { batchSize: 100, tableName: "floor_plans" }
   );
@@ -157,10 +211,13 @@ export async function seed(knex: Knex): Promise<void> {
   console.log("\n" + "=".repeat(60));
   console.log("Floor Plans Migration Complete");
   console.log("=".repeat(60));
-  console.log(`Total floor plans: ${totalPlans?.count}`);
-  console.log("\nBreakdown by type:");
-  plansByType.forEach((row: any) => {
-    console.log(`  ${row.plannable_type}: ${row.count}`);
-  });
+  console.log(`Total floor plans: ${totalPlans?.count || 0}`);
+  
+  if (plansByType.length > 0) {
+    console.log("\nBreakdown by type:");
+    plansByType.forEach((row: any) => {
+      console.log(`  ${row.plannable_type}: ${row.count}`);
+    });
+  }
   console.log("=".repeat(60) + "\n");
 }

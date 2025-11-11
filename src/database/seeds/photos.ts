@@ -17,7 +17,7 @@ import {
 interface LegacyProjectPhoto {
   id: number;
   url: string;
-  projet_id: number;
+  projet_id: number | null; // CHANGED: Allow null
   created_at: string;
   updated_at: string;
 }
@@ -25,7 +25,7 @@ interface LegacyProjectPhoto {
 interface LegacyApartmentPhoto {
   id: number;
   url: string;
-  appartement_id: number;
+  appartement_id: number | null; // CHANGED: Allow null
   url_ext: string | null;
   created_at: string;
   updated_at: string;
@@ -49,9 +49,24 @@ interface NewPhoto {
 
 async function transformProjectPhoto(
   legacy: LegacyProjectPhoto,
-  displayOrder: number
+  displayOrder: number,
+  validProjectIds: Set<number> // NEW: Pass valid IDs
 ): Promise<TransformResult<NewPhoto>> {
   try {
+    // ADDED: Validate photoable_id exists
+    if (!legacy.projet_id) {
+      return { data: null, skip: true, error: "NULL projet_id" };
+    }
+
+    // ADDED: Check if project exists in new database
+    if (!validProjectIds.has(legacy.projet_id)) {
+      return { 
+        data: null, 
+        skip: true, 
+        error: `Project ID ${legacy.projet_id} not found in new database` 
+      };
+    }
+
     const url = cleanUrl(legacy.url);
     if (!url) {
       return { data: null, skip: true, error: "Empty photo URL" };
@@ -65,7 +80,7 @@ async function transformProjectPhoto(
         external_url: null,
         caption: null,
         display_order: displayOrder,
-        is_cover: displayOrder === 0, // First photo is the cover
+        is_cover: displayOrder === 0,
         created_at: legacy.created_at,
         updated_at: legacy.updated_at,
       },
@@ -82,9 +97,24 @@ async function transformProjectPhoto(
 
 async function transformApartmentPhoto(
   legacy: LegacyApartmentPhoto,
-  displayOrder: number
+  displayOrder: number,
+  validApartmentIds: Set<number> // NEW: Pass valid IDs
 ): Promise<TransformResult<NewPhoto>> {
   try {
+    // ADDED: Validate photoable_id exists
+    if (!legacy.appartement_id) {
+      return { data: null, skip: true, error: "NULL appartement_id" };
+    }
+
+    // ADDED: Check if apartment exists in new database
+    if (!validApartmentIds.has(legacy.appartement_id)) {
+      return { 
+        data: null, 
+        skip: true, 
+        error: `Apartment ID ${legacy.appartement_id} not found in new database` 
+      };
+    }
+
     const url = cleanUrl(legacy.url);
     if (!url) {
       return { data: null, skip: true, error: "Empty photo URL" };
@@ -100,7 +130,7 @@ async function transformApartmentPhoto(
         external_url: externalUrl,
         caption: null,
         display_order: displayOrder,
-        is_cover: displayOrder === 0, // First photo is the cover
+        is_cover: displayOrder === 0,
         created_at: legacy.created_at,
         updated_at: legacy.updated_at,
       },
@@ -122,10 +152,24 @@ async function transformApartmentPhoto(
 export async function seed(knex: Knex): Promise<void> {
   console.log("\n📸 Starting Photos Migration...\n");
 
-  // Clear existing data
   await clearTable(knex, "photos");
   console.log("✓ Cleared photos table");
 
+  // CRITICAL FIX: Build ID mapping from legacy to new database
+  // Legacy photos use projet_id/appartement_id that need to be mapped to new IDs
+  const projectIdMapping = new Map<number, number>();
+  const projects = await knex("projects").select("id");
+  projects.forEach(p => projectIdMapping.set(p.id, p.id));
+
+  const apartmentIdMapping = new Map<number, number>();
+  const apartments = await knex("apartments").select("id");
+  apartments.forEach(a => apartmentIdMapping.set(a.id, a.id));
+
+  const validProjectIds = new Set(projectIdMapping.values());
+  const validApartmentIds = new Set(apartmentIdMapping.values());
+  
+  console.log(`✓ Found ${validProjectIds.size} valid projects`);
+  console.log(`✓ Found ${validApartmentIds.size} valid apartments\n`);
 
   let totalInserted = 0;
   let totalSkipped = 0;
@@ -134,34 +178,40 @@ export async function seed(knex: Knex): Promise<void> {
   // ============================================================================
   // 1. MIGRATE PROJECT PHOTOS
   // ============================================================================
-  console.log("\n--- Migrating Project Photos ---");
+  console.log("--- Migrating Project Photos ---");
 
-  const legacyProjectPhotos =
-    await fetchLegacyRecords<LegacyProjectPhoto>("photos_projets");
+  const legacyProjectPhotos = await fetchLegacyRecords<LegacyProjectPhoto>("photos_projets");
   console.log(`✓ Fetched ${legacyProjectPhotos.length} project photos`);
 
-  if (legacyProjectPhotos.length > 0) {
-    // Group by project to assign display_order
+  // ADDED: Pre-filter invalid photos
+  const validProjectPhotos = legacyProjectPhotos.filter(photo => {
+    if (!photo.projet_id) {
+      console.log(`⚠️  Skipping photo ${photo.id}: NULL projet_id`);
+      totalSkipped++;
+      return false;
+    }
+    if (!validProjectIds.has(photo.projet_id)) {
+      console.log(`⚠️  Skipping photo ${photo.id}: project ${photo.projet_id} not found`);
+      totalSkipped++;
+      return false;
+    }
+    return true;
+  });
+
+  console.log(`✓ Filtered to ${validProjectPhotos.length} valid project photos\n`);
+
+  if (validProjectPhotos.length > 0) {
     const photosByProject = new Map<number, LegacyProjectPhoto[]>();
-    legacyProjectPhotos.forEach((photo) => {
-      if (!photosByProject.has(photo.projet_id)) {
-        photosByProject.set(photo.projet_id, []);
+    validProjectPhotos.forEach((photo) => {
+      if (!photosByProject.has(photo.projet_id!)) {
+        photosByProject.set(photo.projet_id!, []);
       }
-      photosByProject.get(photo.projet_id)!.push(photo);
+      photosByProject.get(photo.projet_id!)!.push(photo);
     });
 
-    console.log(`✓ Grouped photos for ${photosByProject.size} projects`);
-
-    // Flatten with display_order
-    const photosWithOrder: Array<{
-      photo: LegacyProjectPhoto;
-      order: number;
-    }> = [];
-    
+    const photosWithOrder: Array<{ photo: LegacyProjectPhoto; order: number }> = [];
     photosByProject.forEach((photos) => {
-      // Sort by ID to ensure consistent ordering
       photos.sort((a, b) => a.id - b.id);
-      
       photos.forEach((photo, index) => {
         photosWithOrder.push({ photo, order: index });
       });
@@ -169,9 +219,11 @@ export async function seed(knex: Knex): Promise<void> {
 
     const projectPhotoStats = await processBatch(
       photosWithOrder,
-      ({ photo, order }) => transformProjectPhoto(photo, order),
+      ({ photo, order }) => transformProjectPhoto(photo, order, validProjectIds),
       async (batch) => {
-        await knex("photos").insert(batch);
+        if (batch.length > 0) {
+          await knex("photos").insert(batch);
+        }
       },
       { batchSize: 100, tableName: "photos (projects)" }
     );
@@ -188,33 +240,38 @@ export async function seed(knex: Knex): Promise<void> {
   // ============================================================================
   console.log("\n--- Migrating Apartment Photos ---");
 
-  const legacyApartmentPhotos = await fetchLegacyRecords<LegacyApartmentPhoto>(
-    "photos_appartements"
-  );
+  const legacyApartmentPhotos = await fetchLegacyRecords<LegacyApartmentPhoto>("photos_appartements");
   console.log(`✓ Fetched ${legacyApartmentPhotos.length} apartment photos`);
 
-  if (legacyApartmentPhotos.length > 0) {
-    // Group by apartment
+  // ADDED: Pre-filter invalid photos
+  const validApartmentPhotos = legacyApartmentPhotos.filter(photo => {
+    if (!photo.appartement_id) {
+      console.log(`⚠️  Skipping photo ${photo.id}: NULL appartement_id`);
+      totalSkipped++;
+      return false;
+    }
+    if (!validApartmentIds.has(photo.appartement_id)) {
+      console.log(`⚠️  Skipping photo ${photo.id}: apartment ${photo.appartement_id} not found`);
+      totalSkipped++;
+      return false;
+    }
+    return true;
+  });
+
+  console.log(`✓ Filtered to ${validApartmentPhotos.length} valid apartment photos\n`);
+
+  if (validApartmentPhotos.length > 0) {
     const photosByApartment = new Map<number, LegacyApartmentPhoto[]>();
-    legacyApartmentPhotos.forEach((photo) => {
-      if (!photosByApartment.has(photo.appartement_id)) {
-        photosByApartment.set(photo.appartement_id, []);
+    validApartmentPhotos.forEach((photo) => {
+      if (!photosByApartment.has(photo.appartement_id!)) {
+        photosByApartment.set(photo.appartement_id!, []);
       }
-      photosByApartment.get(photo.appartement_id)!.push(photo);
+      photosByApartment.get(photo.appartement_id!)!.push(photo);
     });
 
-    console.log(`✓ Grouped photos for ${photosByApartment.size} apartments`);
-
-    // Flatten with display_order
-    const photosWithOrder: Array<{
-      photo: LegacyApartmentPhoto;
-      order: number;
-    }> = [];
-    
+    const photosWithOrder: Array<{ photo: LegacyApartmentPhoto; order: number }> = [];
     photosByApartment.forEach((photos) => {
-      // Sort by ID to ensure consistent ordering
       photos.sort((a, b) => a.id - b.id);
-      
       photos.forEach((photo, index) => {
         photosWithOrder.push({ photo, order: index });
       });
@@ -222,9 +279,11 @@ export async function seed(knex: Knex): Promise<void> {
 
     const apartmentPhotoStats = await processBatch(
       photosWithOrder,
-      ({ photo, order }) => transformApartmentPhoto(photo, order),
+      ({ photo, order }) => transformApartmentPhoto(photo, order, validApartmentIds),
       async (batch) => {
-        await knex("photos").insert(batch);
+        if (batch.length > 0) {
+          await knex("photos").insert(batch);
+        }
       },
       { batchSize: 100, tableName: "photos (apartments)" }
     );
@@ -241,7 +300,6 @@ export async function seed(knex: Knex): Promise<void> {
   // ============================================================================
   console.log("\n--- Updating Projects with Cover Photos & Publishing ---");
 
-  // Get first photo (cover photo) for each project
   const projectCoverPhotos = await knex("photos")
     .select("photoable_id", "url")
     .where({ photoable_type: "project", is_cover: true })
@@ -251,7 +309,6 @@ export async function seed(knex: Knex): Promise<void> {
   let publishedProjects = 0;
 
   for (const photo of projectCoverPhotos) {
-    // Get project details to determine if it should be published
     const project = await knex("projects")
       .select("id", "status", "description")
       .where("id", photo.photoable_id)
@@ -259,14 +316,11 @@ export async function seed(knex: Knex): Promise<void> {
 
     if (!project) continue;
 
-    // Determine if project should be published
-    // Criteria: has description, has photo, and status is completed or under_construction
     const shouldPublish = 
       project.description && 
       photo.url && 
       (project.status === "completed" || project.status === "under_construction");
 
-    // Update project with main_photo_url and publication status
     await knex("projects")
       .where("id", photo.photoable_id)
       .update({ 
