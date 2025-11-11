@@ -1,8 +1,12 @@
 /**
- * Project Model - FIXED TO MATCH DATABASE SCHEMA
+ * Project Model - Media Handling
  * 
- * Removed fields that don't exist in migration:
- * - metaTitle, metaDescription (commented out in migration)
+ * This model uses polymorphic relationships for media:
+ * - Photos: Handled by PhotoModel (photoable_type = 'project')
+ * - Floor Plans: Handled by FloorPlanModel (plannable_type = 'project')
+ * - Virtual Visits: Stored in apartments.virtual_visit_url field
+ * 
+ * The old project_media table has been deprecated and removed.
  */
 
 import {
