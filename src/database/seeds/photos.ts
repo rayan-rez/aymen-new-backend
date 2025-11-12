@@ -1,4 +1,4 @@
-// src/database/seeds/photos.ts
+// src/database/seeds/photos.ts (UPDATED WITH IMAGE UPLOAD)
 
 import { Knex } from "knex";
 import {
@@ -9,6 +9,12 @@ import {
   clearTable,
   TransformResult,
 } from "../helpers";
+import {
+  initializeUploadDirectories,
+  uploadProjectPhoto,
+  uploadApartmentPhoto,
+  getLegacyImageStats,
+} from "./helpers/image-upload";
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -17,7 +23,7 @@ import {
 interface LegacyProjectPhoto {
   id: number;
   url: string;
-  projet_id: number | null; // CHANGED: Allow null
+  projet_id: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -25,7 +31,7 @@ interface LegacyProjectPhoto {
 interface LegacyApartmentPhoto {
   id: number;
   url: string;
-  appartement_id: number | null; // CHANGED: Allow null
+  appartement_id: number | null;
   url_ext: string | null;
   created_at: string;
   updated_at: string;
@@ -50,37 +56,44 @@ interface NewPhoto {
 async function transformProjectPhoto(
   legacy: LegacyProjectPhoto,
   displayOrder: number,
-  validProjectIds: Set<number> // NEW: Pass valid IDs
+  validProjectIds: Set<number>
 ): Promise<TransformResult<NewPhoto>> {
   try {
-    // ADDED: Validate photoable_id exists
+    // Validate photoable_id exists
     if (!legacy.projet_id) {
       return { data: null, skip: true, error: "NULL projet_id" };
     }
 
-    // ADDED: Check if project exists in new database
+    // Check if project exists in new database
     if (!validProjectIds.has(legacy.projet_id)) {
-      return { 
-        data: null, 
-        skip: true, 
-        error: `Project ID ${legacy.projet_id} not found in new database` 
+      return {
+        data: null,
+        skip: true,
+        error: `Project ID ${legacy.projet_id} not found in new database`,
       };
     }
 
-    const url = cleanUrl(legacy.url);
-    if (!url) {
-      return { data: null, skip: true, error: "Empty photo URL" };
+    // Upload image and get new URL
+    const isCover = displayOrder === 0;
+    const newUrl = await uploadProjectPhoto(legacy.url, isCover);
+
+    if (!newUrl) {
+      return {
+        data: null,
+        skip: true,
+        error: `Failed to upload image: ${legacy.url}`,
+      };
     }
 
     return {
       data: {
         photoable_type: "project",
         photoable_id: legacy.projet_id,
-        url,
+        url: newUrl,
         external_url: null,
         caption: null,
         display_order: displayOrder,
-        is_cover: displayOrder === 0,
+        is_cover: isCover,
         created_at: legacy.created_at,
         updated_at: legacy.updated_at,
       },
@@ -98,35 +111,48 @@ async function transformProjectPhoto(
 async function transformApartmentPhoto(
   legacy: LegacyApartmentPhoto,
   displayOrder: number,
-  validApartmentIds: Set<number> // NEW: Pass valid IDs
+  validApartmentIds: Set<number>
 ): Promise<TransformResult<NewPhoto>> {
   try {
-    // ADDED: Validate photoable_id exists
+    // Validate photoable_id exists
     if (!legacy.appartement_id) {
       return { data: null, skip: true, error: "NULL appartement_id" };
     }
 
-    // ADDED: Check if apartment exists in new database
+    // Check if apartment exists in new database
     if (!validApartmentIds.has(legacy.appartement_id)) {
-      return { 
-        data: null, 
-        skip: true, 
-        error: `Apartment ID ${legacy.appartement_id} not found in new database` 
+      return {
+        data: null,
+        skip: true,
+        error: `Apartment ID ${legacy.appartement_id} not found in new database`,
       };
     }
 
-    const url = cleanUrl(legacy.url);
-    if (!url) {
-      return { data: null, skip: true, error: "Empty photo URL" };
+    // Upload image and get new URL
+    const newUrl = await uploadApartmentPhoto(legacy.url);
+
+    if (!newUrl) {
+      return {
+        data: null,
+        skip: true,
+        error: `Failed to upload image: ${legacy.url}`,
+      };
     }
 
-    const externalUrl = cleanUrl(legacy.url_ext);
+    // Handle external URL if present
+    let externalUrl: string | null = null;
+    if (legacy.url_ext) {
+      const cleanedExt = cleanUrl(legacy.url_ext);
+      if (cleanedExt && cleanedExt.startsWith("http")) {
+        externalUrl = cleanedExt;
+      }
+    }
 
     return {
       data: {
         photoable_type: "apartment",
         photoable_id: legacy.appartement_id,
-        url,
+        url: newUrl,
         external_url: externalUrl,
         caption: null,
         display_order: displayOrder,
@@ -150,24 +176,28 @@ async function transformApartmentPhoto(
 // ============================================================================
 
 export async function seed(knex: Knex): Promise<void> {
-  console.log("\n📸 Starting Photos Migration...\n");
+  console.log("\n📸 Starting Photos Migration with Image Upload...\n");
+
+  // Initialize upload directories
+  console.log("--- Initializing Upload Directories ---");
+  await initializeUploadDirectories();
+  console.log("");
 
   await clearTable(knex, "photos");
   console.log("✓ Cleared photos table");
 
-  // CRITICAL FIX: Build ID mapping from legacy to new database
-  // Legacy photos use projet_id/appartement_id that need to be mapped to new IDs
+  // Build ID sets for validation
   const projectIdMapping = new Map<number, number>();
   const projects = await knex("projects").select("id");
-  projects.forEach(p => projectIdMapping.set(p.id, p.id));
+  projects.forEach((p) => projectIdMapping.set(p.id, p.id));
 
   const apartmentIdMapping = new Map<number, number>();
   const apartments = await knex("apartments").select("id");
-  apartments.forEach(a => apartmentIdMapping.set(a.id, a.id));
+  apartments.forEach((a) => apartmentIdMapping.set(a.id, a.id));
 
   const validProjectIds = new Set(projectIdMapping.values());
   const validApartmentIds = new Set(apartmentIdMapping.values());
-  
+
   console.log(`✓ Found ${validProjectIds.size} valid projects`);
   console.log(`✓ Found ${validApartmentIds.size} valid apartments\n`);
 
@@ -180,27 +210,41 @@ export async function seed(knex: Knex): Promise<void> {
   // ============================================================================
   console.log("--- Migrating Project Photos ---");
 
-  const legacyProjectPhotos = await fetchLegacyRecords<LegacyProjectPhoto>("photos_projets");
+  const legacyProjectPhotos =
+    await fetchLegacyRecords<LegacyProjectPhoto>("photos_projets");
   console.log(`✓ Fetched ${legacyProjectPhotos.length} project photos`);
 
-  // ADDED: Pre-filter invalid photos
-  const validProjectPhotos = legacyProjectPhotos.filter(photo => {
+  // Check image availability
+  const projectPhotoUrls = legacyProjectPhotos.map((p) => p.url);
+  const projectImageStats = await getLegacyImageStats(projectPhotoUrls);
+  console.log(`✓ Legacy images - Found: ${projectImageStats.existing}, Missing: ${projectImageStats.missing}`);
+
+  if (projectImageStats.missing > 0) {
+    console.log(`⚠️  First 5 missing images:`);
+    projectImageStats.missingUrls.slice(0, 5).forEach((url: string) => {
+      console.log(`   - ${url}`);
+    });
+  }
+  console.log("");
+
+  // Filter valid photos
+  const validProjectPhotos = legacyProjectPhotos.filter((photo) => {
     if (!photo.projet_id) {
-      console.log(`⚠️  Skipping photo ${photo.id}: NULL projet_id`);
       totalSkipped++;
       return false;
     }
     if (!validProjectIds.has(photo.projet_id)) {
-      console.log(`⚠️  Skipping photo ${photo.id}: project ${photo.projet_id} not found`);
       totalSkipped++;
       return false;
     }
     return true;
   });
 
-  console.log(`✓ Filtered to ${validProjectPhotos.length} valid project photos\n`);
+  console.log(`✓ Filtered to ${validProjectPhotos.length} valid project photos`);
+  console.log(`📤 Starting image upload and processing...\n`);
 
   if (validProjectPhotos.length > 0) {
+    // Group by project
     const photosByProject = new Map<number, LegacyProjectPhoto[]>();
     validProjectPhotos.forEach((photo) => {
       if (!photosByProject.has(photo.projet_id!)) {
@@ -209,6 +253,7 @@ export async function seed(knex: Knex): Promise<void> {
       photosByProject.get(photo.projet_id!)!.push(photo);
     });
 
+    // Flatten with display order
     const photosWithOrder: Array<{ photo: LegacyProjectPhoto; order: number }> = [];
     photosByProject.forEach((photos) => {
       photos.sort((a, b) => a.id - b.id);
@@ -217,19 +262,21 @@ export async function seed(knex: Knex): Promise<void> {
       });
     });
 
+    // Process with upload
     const projectPhotoStats = await processBatch(
       photosWithOrder,
-      ({ photo, order }) => transformProjectPhoto(photo, order, validProjectIds),
+      ({ photo, order }) =>
+        transformProjectPhoto(photo, order, validProjectIds),
       async (batch) => {
         if (batch.length > 0) {
           await knex("photos").insert(batch);
         }
       },
-      { batchSize: 100, tableName: "photos (projects)" }
+      { batchSize: 50, tableName: "photos (projects)" }
     );
 
     printMigrationStats(projectPhotoStats);
-    
+
     totalInserted += projectPhotoStats.successCount;
     totalSkipped += projectPhotoStats.skippedCount;
     totalErrors += projectPhotoStats.errorCount;
@@ -240,27 +287,41 @@ export async function seed(knex: Knex): Promise<void> {
   // ============================================================================
   console.log("\n--- Migrating Apartment Photos ---");
 
-  const legacyApartmentPhotos = await fetchLegacyRecords<LegacyApartmentPhoto>("photos_appartements");
+  const legacyApartmentPhotos =
+    await fetchLegacyRecords<LegacyApartmentPhoto>("photos_appartements");
   console.log(`✓ Fetched ${legacyApartmentPhotos.length} apartment photos`);
 
-  // ADDED: Pre-filter invalid photos
-  const validApartmentPhotos = legacyApartmentPhotos.filter(photo => {
+  // Check image availability
+  const apartmentPhotoUrls = legacyApartmentPhotos.map((p) => p.url);
+  const apartmentImageStats = await getLegacyImageStats(apartmentPhotoUrls);
+  console.log(`✓ Legacy images - Found: ${apartmentImageStats.existing}, Missing: ${apartmentImageStats.missing}`);
+
+  if (apartmentImageStats.missing > 0) {
+    console.log(`⚠️  First 5 missing images:`);
+    apartmentImageStats.missingUrls.slice(0, 5).forEach((url: string) => {
+      console.log(`   - ${url}`);
+    });
+  }
+  console.log("");
+
+  // Filter valid photos
+  const validApartmentPhotos = legacyApartmentPhotos.filter((photo) => {
     if (!photo.appartement_id) {
-      console.log(`⚠️  Skipping photo ${photo.id}: NULL appartement_id`);
       totalSkipped++;
       return false;
     }
     if (!validApartmentIds.has(photo.appartement_id)) {
-      console.log(`⚠️  Skipping photo ${photo.id}: apartment ${photo.appartement_id} not found`);
       totalSkipped++;
       return false;
     }
     return true;
   });
 
-  console.log(`✓ Filtered to ${validApartmentPhotos.length} valid apartment photos\n`);
+  console.log(`✓ Filtered to ${validApartmentPhotos.length} valid apartment photos`);
+  console.log(`📤 Starting image upload and processing...\n`);
 
   if (validApartmentPhotos.length > 0) {
+    // Group by apartment
     const photosByApartment = new Map<number, LegacyApartmentPhoto[]>();
     validApartmentPhotos.forEach((photo) => {
       if (!photosByApartment.has(photo.appartement_id!)) {
@@ -269,7 +330,11 @@ export async function seed(knex: Knex): Promise<void> {
       photosByApartment.get(photo.appartement_id!)!.push(photo);
     });
 
-    const photosWithOrder: Array<{ photo: LegacyApartmentPhoto; order: number }> = [];
+    // Flatten with display order
+    const photosWithOrder: Array<{
+      photo: LegacyApartmentPhoto;
+      order: number;
+    }> = [];
     photosByApartment.forEach((photos) => {
       photos.sort((a, b) => a.id - b.id);
       photos.forEach((photo, index) => {
@@ -277,19 +342,21 @@ export async function seed(knex: Knex): Promise<void> {
       });
     });
 
+    // Process with upload
     const apartmentPhotoStats = await processBatch(
       photosWithOrder,
-      ({ photo, order }) => transformApartmentPhoto(photo, order, validApartmentIds),
+      ({ photo, order }) =>
+        transformApartmentPhoto(photo, order, validApartmentIds),
       async (batch) => {
         if (batch.length > 0) {
           await knex("photos").insert(batch);
         }
       },
-      { batchSize: 100, tableName: "photos (apartments)" }
+      { batchSize: 50, tableName: "photos (apartments)" }
     );
 
     printMigrationStats(apartmentPhotoStats);
-    
+
     totalInserted += apartmentPhotoStats.successCount;
     totalSkipped += apartmentPhotoStats.skippedCount;
     totalErrors += apartmentPhotoStats.errorCount;
@@ -316,16 +383,17 @@ export async function seed(knex: Knex): Promise<void> {
 
     if (!project) continue;
 
-    const shouldPublish = 
-      project.description && 
-      photo.url && 
-      (project.status === "completed" || project.status === "under_construction");
+    const shouldPublish =
+      project.description &&
+      photo.url &&
+      (project.status === "completed" ||
+        project.status === "under_construction");
 
     await knex("projects")
       .where("id", photo.photoable_id)
-      .update({ 
+      .update({
         main_photo_url: photo.url,
-        is_published: shouldPublish
+        is_published: shouldPublish,
       });
 
     updatedProjects++;
@@ -333,7 +401,9 @@ export async function seed(knex: Knex): Promise<void> {
   }
 
   console.log(`✓ Updated main_photo_url for ${updatedProjects} projects`);
-  console.log(`✓ Published ${publishedProjects} projects (with photos + description)`);
+  console.log(
+    `✓ Published ${publishedProjects} projects (with photos + description)`
+  );
 
   // ============================================================================
   // FINAL VERIFICATION
@@ -371,6 +441,8 @@ export async function seed(knex: Knex): Promise<void> {
   });
   console.log("\nProject Publication Status:");
   console.log(`  Published: ${publishedCount?.count || 0}`);
-  console.log(`  Unpublished: ${unpublishedCount?.count || 0} (no photos or description)`);
+  console.log(
+    `  Unpublished: ${unpublishedCount?.count || 0} (no photos or description)`
+  );
   console.log("=".repeat(70) + "\n");
 }

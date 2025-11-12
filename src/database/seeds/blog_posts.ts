@@ -1,17 +1,22 @@
-// src/database/seeds/blog_posts.ts
+// src/database/seeds/blog_posts.ts (UPDATED WITH IMAGE UPLOAD)
 
 import { Knex } from "knex";
 import {
   fetchLegacyRecords,
   generateSlug,
   sanitizeString,
-  cleanUrl,
   parseDate,
   processBatch,
   printMigrationStats,
   clearTable,
   TransformResult,
 } from "../helpers";
+import {
+  initializeUploadDirectories,
+  uploadBlogFeaturedImage,
+  uploadBlogSectionImage,
+  getLegacyImageStats,
+} from "./helpers/image-upload";
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -49,12 +54,10 @@ interface NewBlogPost {
   excerpt: string | null;
   content: string;
   featured_image_url: string | null;
-  // REMOVED: reading_time_minutes (column doesn't exist)
-  tags: string | null; // JSON
+  tags: string | null;
   is_published: boolean;
   is_featured: boolean;
   published_at: string | null;
-  // REMOVED: view_count (column doesn't exist)
   created_at: string;
   updated_at: string;
 }
@@ -73,10 +76,9 @@ interface BlogSection {
 
 /**
  * Format date for MySQL DATETIME columns
- * Converts Date to "YYYY-MM-DD HH:MM:SS" format
  */
 function formatMySQLDateTime(date: Date): string {
-  return date.toISOString().slice(0, 19).replace('T', ' ');
+  return date.toISOString().slice(0, 19).replace("T", " ");
 }
 
 /**
@@ -84,9 +86,7 @@ function formatMySQLDateTime(date: Date): string {
  */
 function extractExcerpt(content: string): string {
   const cleaned = content.replace(/<[^>]*>/g, "").trim();
-  return cleaned.length > 160
-    ? cleaned.substring(0, 157) + "..."
-    : cleaned;
+  return cleaned.length > 160 ? cleaned.substring(0, 157) + "..." : cleaned;
 }
 
 // ============================================================================
@@ -96,9 +96,7 @@ function extractExcerpt(content: string): string {
 async function transformBlogPost(
   legacy: LegacyBlogPost,
   existingSlugs: Set<string>
-): Promise<
-  TransformResult<{ post: NewBlogPost; sections: BlogSection[] }>
-> {
+): Promise<TransformResult<{ post: NewBlogPost; sections: BlogSection[] }>> {
   try {
     // Clean title
     const title = sanitizeString(legacy.titre);
@@ -131,10 +129,17 @@ async function transformBlogPost(
     // Parse publication date
     const publishedAt = parseDate(legacy.date_publication);
     const isPublished = !!publishedAt;
-    const isFeatured = false; // Could add logic to determine featured posts
+    const isFeatured = false;
 
-    // Clean image URL
-    const featuredImageUrl = cleanUrl(legacy.photo_principale_path);
+    // Upload featured image
+    console.log(`  📤 Uploading featured image for: ${title.substring(0, 40)}...`);
+    const featuredImageUrl = await uploadBlogFeaturedImage(
+      legacy.photo_principale_path
+    );
+
+    if (!featuredImageUrl && legacy.photo_principale_path) {
+      console.log(`  ⚠️  Failed to upload featured image: ${legacy.photo_principale_path}`);
+    }
 
     // Create blog post
     const post: NewBlogPost = {
@@ -146,28 +151,28 @@ async function transformBlogPost(
       excerpt,
       content,
       featured_image_url: featuredImageUrl,
-      // REMOVED: reading_time_minutes
       tags: null,
       is_published: isPublished,
       is_featured: isFeatured,
       published_at: publishedAt ? formatMySQLDateTime(publishedAt) : null,
-      // REMOVED: view_count
       created_at: formatMySQLDateTime(new Date()),
       updated_at: formatMySQLDateTime(new Date()),
     };
 
-    // Create sections
+    // Create sections with image upload
     const sections: BlogSection[] = [];
 
     // Section 1
     if (legacy.contenu1) {
       const sectionContent = sanitizeString(legacy.contenu1);
       if (sectionContent) {
+        const sectionImageUrl = await uploadBlogSectionImage(legacy.photo1);
+
         sections.push({
           blog_post_id: legacy.id,
           section_title: sanitizeString(legacy.titre1 as string),
           section_content: sectionContent,
-          section_image_url: cleanUrl(legacy.photo1),
+          section_image_url: sectionImageUrl,
           display_order: 0,
         });
       }
@@ -177,11 +182,13 @@ async function transformBlogPost(
     if (legacy.contenu2) {
       const sectionContent = sanitizeString(legacy.contenu2);
       if (sectionContent) {
+        const sectionImageUrl = await uploadBlogSectionImage(legacy.photo2);
+
         sections.push({
           blog_post_id: legacy.id,
           section_title: sanitizeString(legacy.titre2 as string),
           section_content: sectionContent,
-          section_image_url: cleanUrl(legacy.photo2),
+          section_image_url: sectionImageUrl,
           display_order: 1,
         });
       }
@@ -191,11 +198,13 @@ async function transformBlogPost(
     if (legacy.contenu3) {
       const sectionContent = sanitizeString(legacy.contenu3);
       if (sectionContent) {
+        const sectionImageUrl = await uploadBlogSectionImage(legacy.photo3);
+
         sections.push({
           blog_post_id: legacy.id,
           section_title: sanitizeString(legacy.titre3 as string),
           section_content: sectionContent,
-          section_image_url: cleanUrl(legacy.photo3),
+          section_image_url: sectionImageUrl,
           display_order: 2,
         });
       }
@@ -205,11 +214,13 @@ async function transformBlogPost(
     if (legacy.contenu4) {
       const sectionContent = sanitizeString(legacy.contenu4);
       if (sectionContent) {
+        const sectionImageUrl = await uploadBlogSectionImage(legacy.photo4);
+
         sections.push({
           blog_post_id: legacy.id,
           section_title: sanitizeString(legacy.titre4 as string),
           section_content: sectionContent,
-          section_image_url: cleanUrl(legacy.photo4),
+          section_image_url: sectionImageUrl,
           display_order: 3,
         });
       }
@@ -233,7 +244,12 @@ async function transformBlogPost(
 // ============================================================================
 
 export async function seed(knex: Knex): Promise<void> {
-  console.log("\n📝 Starting Blog Posts Migration...\n");
+  console.log("\n📝 Starting Blog Posts Migration with Image Upload...\n");
+
+  // Initialize upload directories
+  console.log("--- Initializing Upload Directories ---");
+  await initializeUploadDirectories();
+  console.log("");
 
   // Clear existing data
   await clearTable(knex, "blog_post_sections");
@@ -242,12 +258,36 @@ export async function seed(knex: Knex): Promise<void> {
 
   // Fetch legacy blog posts
   const legacyPosts = await fetchLegacyRecords<LegacyBlogPost>("blog");
-  console.log(`✓ Fetched ${legacyPosts.length} legacy blog posts\n`);
+  console.log(`✓ Fetched ${legacyPosts.length} legacy blog posts`);
 
   if (legacyPosts.length === 0) {
     console.log("⊗ No legacy blog posts found, skipping migration\n");
     return;
   }
+
+  // Check image availability
+  const featuredImages = legacyPosts.map((p) => p.photo_principale_path).filter(Boolean);
+  const sectionImages = legacyPosts.flatMap((p) => [
+    p.photo1,
+    p.photo2,
+    p.photo3,
+    p.photo4,
+  ]).filter(Boolean);
+
+  const allImages = [...featuredImages, ...sectionImages];
+  const imageStats = await getLegacyImageStats(allImages);
+
+  console.log(`✓ Legacy images - Found: ${imageStats.existing}, Missing: ${imageStats.missing}`);
+
+  if (imageStats.missing > 0) {
+    console.log(`⚠️  First 5 missing images:`);
+    imageStats.missingUrls.slice(0, 5).forEach((url: string) => {
+      console.log(`   - ${url}`);
+    });
+  }
+  console.log("");
+
+  console.log("📤 Starting blog post processing and image upload...\n");
 
   // Process blog posts
   const existingSlugs = new Set<string>();
@@ -266,7 +306,7 @@ export async function seed(knex: Knex): Promise<void> {
         allSections.push(...item.sections);
       });
     },
-    { batchSize: 20, tableName: "blog_posts" }
+    { batchSize: 10, tableName: "blog_posts" }
   );
 
   // Print blog post statistics
@@ -284,10 +324,22 @@ export async function seed(knex: Knex): Promise<void> {
     .count("* as count")
     .first();
 
+  const postsWithImages = await knex("blog_posts")
+    .whereNotNull("featured_image_url")
+    .count("* as count")
+    .first();
+
+  const sectionsWithImages = await knex("blog_post_sections")
+    .whereNotNull("section_image_url")
+    .count("* as count")
+    .first();
+
   console.log("\n" + "=".repeat(60));
-  console.log("Blog Migration Complete");
+  console.log("📝 Blog Migration Complete");
   console.log("=".repeat(60));
   console.log(`Total blog posts: ${totalPosts?.count}`);
+  console.log(`Posts with featured images: ${postsWithImages?.count}`);
   console.log(`Total sections: ${totalSections?.count}`);
+  console.log(`Sections with images: ${sectionsWithImages?.count}`);
   console.log("=".repeat(60) + "\n");
 }

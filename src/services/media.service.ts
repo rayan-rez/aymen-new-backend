@@ -14,7 +14,7 @@
  * - Cover photo management
  * - Media validation for publishing
  * 
- * @module services/media-management.service
+ * @module services/media.service
  */
 
 import PhotoModel, {
@@ -32,10 +32,8 @@ import FloorPlanModel, {
 import UploadService, {
   FileType,
   ImageProcessingOptions,
-  UploadConfig,
   UploadResult,
 } from "./upload.service";
-import db from "@/config/database";
 import { Knex } from "knex";
 
 // ============================================================================
@@ -132,8 +130,98 @@ export class MediaManagementService {
   }
 
   // ==========================================================================
-  // PHOTO MANAGEMENT - CREATE
+  // PHOTO MANAGEMENT - CREATE (WITH MULTER SUPPORT)
   // ==========================================================================
+
+  /**
+   * Uploads a Multer file as a photo
+   * 
+   * Direct method for handling Multer uploaded files
+   * 
+   * @param file - Multer file from req.file
+   * @param entityType - Type of entity (project, apartment, etc.)
+   * @param entityId - Entity ID
+   * @param photoData - Additional photo data (caption, order, cover)
+   * @param imageOptions - Image processing options
+   * @param trx - Optional transaction
+   * @returns Promise<MediaCreationResult>
+   * 
+   * @example
+   * // In Express controller with Multer
+   * router.post('/projects/:id/photos', uploadSingleImage(), async (req, res) => {
+   *   const result = await MediaService.uploadPhotoFromMulter(
+   *     req.file,
+   *     PhotoableType.PROJECT,
+   *     req.params.id,
+   *     { caption: req.body.caption, isCover: req.body.isCover },
+   *     { width: 1920, quality: 85 }
+   *   );
+   *   res.json(result);
+   * });
+   */
+  async uploadPhotoFromMulter(
+    file: any, // MulterFile type
+    entityType: PhotoableType,
+    entityId: number,
+    photoData: {
+      caption?: string;
+      displayOrder?: number;
+      isCover?: boolean;
+    } = {},
+    imageOptions: ImageProcessingOptions = {},
+    trx?: Knex.Transaction
+  ): Promise<MediaCreationResult> {
+    return this.uploadPhoto(
+      entityType,
+      entityId,
+      {
+        buffer: file.buffer,
+        originalFilename: file.originalname,
+        mimeType: file.mimetype,
+        ...photoData,
+      },
+      imageOptions,
+      trx
+    );
+  }
+
+  /**
+   * Uploads multiple Multer files as photos
+   * 
+   * @param files - Array of Multer files from req.files
+   * @param entityType - Type of entity
+   * @param entityId - Entity ID
+   * @param imageOptions - Image processing options
+   * @param trx - Optional transaction
+   * @returns Promise<BatchMediaResult>
+   * 
+   * @example
+   * router.post('/projects/:id/photos', uploadMultipleImages(), async (req, res) => {
+   *   const result = await MediaService.uploadPhotosFromMulter(
+   *     req.files,
+   *     PhotoableType.PROJECT,
+   *     req.params.id,
+   *     { width: 1920, quality: 85 }
+   *   );
+   *   res.json(result);
+   * });
+   */
+  async uploadPhotosFromMulter(
+    files: any[], // MulterFile[] type
+    entityType: PhotoableType,
+    entityId: number,
+    imageOptions: ImageProcessingOptions = {},
+    trx?: Knex.Transaction
+  ): Promise<BatchMediaResult> {
+    const inputs: MediaUploadInput[] = files.map((file, index) => ({
+      buffer: file.buffer,
+      originalFilename: file.originalname,
+      mimeType: file.mimetype,
+      displayOrder: index,
+    }));
+
+    return this.uploadMultiplePhotos(entityType, entityId, inputs, imageOptions, trx);
+  }
 
   /**
    * Uploads and creates a photo for an entity
@@ -405,8 +493,65 @@ export class MediaManagementService {
   }
 
   // ==========================================================================
-  // FLOOR PLAN MANAGEMENT - CREATE
+  // FLOOR PLAN MANAGEMENT - CREATE (WITH MULTER SUPPORT)
   // ==========================================================================
+
+  /**
+   * Uploads floor plan from Multer files
+   * 
+   * Handles both image and optional PDF from Multer fields
+   * 
+   * @param imageFile - Multer image file
+   * @param pdfFile - Optional Multer PDF file
+   * @param entityType - Plannable type
+   * @param entityId - Entity ID
+   * @param planData - Floor plan data (name, order)
+   * @param trx - Optional transaction
+   * @returns Promise<MediaCreationResult>
+   * 
+   * @example
+   * // In Express with uploadFloorPlan() middleware
+   * router.post('/apartments/:id/floor-plans', uploadFloorPlan(), async (req, res) => {
+   *   const files = req.files as { image?: MulterFile[], pdf?: MulterFile[] };
+   *   
+   *   const result = await MediaService.uploadFloorPlanFromMulter(
+   *     files.image[0],
+   *     files.pdf?.[0],
+   *     PlannableType.APARTMENT,
+   *     req.params.id,
+   *     { name: req.body.name }
+   *   );
+   *   
+   *   res.json(result);
+   * });
+   */
+  async uploadFloorPlanFromMulter(
+    imageFile: any, // MulterFile type
+    pdfFile: any | undefined, // MulterFile type
+    entityType: PlannableType,
+    entityId: number,
+    planData: {
+      name: string;
+      displayOrder?: number;
+    },
+    trx?: Knex.Transaction
+  ): Promise<MediaCreationResult> {
+    return this.uploadFloorPlan(
+      entityType,
+      entityId,
+      {
+        imageBuffer: imageFile.buffer,
+        imageFilename: imageFile.originalname,
+        imageMimeType: imageFile.mimetype,
+        pdfBuffer: pdfFile?.buffer,
+        pdfFilename: pdfFile?.originalname,
+        pdfMimeType: pdfFile?.mimetype,
+        name: planData.name,
+        displayOrder: planData.displayOrder,
+      },
+      trx
+    );
+  }
 
   /**
    * Uploads and creates a floor plan
