@@ -1,185 +1,614 @@
 /**
- * Media Service
- * Provides utility functions for working with polymorphic media (photos, floor plans)
- * Includes transaction safety, validation, and cascade operations
- *
- * @module services/media.service
+ * Media Management Service
+ * 
+ * High-level service for managing polymorphic media (photos, floor plans)
+ * with integrated upload handling, database operations, and file cleanup.
+ * 
+ * Features:
+ * - Polymorphic photo management
+ * - Floor plan handling
+ * - Automatic file upload and database sync
+ * - Transaction-safe operations
+ * - Cascade delete with file cleanup
+ * - Batch operations
+ * - Cover photo management
+ * - Media validation for publishing
+ * 
+ * @module services/media-management.service
  */
 
 import PhotoModel, {
   PhotoableType,
   Photo,
   CreatePhotoDto,
+  UpdatePhotoDto,
 } from "@models/photo.model";
 import FloorPlanModel, {
   PlannableType,
   FloorPlan,
   CreateFloorPlanDto,
+  UpdateFloorPlanDto,
 } from "@models/floor-plan.model";
+import UploadService, {
+  FileType,
+  ImageProcessingOptions,
+  UploadConfig,
+  UploadResult,
+} from "./upload.service";
 import db from "@/config/database";
 import { Knex } from "knex";
 
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
+
 /**
- * Media counts interface
+ * File upload input for media creation
  */
-export interface MediaCounts {
+export interface MediaUploadInput {
+  buffer: Buffer;
+  originalFilename: string;
+  mimeType: string;
+  caption?: string;
+  displayOrder?: number;
+  isCover?: boolean;
+}
+
+/**
+ * Floor plan upload input
+ */
+export interface FloorPlanUploadInput {
+  imageBuffer: Buffer;
+  imageFilename: string;
+  imageMimeType: string;
+  pdfBuffer?: Buffer;
+  pdfFilename?: string;
+  pdfMimeType?: string;
+  name: string;
+  displayOrder?: number;
+}
+
+/**
+ * Media creation result
+ */
+export interface MediaCreationResult {
+  photo?: Photo;
+  floorPlan?: FloorPlan;
+  uploadResult: UploadResult;
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Batch media creation result
+ */
+export interface BatchMediaResult {
+  successful: MediaCreationResult[];
+  failed: MediaCreationResult[];
+  totalProcessed: number;
+  successCount: number;
+  failureCount: number;
+}
+
+/**
+ * Media counts by entity
+ */
+export interface EntityMediaCounts {
   photoCount: number;
   floorPlanCount?: number;
+  coverPhotoExists: boolean;
 }
 
 /**
- * Entity media interface
+ * Media validation requirements
  */
-export interface EntityMedia {
-  photos: Photo[];
-  floorPlans?: FloorPlan[];
+export interface MediaValidationRequirements {
+  minPhotos?: number;
+  maxPhotos?: number;
+  requireCoverPhoto?: boolean;
+  minFloorPlans?: number;
+  maxFloorPlans?: number;
 }
 
 /**
- * Media Service Class
- * Centralizes common media operations across different entity types
+ * Media validation result
  */
-export class MediaService {
-  // ============================================================================
-  // TYPE GUARDS & VALIDATION
-  // ============================================================================
+export interface MediaValidationResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+  counts: EntityMediaCounts;
+}
 
-  /**
-   * Type guard for PhotoableType
-   */
-  static isValidPhotoableType(type: string): type is PhotoableType {
-    return Object.values(PhotoableType).includes(type as PhotoableType);
+// ============================================================================
+// MEDIA MANAGEMENT SERVICE CLASS
+// ============================================================================
+
+export class MediaManagementService {
+  private uploadService: typeof UploadService;
+
+  constructor() {
+    this.uploadService = UploadService;
   }
 
-  /**
-   * Type guard for PlannableType
-   */
-  static isValidPlannableType(type: string): type is PlannableType {
-    return Object.values(PlannableType).includes(type as PlannableType);
-  }
+  // ==========================================================================
+  // PHOTO MANAGEMENT - CREATE
+  // ==========================================================================
 
   /**
-   * Maps PhotoableType to PlannableType
+   * Uploads and creates a photo for an entity
+   * 
+   * Handles the complete flow: file upload → database record creation
+   * 
+   * @param entityType - Type of entity (project, apartment, etc.)
+   * @param entityId - Entity ID
+   * @param input - Upload input with file data
+   * @param imageOptions - Image processing options
+   * @param trx - Optional transaction
+   * @returns Promise<MediaCreationResult>
+   * 
+   * @example
+   * // Upload project photo with thumbnail
+   * const result = await mediaService.uploadPhoto(
+   *   PhotoableType.PROJECT,
+   *   projectId,
+   *   {
+   *     buffer: fileBuffer,
+   *     originalFilename: "exterior.jpg",
+   *     mimeType: "image/jpeg",
+   *     caption: "Main entrance",
+   *     isCover: true
+   *   },
+   *   {
+   *     width: 1920,
+   *     quality: 85,
+   *     generateThumbnail: true
+   *   }
+   * );
    */
-  private static mapToPlannableType(
-    photoableType: PhotoableType
-  ): PlannableType | null {
-    switch (photoableType) {
-      case PhotoableType.PROJECT:
-        return PlannableType.PROJECT;
-      case PhotoableType.APARTMENT:
-        return PlannableType.APARTMENT;
-      default:
-        return null; // Commercial properties, blog posts, events don't have floor plans
-    }
-  }
-
-  // ============================================================================
-  // RETRIEVE MEDIA
-  // ============================================================================
-
-  /**
-   * Gets all media for a project
-   */
-  static async getProjectMedia(
-    projectId: number,
+  async uploadPhoto(
+    entityType: PhotoableType,
+    entityId: number,
+    input: MediaUploadInput,
+    imageOptions: ImageProcessingOptions = {},
     trx?: Knex.Transaction
-  ): Promise<EntityMedia> {
+  ): Promise<MediaCreationResult> {
     try {
-      const [photos, floorPlans] = await Promise.all([
-        PhotoModel.getForEntity(PhotoableType.PROJECT, projectId, {}, trx),
-        FloorPlanModel.getForEntity(PlannableType.PROJECT, projectId, {}, trx),
-      ]);
+      // Upload file
+      const uploadResult = await this.uploadService.upload(
+        input.buffer,
+        input.originalFilename,
+        input.mimeType,
+        {},
+        {
+          ...imageOptions,
+          generateThumbnail: true, // Always generate thumbnails
+        }
+      );
 
-      return { photos, floorPlans };
+      // Create photo record
+      const photoData: CreatePhotoDto = {
+        photoableType: entityType,
+        photoableId: entityId,
+        url: uploadResult.url,
+        caption: input.caption,
+        displayOrder: input.displayOrder,
+        isCover: input.isCover || false,
+      };
+
+      const photo = await PhotoModel.create(photoData, trx);
+
+      return {
+        photo,
+        uploadResult,
+        success: true,
+      };
     } catch (error) {
-      console.error(`Error getting media for project ${projectId}:`, error);
-      throw new Error(`Failed to retrieve media for project ${projectId}`);
+      console.error("Failed to upload photo:", error);
+      return {
+        uploadResult: {} as UploadResult,
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
     }
   }
 
   /**
-   * Gets all media for an apartment
+   * Uploads multiple photos for an entity
+   * 
+   * @param entityType - Type of entity
+   * @param entityId - Entity ID
+   * @param inputs - Array of upload inputs
+   * @param imageOptions - Image processing options
+   * @param trx - Optional transaction
+   * @returns Promise<BatchMediaResult>
    */
-  static async getApartmentMedia(
-    apartmentId: number,
+  async uploadMultiplePhotos(
+    entityType: PhotoableType,
+    entityId: number,
+    inputs: MediaUploadInput[],
+    imageOptions: ImageProcessingOptions = {},
     trx?: Knex.Transaction
-  ): Promise<EntityMedia> {
+  ): Promise<BatchMediaResult> {
+    const successful: MediaCreationResult[] = [];
+    const failed: MediaCreationResult[] = [];
+
+    for (const input of inputs) {
+      const result = await this.uploadPhoto(
+        entityType,
+        entityId,
+        input,
+        imageOptions,
+        trx
+      );
+
+      if (result.success) {
+        successful.push(result);
+      } else {
+        failed.push(result);
+      }
+    }
+
+    return {
+      successful,
+      failed,
+      totalProcessed: inputs.length,
+      successCount: successful.length,
+      failureCount: failed.length,
+    };
+  }
+
+  // ==========================================================================
+  // PHOTO MANAGEMENT - UPDATE
+  // ==========================================================================
+
+  /**
+   * Updates photo metadata
+   */
+  async updatePhoto(
+    photoId: number,
+    updates: UpdatePhotoDto,
+    trx?: Knex.Transaction
+  ): Promise<Photo | null> {
+    return PhotoModel.update(photoId, updates, trx);
+  }
+
+  /**
+   * Replaces a photo (deletes old file, uploads new one)
+   */
+  async replacePhoto(
+    photoId: number,
+    input: MediaUploadInput,
+    imageOptions: ImageProcessingOptions = {},
+    trx?: Knex.Transaction
+  ): Promise<MediaCreationResult> {
     try {
-      const [photos, floorPlans] = await Promise.all([
-        PhotoModel.getForEntity(PhotoableType.APARTMENT, apartmentId, {}, trx),
-        FloorPlanModel.getForEntity(
-          PlannableType.APARTMENT,
-          apartmentId,
-          {},
-          trx
-        ),
-      ]);
+      // Get existing photo
+      const existingPhoto = await PhotoModel.findById(photoId, {}, trx);
+      if (!existingPhoto) {
+        throw new Error("Photo not found");
+      }
 
-      return { photos, floorPlans };
+      // Upload new file
+      const uploadResult = await this.uploadService.upload(
+        input.buffer,
+        input.originalFilename,
+        input.mimeType,
+        {},
+        {
+          ...imageOptions,
+          generateThumbnail: true,
+        }
+      );
+
+      // Update photo record
+      const updated = await PhotoModel.update(
+        photoId,
+        {
+          url: uploadResult.url,
+          caption: input.caption || existingPhoto.caption,
+        },
+        trx
+      );
+
+      // Delete old file
+      const oldFilename = this.extractFilenameFromUrl(existingPhoto.url);
+      if (oldFilename) {
+        await this.uploadService.delete(oldFilename, FileType.IMAGE);
+      }
+
+      return {
+        photo: updated || undefined,
+        uploadResult,
+        success: true,
+      };
     } catch (error) {
-      console.error(`Error getting media for apartment ${apartmentId}:`, error);
-      throw new Error(`Failed to retrieve media for apartment ${apartmentId}`);
+      return {
+        uploadResult: {} as UploadResult,
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
     }
   }
 
   /**
-   * Gets all photos for a commercial property
+   * Sets a photo as cover photo
    */
-  static async getCommercialPropertyPhotos(
-    propertyId: number,
+  async setCoverPhoto(
+    photoId: number,
     trx?: Knex.Transaction
-  ): Promise<Photo[]> {
-    return PhotoModel.getForEntity(
-      PhotoableType.COMMERCIAL_PROPERTY,
-      propertyId,
-      {},
-      trx
-    );
+  ): Promise<Photo | null> {
+    return PhotoModel.setCover(photoId, trx);
+  }
+
+  // ==========================================================================
+  // PHOTO MANAGEMENT - DELETE
+  // ==========================================================================
+
+  /**
+   * Deletes a photo and its files
+   */
+  async deletePhoto(
+    photoId: number,
+    deleteFiles: boolean = true,
+    trx?: Knex.Transaction
+  ): Promise<boolean> {
+    try {
+      const photo = await PhotoModel.findById(photoId, {}, trx);
+      if (!photo) {
+        return false;
+      }
+
+      // Delete from database
+      const deleted = await PhotoModel.forceDelete(photoId, trx);
+
+      // Delete files if requested
+      if (deleted && deleteFiles) {
+        const filename = this.extractFilenameFromUrl(photo.url);
+        if (filename) {
+          await this.uploadService.delete(filename, FileType.IMAGE);
+        }
+      }
+
+      return deleted;
+    } catch (error) {
+      console.error(`Failed to delete photo ${photoId}:`, error);
+      return false;
+    }
   }
 
   /**
-   * Gets all photos for a blog post
+   * Deletes all photos for an entity
    */
-  static async getBlogPostPhotos(
-    blogPostId: number,
+  async deleteEntityPhotos(
+    entityType: PhotoableType,
+    entityId: number,
+    deleteFiles: boolean = true,
     trx?: Knex.Transaction
-  ): Promise<Photo[]> {
-    return PhotoModel.getForEntity(
-      PhotoableType.BLOG_POST,
-      blogPostId,
-      {},
-      trx
-    );
+  ): Promise<number> {
+    try {
+      // Get all photos
+      const photos = await PhotoModel.getForEntity(entityType, entityId, {}, trx);
+
+      let deletedCount = 0;
+
+      for (const photo of photos) {
+        const deleted = await this.deletePhoto(photo.id, deleteFiles, trx);
+        if (deleted) deletedCount++;
+      }
+
+      return deletedCount;
+    } catch (error) {
+      console.error("Failed to delete entity photos:", error);
+      return 0;
+    }
+  }
+
+  // ==========================================================================
+  // FLOOR PLAN MANAGEMENT - CREATE
+  // ==========================================================================
+
+  /**
+   * Uploads and creates a floor plan
+   * 
+   * Handles both image and optional PDF upload
+   */
+  async uploadFloorPlan(
+    entityType: PlannableType,
+    entityId: number,
+    input: FloorPlanUploadInput,
+    trx?: Knex.Transaction
+  ): Promise<MediaCreationResult> {
+    try {
+      // Upload image
+      const imageResult = await this.uploadService.upload(
+        input.imageBuffer,
+        input.imageFilename,
+        input.imageMimeType,
+        {},
+        {
+          width: 2000, // Max width for floor plans
+          quality: 90, // High quality for technical drawings
+          format: "webp",
+        }
+      );
+
+      // Upload PDF if provided
+      let pdfUrl: string | undefined;
+      if (input.pdfBuffer && input.pdfFilename && input.pdfMimeType) {
+        const pdfResult = await this.uploadService.upload(
+          input.pdfBuffer,
+          input.pdfFilename,
+          input.pdfMimeType,
+          {
+            allowedMimeTypes: ["application/pdf"],
+          }
+        );
+        pdfUrl = pdfResult.url;
+      }
+
+      // Create floor plan record
+      const floorPlanData: CreateFloorPlanDto = {
+        plannableType: entityType,
+        plannableId: entityId,
+        name: input.name,
+        imageUrl: imageResult.url,
+        pdfUrl: pdfUrl || null,
+        displayOrder: input.displayOrder,
+      };
+
+      const floorPlan = await FloorPlanModel.create(floorPlanData, trx);
+
+      return {
+        floorPlan,
+        uploadResult: imageResult,
+        success: true,
+      };
+    } catch (error) {
+      console.error("Failed to upload floor plan:", error);
+      return {
+        uploadResult: {} as UploadResult,
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
   }
 
   /**
-   * Gets all photos for an event
+   * Uploads multiple floor plans
    */
-  static async getEventPhotos(
-    eventId: number,
+  async uploadMultipleFloorPlans(
+    entityType: PlannableType,
+    entityId: number,
+    inputs: FloorPlanUploadInput[],
     trx?: Knex.Transaction
-  ): Promise<Photo[]> {
-    return PhotoModel.getForEntity(PhotoableType.EVENT, eventId, {}, trx);
+  ): Promise<BatchMediaResult> {
+    const successful: MediaCreationResult[] = [];
+    const failed: MediaCreationResult[] = [];
+
+    for (const input of inputs) {
+      const result = await this.uploadFloorPlan(entityType, entityId, input, trx);
+
+      if (result.success) {
+        successful.push(result);
+      } else {
+        failed.push(result);
+      }
+    }
+
+    return {
+      successful,
+      failed,
+      totalProcessed: inputs.length,
+      successCount: successful.length,
+      failureCount: failed.length,
+    };
+  }
+
+  // ==========================================================================
+  // FLOOR PLAN MANAGEMENT - UPDATE & DELETE
+  // ==========================================================================
+
+  /**
+   * Updates floor plan metadata
+   */
+  async updateFloorPlan(
+    floorPlanId: number,
+    updates: UpdateFloorPlanDto,
+    trx?: Knex.Transaction
+  ): Promise<FloorPlan | null> {
+    return FloorPlanModel.update(floorPlanId, updates, trx);
   }
 
   /**
-   * Gets media for any entity type with validation
+   * Deletes a floor plan and its files
    */
-  static async getEntityMedia(
-    entityType: string,
+  async deleteFloorPlan(
+    floorPlanId: number,
+    deleteFiles: boolean = true,
+    trx?: Knex.Transaction
+  ): Promise<boolean> {
+    try {
+      const floorPlan = await FloorPlanModel.findById(floorPlanId, {}, trx);
+      if (!floorPlan) {
+        return false;
+      }
+
+      // Delete from database
+      const deleted = await FloorPlanModel.forceDelete(floorPlanId, trx);
+
+      // Delete files if requested
+      if (deleted && deleteFiles) {
+        // Delete image
+        const imageFilename = this.extractFilenameFromUrl(floorPlan.imageUrl);
+        if (imageFilename) {
+          await this.uploadService.delete(imageFilename, FileType.IMAGE);
+        }
+
+        // Delete PDF if exists
+        if (floorPlan.pdfUrl) {
+          const pdfFilename = this.extractFilenameFromUrl(floorPlan.pdfUrl);
+          if (pdfFilename) {
+            await this.uploadService.delete(pdfFilename, FileType.DOCUMENT);
+          }
+        }
+      }
+
+      return deleted;
+    } catch (error) {
+      console.error(`Failed to delete floor plan ${floorPlanId}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Deletes all floor plans for an entity
+   */
+  async deleteEntityFloorPlans(
+    entityType: PlannableType,
+    entityId: number,
+    deleteFiles: boolean = true,
+    trx?: Knex.Transaction
+  ): Promise<number> {
+    try {
+      const floorPlans = await FloorPlanModel.getForEntity(
+        entityType,
+        entityId,
+        {},
+        trx
+      );
+
+      let deletedCount = 0;
+
+      for (const plan of floorPlans) {
+        const deleted = await this.deleteFloorPlan(plan.id, deleteFiles, trx);
+        if (deleted) deletedCount++;
+      }
+
+      return deletedCount;
+    } catch (error) {
+      console.error("Failed to delete entity floor plans:", error);
+      return 0;
+    }
+  }
+
+  // ==========================================================================
+  // COMBINED MEDIA OPERATIONS
+  // ==========================================================================
+
+  /**
+   * Gets all media for an entity (photos + floor plans)
+   */
+  async getEntityMedia(
+    photoableType: PhotoableType,
     entityId: number,
     trx?: Knex.Transaction
-  ): Promise<EntityMedia> {
-    if (!this.isValidPhotoableType(entityType)) {
-      throw new Error(`Invalid entity type: ${entityType}`);
-    }
+  ): Promise<{ photos: Photo[]; floorPlans?: FloorPlan[] }> {
+    const photos = await PhotoModel.getForEntity(photoableType, entityId, {}, trx);
 
-    const photos = await PhotoModel.getForEntity(entityType, entityId, {}, trx);
-
-    const plannableType = this.mapToPlannableType(entityType);
+    // Get floor plans if applicable
     let floorPlans: FloorPlan[] | undefined;
-
+    const plannableType = this.mapToPlannableType(photoableType);
     if (plannableType) {
       floorPlans = await FloorPlanModel.getForEntity(
         plannableType,
@@ -193,285 +622,69 @@ export class MediaService {
   }
 
   /**
-   * Gets cover photo for an entity
+   * Gets media counts for an entity
    */
-  static async getCoverPhoto(
-    entityType: PhotoableType,
+  async getEntityMediaCounts(
+    photoableType: PhotoableType,
     entityId: number,
     trx?: Knex.Transaction
-  ): Promise<Photo | null> {
-    return PhotoModel.getCoverPhoto(entityType, entityId, trx);
-  }
+  ): Promise<EntityMediaCounts> {
+    const [photoCount, coverPhoto] = await Promise.all([
+      PhotoModel.countForEntity(photoableType, entityId, trx),
+      PhotoModel.getCoverPhoto(photoableType, entityId, trx),
+    ]);
 
-  // ============================================================================
-  // ADD MEDIA
-  // ============================================================================
+    let floorPlanCount: number | undefined;
+    const plannableType = this.mapToPlannableType(photoableType);
+    if (plannableType) {
+      floorPlanCount = await FloorPlanModel.countForEntity(
+        plannableType,
+        entityId,
+        trx
+      );
+    }
 
-  /**
-   * Adds photos to any entity with validation
-   */
-  static async addPhotos(
-    entityType: PhotoableType,
-    entityId: number,
-    photoData: Array<{
-      url: string;
-      externalUrl?: string | null;
-      caption?: string | null;
-      displayOrder?: number;
-      isCover?: boolean;
-    }>,
-    trx?: Knex.Transaction
-  ): Promise<Photo[]> {
-    // Use createManyForEntity which is the correct method name
-    return PhotoModel.createManyForEntity(entityType, entityId, photoData, trx);
+    return {
+      photoCount,
+      floorPlanCount,
+      coverPhotoExists: coverPhoto !== null,
+    };
   }
 
   /**
-   * Adds floor plans to any entity with validation
+   * Deletes all media for an entity (cascade)
    */
-  static async addFloorPlans(
-    entityType: PlannableType,
+  async deleteAllEntityMedia(
+    photoableType: PhotoableType,
     entityId: number,
-    planData: Array<{
-      name: string;
-      imageUrl: string;
-      pdfUrl?: string | null;
-      displayOrder?: number;
-    }>,
+    deleteFiles: boolean = true,
     trx?: Knex.Transaction
-  ): Promise<FloorPlan[]> {
-    // Use createManyForEntity which is the correct method name
-    return FloorPlanModel.createManyForEntity(
-      entityType,
+  ): Promise<{ photosDeleted: number; floorPlansDeleted?: number }> {
+    const photosDeleted = await this.deleteEntityPhotos(
+      photoableType,
       entityId,
-      planData,
+      deleteFiles,
       trx
     );
-  }
-  /**
-   * Adds a single photo
-   */
-  static async addPhoto(
-    entityType: PhotoableType,
-    entityId: number,
-    photoData: {
-      url: string;
-      externalUrl?: string | null;
-      caption?: string | null;
-      displayOrder?: number;
-      isCover?: boolean;
-    },
-    trx?: Knex.Transaction
-  ): Promise<Photo> {
-    const createData: CreatePhotoDto = {
-      photoableType: entityType,
-      photoableId: entityId,
-      ...photoData,
-    };
 
-    return PhotoModel.create(createData, trx);
-  }
-
-  /**
-   * Adds a single floor plan
-   */
-  static async addFloorPlan(
-    entityType: PlannableType,
-    entityId: number,
-    planData: {
-      name: string;
-      imageUrl: string;
-      pdfUrl?: string | null;
-      displayOrder?: number;
-    },
-    trx?: Knex.Transaction
-  ): Promise<FloorPlan> {
-    const createData: CreateFloorPlanDto = {
-      plannableType: entityType,
-      plannableId: entityId,
-      ...planData,
-    };
-
-    return FloorPlanModel.create(createData, trx);
-  }
-
-  // ============================================================================
-  // UPDATE MEDIA
-  // ============================================================================
-
-  /**
-   * Updates a photo
-   */
-  static async updatePhoto(
-    photoId: number,
-    data: {
-      url?: string;
-      externalUrl?: string | null;
-      caption?: string | null;
-      displayOrder?: number;
-      isCover?: boolean;
-    },
-    trx?: Knex.Transaction
-  ): Promise<Photo | null> {
-    return PhotoModel.update(photoId, data, trx);
-  }
-
-  /**
-   * Updates a floor plan
-   */
-  static async updateFloorPlan(
-    floorPlanId: number,
-    data: {
-      name?: string;
-      imageUrl?: string;
-      pdfUrl?: string | null;
-      displayOrder?: number;
-    },
-    trx?: Knex.Transaction
-  ): Promise<FloorPlan | null> {
-    return FloorPlanModel.update(floorPlanId, data, trx);
-  }
-
-  /**
-   * Sets a photo as cover
-   */
-  static async setCoverPhoto(
-    photoId: number,
-    trx?: Knex.Transaction
-  ): Promise<Photo | null> {
-    return PhotoModel.setCover(photoId, trx);
-  }
-
-  // ============================================================================
-  // DELETE MEDIA
-  // ============================================================================
-
-  /**
-   * Deletes a single photo
-   */
-  static async deletePhoto(
-    photoId: number,
-    force: boolean = false,
-    trx?: Knex.Transaction
-  ): Promise<boolean> {
-    if (force) {
-      return PhotoModel.forceDelete(photoId, trx);
-    }
-    return PhotoModel.delete(photoId, trx);
-  }
-
-  /**
-   * Deletes a single floor plan
-   */
-  static async deleteFloorPlan(
-    floorPlanId: number,
-    force: boolean = false,
-    trx?: Knex.Transaction
-  ): Promise<boolean> {
-    if (force) {
-      return FloorPlanModel.forceDelete(floorPlanId, trx);
-    }
-    return FloorPlanModel.delete(floorPlanId, trx);
-  }
-
-  /**
-   * Deletes all media for an entity with cascade
-   */
-  static async deleteEntityMedia(
-    entityType: PhotoableType,
-    entityId: number,
-    includeFloorPlans: boolean = false,
-    force: boolean = false,
-    trx?: Knex.Transaction
-  ): Promise<{ photosDeleted: boolean; plansDeleted?: boolean }> {
-    const useTrx = trx || (await db.transaction());
-
-    try {
-      // Delete photos
-      const photosDeleted = await PhotoModel.deleteForEntity(
-        entityType,
+    let floorPlansDeleted: number | undefined;
+    const plannableType = this.mapToPlannableType(photoableType);
+    if (plannableType) {
+      floorPlansDeleted = await this.deleteEntityFloorPlans(
+        plannableType,
         entityId,
-        force,
-        useTrx
+        deleteFiles,
+        trx
       );
-
-      let plansDeleted: boolean | undefined;
-      if (includeFloorPlans) {
-        const plannableType = this.mapToPlannableType(entityType);
-
-        if (plannableType) {
-          plansDeleted = await FloorPlanModel.deleteForEntity(
-            plannableType,
-            entityId,
-            force,
-            useTrx
-          );
-        }
-      }
-
-      if (!trx) {
-        await useTrx.commit();
-      }
-
-      return { photosDeleted, plansDeleted };
-    } catch (error) {
-      if (!trx) {
-        await useTrx.rollback();
-      }
-      throw error;
     }
+
+    return { photosDeleted, floorPlansDeleted };
   }
-
-  /**
-   * Deletes an entity with all its media (cascade delete)
-   */
-  static async deleteEntityWithMedia(
-    entityType: PhotoableType,
-    entityId: number,
-    entityTable: string,
-    trx?: Knex.Transaction
-  ): Promise<boolean> {
-    const useTrx = trx || (await db.transaction());
-
-    try {
-      // Delete photos
-      await PhotoModel.deleteForEntity(entityType, entityId, true, useTrx);
-
-      // Delete floor plans if applicable
-      const plannableType = this.mapToPlannableType(entityType);
-      if (plannableType) {
-        await FloorPlanModel.deleteForEntity(
-          plannableType,
-          entityId,
-          true,
-          useTrx
-        );
-      }
-
-      // Delete main entity
-      await useTrx(entityTable).where({ id: entityId }).del();
-
-      if (!trx) {
-        await useTrx.commit();
-      }
-
-      return true;
-    } catch (error) {
-      if (!trx) {
-        await useTrx.rollback();
-      }
-      throw error;
-    }
-  }
-
-  // ============================================================================
-  // REORDER MEDIA
-  // ============================================================================
 
   /**
    * Reorders photos for an entity
    */
-  static async reorderPhotos(
+  async reorderPhotos(
     entityType: PhotoableType,
     entityId: number,
     photoIds: number[],
@@ -483,7 +696,7 @@ export class MediaService {
   /**
    * Reorders floor plans for an entity
    */
-  static async reorderFloorPlans(
+  async reorderFloorPlans(
     entityType: PlannableType,
     entityId: number,
     planIds: number[],
@@ -492,227 +705,115 @@ export class MediaService {
     return FloorPlanModel.reorder(entityType, entityId, planIds, trx);
   }
 
+  // ==========================================================================
+  // VALIDATION
+  // ==========================================================================
+
   /**
-   * Reorders all media for an entity
+   * Validates entity media against requirements
+   * 
+   * Useful for checking if an entity can be published
    */
-  static async reorderMedia(
-    entityType: PhotoableType,
+  async validateEntityMedia(
+    photoableType: PhotoableType,
     entityId: number,
-    photoIds: number[],
-    planIds?: number[],
+    requirements: MediaValidationRequirements,
     trx?: Knex.Transaction
-  ): Promise<{ photosReordered: boolean; plansReordered?: boolean }> {
-    const useTrx = trx || (await db.transaction());
-
-    try {
-      const photosReordered = await PhotoModel.reorder(
-        entityType,
-        entityId,
-        photoIds,
-        useTrx
-      );
-
-      let plansReordered: boolean | undefined;
-      if (planIds && planIds.length > 0) {
-        const plannableType = this.mapToPlannableType(entityType);
-
-        if (plannableType) {
-          plansReordered = await FloorPlanModel.reorder(
-            plannableType,
-            entityId,
-            planIds,
-            useTrx
-          );
-        }
-      }
-
-      if (!trx) {
-        await useTrx.commit();
-      }
-
-      return { photosReordered, plansReordered };
-    } catch (error) {
-      if (!trx) {
-        await useTrx.rollback();
-      }
-      throw error;
-    }
-  }
-
-  // ============================================================================
-  // STATISTICS & COUNTS
-  // ============================================================================
-
-  /**
-   * Gets media counts for an entity
-   */
-  static async getMediaCounts(
-    entityType: PhotoableType,
-    entityId: number,
-    trx?: Knex.Transaction
-  ): Promise<MediaCounts> {
-    const photoCount = await PhotoModel.countForEntity(
-      entityType,
-      entityId,
-      trx
-    );
-
-    let floorPlanCount: number | undefined;
-    const plannableType = this.mapToPlannableType(entityType);
-
-    if (plannableType) {
-      floorPlanCount = await FloorPlanModel.countForEntity(
-        plannableType,
-        entityId,
-        trx
-      );
-    }
-
-    return { photoCount, floorPlanCount };
-  }
-
-  /**
-   * Gets floor plan statistics
-   */
-  static async getFloorPlanStatistics(
-    entityType: PlannableType,
-    entityId: number,
-    trx?: Knex.Transaction
-  ): Promise<{
-    total: number;
-    withPdf: number;
-    withoutPdf: number;
-  }> {
-    return FloorPlanModel.getStatistics(entityType, entityId, trx);
-  }
-
-  // ============================================================================
-  // COPY/DUPLICATE MEDIA
-  // ============================================================================
-
-  /**
-   * Copies media from one entity to another
-   */
-  static async copyMedia(
-    sourceType: PhotoableType,
-    sourceId: number,
-    targetType: PhotoableType,
-    targetId: number,
-    includeFloorPlans: boolean = false,
-    trx?: Knex.Transaction
-  ): Promise<{ photos: Photo[]; floorPlans?: FloorPlan[] }> {
-    const useTrx = trx || (await db.transaction());
-
-    try {
-      // Copy photos
-      const photos = await PhotoModel.duplicatePhotos(
-        sourceType,
-        sourceId,
-        targetType,
-        targetId,
-        useTrx
-      );
-
-      let floorPlans: FloorPlan[] | undefined;
-      if (includeFloorPlans) {
-        const sourcePlannableType = this.mapToPlannableType(sourceType);
-        const targetPlannableType = this.mapToPlannableType(targetType);
-
-        if (sourcePlannableType && targetPlannableType) {
-          floorPlans = await FloorPlanModel.duplicateFloorPlans(
-            sourcePlannableType,
-            sourceId,
-            targetPlannableType,
-            targetId,
-            useTrx
-          );
-        }
-      }
-
-      if (!trx) {
-        await useTrx.commit();
-      }
-
-      return { photos, floorPlans };
-    } catch (error) {
-      if (!trx) {
-        await useTrx.rollback();
-      }
-      throw error;
-    }
-  }
-
-  // ============================================================================
-  // VALIDATION HELPERS
-  // ============================================================================
-
-  /**
-   * Validates that an entity has required media before publishing
-   */
-  static async validateRequiredMedia(
-    entityType: PhotoableType,
-    entityId: number,
-    requirements: {
-      minPhotos?: number;
-      requireCoverPhoto?: boolean;
-      minFloorPlans?: number;
-    },
-    trx?: Knex.Transaction
-  ): Promise<{ valid: boolean; errors: string[] }> {
+  ): Promise<MediaValidationResult> {
     const errors: string[] = [];
+    const warnings: string[] = [];
 
-    // Check photo count
-    if (requirements.minPhotos) {
-      const photoCount = await PhotoModel.countForEntity(
-        entityType,
-        entityId,
-        trx
+    // Get counts
+    const counts = await this.getEntityMediaCounts(photoableType, entityId, trx);
+
+    // Validate photo count
+    if (requirements.minPhotos && counts.photoCount < requirements.minPhotos) {
+      errors.push(
+        `Minimum ${requirements.minPhotos} photo(s) required, found ${counts.photoCount}`
       );
-
-      if (photoCount < requirements.minPhotos) {
-        errors.push(
-          `Requires at least ${requirements.minPhotos} photo(s), found ${photoCount}`
-        );
-      }
     }
 
-    // Check cover photo
-    if (requirements.requireCoverPhoto) {
-      const coverPhoto = await PhotoModel.getCoverPhoto(
-        entityType,
-        entityId,
-        trx
+    if (requirements.maxPhotos && counts.photoCount > requirements.maxPhotos) {
+      errors.push(
+        `Maximum ${requirements.maxPhotos} photo(s) allowed, found ${counts.photoCount}`
       );
-
-      if (!coverPhoto) {
-        errors.push("Cover photo is required");
-      }
     }
 
-    // Check floor plans
-    if (requirements.minFloorPlans) {
-      const plannableType = this.mapToPlannableType(entityType);
+    // Validate cover photo
+    if (requirements.requireCoverPhoto && !counts.coverPhotoExists) {
+      errors.push("Cover photo is required");
+    }
 
-      if (plannableType) {
-        const planCount = await FloorPlanModel.countForEntity(
-          plannableType,
-          entityId,
-          trx
-        );
+    // Validate floor plans if applicable
+    if (
+      requirements.minFloorPlans &&
+      counts.floorPlanCount !== undefined &&
+      counts.floorPlanCount < requirements.minFloorPlans
+    ) {
+      errors.push(
+        `Minimum ${requirements.minFloorPlans} floor plan(s) required, found ${counts.floorPlanCount}`
+      );
+    }
 
-        if (planCount < requirements.minFloorPlans) {
-          errors.push(
-            `Requires at least ${requirements.minFloorPlans} floor plan(s), found ${planCount}`
-          );
-        }
-      }
+    if (
+      requirements.maxFloorPlans &&
+      counts.floorPlanCount !== undefined &&
+      counts.floorPlanCount > requirements.maxFloorPlans
+    ) {
+      errors.push(
+        `Maximum ${requirements.maxFloorPlans} floor plan(s) allowed, found ${counts.floorPlanCount}`
+      );
+    }
+
+    // Add warnings
+    if (counts.photoCount === 0) {
+      warnings.push("No photos uploaded");
+    }
+
+    if (counts.floorPlanCount === 0) {
+      warnings.push("No floor plans uploaded");
     }
 
     return {
       valid: errors.length === 0,
       errors,
+      warnings,
+      counts,
     };
+  }
+
+  // ==========================================================================
+  // HELPER METHODS
+  // ==========================================================================
+
+  /**
+   * Maps PhotoableType to PlannableType
+   */
+  private mapToPlannableType(
+    photoableType: PhotoableType
+  ): PlannableType | null {
+    switch (photoableType) {
+      case PhotoableType.PROJECT:
+        return PlannableType.PROJECT;
+      case PhotoableType.APARTMENT:
+        return PlannableType.APARTMENT;
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Extracts filename from URL
+   */
+  private extractFilenameFromUrl(url: string): string | null {
+    try {
+      const parts = url.split("/");
+      return parts[parts.length - 1];
+    } catch {
+      return null;
+    }
   }
 }
 
-export default MediaService;
+// Export singleton instance
+export default new MediaManagementService();
