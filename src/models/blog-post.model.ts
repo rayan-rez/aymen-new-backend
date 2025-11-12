@@ -1,8 +1,70 @@
 /**
- * Blog Post Model - FIXED TO MATCH DATABASE SCHEMA
+ * ============================================================================
+ * BLOG POST MODEL - AYMEN PROMOTION CONTENT MANAGEMENT
+ * ============================================================================
  * 
- * Removed fields that don't exist in migration:
- * - readingTimeMinutes, viewCount, metaTitle, metaDescription
+ * @module models/blog-post.model
+ * @description
+ * Content management model for company blog posts, news articles, and announcements.
+ * Supports rich media, tagging, categorization, and full-text search.
+ * 
+ * KEY FEATURES:
+ * - ✅ Rich text content management
+ * - ✅ SEO-friendly slug generation
+ * - ✅ Category and tag organization
+ * - ✅ Featured image management
+ * - ✅ Polymorphic photo gallery support
+ * - ✅ Publishing workflow (draft → published)
+ * - ✅ Featured posts highlighting
+ * - ✅ Author attribution
+ * - ✅ Full-text search (MySQL FULLTEXT)
+ * - ✅ Related posts discovery
+ * - ✅ Content sections support
+ * 
+ * MEDIA RELATIONSHIPS:
+ * - Featured Image: Direct URL field for main article image
+ * - Photo Gallery: photos table (photoable_type = 'blog_post')
+ * - Content Sections: blog_post_sections table (one-to-many)
+ * 
+ * CONTENT ORGANIZATION:
+ * - Categories: Single category per post (e.g., "News", "Projects", "Tips")
+ * - Tags: Multiple tags per post (stored as JSON array)
+ * - Sections: Break long content into structured sections with images
+ * 
+ * PUBLISHING WORKFLOW:
+ * 1. Create draft post with title and content
+ * 2. Upload featured image (required for publishing)
+ * 3. Add optional photo gallery
+ * 4. Add tags and category
+ * 5. Set isFeatured if should appear on homepage
+ * 6. Publish (sets isPublished = true, publishedAt = now)
+ * 
+ * SEO FEATURES:
+ * - Auto-generated slugs from titles
+ * - Excerpt for meta descriptions
+ * - Full-text search indexed content
+ * - Category-based URLs
+ * 
+ * @example
+ * // Create and publish blog post
+ * const post = await BlogPostModel.create({
+ *   title: "New Luxury Project Launches in Hydra",
+ *   authorName: "Marketing Team",
+ *   category: "Projects",
+ *   excerpt: "Introducing our latest development...",
+ *   content: "Full article content here...",
+ *   tags: ["luxury", "hydra", "new-project"]
+ * });
+ * 
+ * // Upload featured image
+ * await post.uploadFeaturedImage(req.file);
+ * 
+ * // Publish
+ * await BlogPostModel.publish(post.id);
+ * 
+ * @author Aymen Promotion Development Team
+ * @since 1.0.0
+ * @lastModified 2025-01-15
  */
 
 import {
@@ -13,6 +75,10 @@ import {
 } from "./base";
 import { generateSlug } from "@/database/helpers";
 import PhotoModel, { PhotoableType, Photo } from "./photo.model";
+import MediaService, {
+  MediaCreationResult,
+  BatchMediaResult,
+} from "@/services/media.service";
 import { Knex } from "knex";
 import type { BlogPostSection } from "./blog-post-section.model";
 
@@ -22,31 +88,87 @@ import type { BlogPostSection } from "./blog-post-section.model";
 
 /**
  * Blog post entity interface
+ * 
+ * @description
+ * Complete representation of a blog post/article.
+ * 
+ * FIELD GROUPS:
+ * - Identity: id, title, slug
+ * - Content: excerpt, content
+ * - Author: authorName
+ * - Organization: category, tags
+ * - Media: featuredImageUrl, photos (virtual)
+ * - Publication: isPublished, isFeatured, publishedAt
+ * - Structure: sections (virtual relation)
+ * - Timestamps: createdAt, updatedAt, deletedAt
  */
 export interface BlogPost {
+  /** Primary key */
   id: number;
+
+  /** Article title */
   title: string;
+
+  /** URL-friendly slug (auto-generated, unique) */
   slug: string;
+
+  /** Author name or attribution */
   authorName: string;
+
+  /** Category (e.g., "News", "Projects", "Tips") */
   category: string | null;
+
+  /** Short excerpt/summary for listings */
   excerpt: string | null;
+
+  /** Full article content (HTML or Markdown) */
   content: string;
+
+  /** Featured image URL */
   featuredImageUrl: string | null;
+
+  /** Tags array (stored as JSON) */
   tags: string[] | null;
+
+  /** Published on website */
   isPublished: boolean;
+
+  /** Featured on homepage */
   isFeatured: boolean;
+
+  /** Publication timestamp */
   publishedAt: Date | null;
+
+  /** Record creation timestamp */
   createdAt: Date;
+
+  /** Last modification timestamp */
   updatedAt: Date;
+
+  /** Soft delete timestamp */
   deletedAt: Date | null;
 
   // Virtual relations
+  /** Content sections (loaded via relations) */
   sections?: BlogPostSection[];
+
+  /** Photo gallery (loaded via includePhotos) */
   photos?: Photo[];
 }
 
 /**
  * Create blog post DTO
+ * 
+ * REQUIRED FIELDS:
+ * - title: Article title
+ * - authorName: Author attribution
+ * - content: Main article content
+ * 
+ * RECOMMENDED FIELDS:
+ * - excerpt: For SEO and listings
+ * - category: For organization
+ * - tags: For discovery
+ * - featuredImageUrl: Required before publishing
  */
 export interface CreateBlogPostDto {
   title: string;
@@ -65,22 +187,40 @@ export interface CreateBlogPostDto {
 /**
  * Update blog post DTO
  */
-export interface UpdateBlogPostDto extends Partial<CreateBlogPostDto> {}
+export interface UpdateBlogPostDto extends Partial<CreateBlogPostDto> { }
 
 /**
  * Blog post query options
+ * 
+ * @description
+ * Advanced filtering for blog post searches.
+ * Supports category, tag, author, and date-based filtering.
  */
 export interface BlogPostQueryOptions extends AdvancedQueryOptions {
+  /** Filter by category */
   category?: string | string[];
+
+  /** Filter published posts */
   isPublished?: boolean;
+
+  /** Filter featured posts */
   isFeatured?: boolean;
+
+  /** Filter by author name */
   authorName?: string;
+
+  /** Filter posts with specific tag */
   hasTag?: string;
+
+  /** Published after date */
   publishedAfter?: Date;
+
+  /** Published before date */
   publishedBefore?: Date;
+
+  /** Auto-load photo gallery */
   includePhotos?: boolean;
 }
-
 
 // ============================================================================
 // BLOG POST MODEL CLASS
@@ -117,7 +257,6 @@ export class BlogPostModel extends BaseModel<
     guarded: ["id", "createdAt", "updatedAt", "deletedAt"],
   };
 
-  // Define relations
   protected relations = {
     sections: {
       type: "hasMany" as const,
@@ -127,15 +266,25 @@ export class BlogPostModel extends BaseModel<
     },
   };
 
+  // ============================================================================
+  // MEDIA LOADING METHODS
+  // ============================================================================
+
   /**
-   * Loads photos for a blog post
+   * Loads photo gallery for a blog post
+   * 
+   * @param postId - Blog post ID
+   * @param trx - Optional transaction
+   * @returns Promise<Photo[]>
    */
   async loadPhotos(postId: number, trx?: Knex.Transaction): Promise<Photo[]> {
     return PhotoModel.getForEntity(PhotoableType.BLOG_POST, postId, {}, trx);
   }
 
   /**
-   * Loads photos for multiple posts (optimized)
+   * Loads photos for multiple posts (batch optimization)
+   * 
+   * @private
    */
   private async loadPhotosForMany(
     postIds: number[],
@@ -162,8 +311,166 @@ export class BlogPostModel extends BaseModel<
     return photosByPost;
   }
 
+  // ============================================================================
+  // MEDIA UPLOAD METHODS
+  // ============================================================================
+
   /**
-   * Validates media before publishing
+   * Uploads featured image from Multer file
+   * 
+   * @description
+   * Uploads and sets the featured image for the blog post.
+   * This is the primary image shown in listings and at the top of the article.
+   * 
+   * @param postId - Blog post ID
+   * @param file - Multer file
+   * @param trx - Optional transaction
+   * @returns Promise<string> URL of uploaded image
+   * 
+   * @example
+   * const imageUrl = await BlogPostModel.uploadFeaturedImage(postId, req.file);
+   */
+  async uploadFeaturedImage(
+    postId: number,
+    file: any,
+    trx?: Knex.Transaction
+  ): Promise<string> {
+    const result = await MediaService.uploadPhotoFromMulter(
+      file,
+      PhotoableType.BLOG_POST,
+      postId,
+      { isCover: false },
+      { width: 1920, quality: 90, generateThumbnail: true },
+      trx
+    );
+
+    if (!result.success || !result.uploadResult) {
+      throw new Error("Failed to upload featured image");
+    }
+
+    // Update post with featured image URL
+    await this.update(postId, { featuredImageUrl: result.uploadResult.url }, trx);
+
+    return result.uploadResult.url;
+  }
+
+  /**
+   * Uploads a single photo to gallery
+   * 
+   * @param postId - Blog post ID
+   * @param file - Multer file
+   * @param options - Upload options
+   * @param trx - Optional transaction
+   * @returns Promise<MediaCreationResult>
+   */
+  async uploadPhotoFromMulter(
+    postId: number,
+    file: any,
+    options: {
+      caption?: string;
+      displayOrder?: number;
+    } = {},
+    trx?: Knex.Transaction
+  ): Promise<MediaCreationResult> {
+    return MediaService.uploadPhotoFromMulter(
+      file,
+      PhotoableType.BLOG_POST,
+      postId,
+      options,
+      { width: 1920, quality: 85, generateThumbnail: true },
+      trx
+    );
+  }
+
+  /**
+   * Uploads multiple photos to gallery
+   * 
+   * @param postId - Blog post ID
+   * @param files - Array of Multer files
+   * @param trx - Optional transaction
+   * @returns Promise<BatchMediaResult>
+   */
+  async uploadPhotosFromMulter(
+    postId: number,
+    files: any[],
+    trx?: Knex.Transaction
+  ): Promise<BatchMediaResult> {
+    return MediaService.uploadPhotosFromMulter(
+      files,
+      PhotoableType.BLOG_POST,
+      postId,
+      { width: 1920, quality: 85, generateThumbnail: true },
+      trx
+    );
+  }
+
+  // ============================================================================
+  // MEDIA MANAGEMENT
+  // ============================================================================
+
+  /**
+   * Deletes a photo from gallery
+   */
+  async deletePhoto(
+    postId: number,
+    photoId: number,
+    deleteFiles: boolean = true,
+    trx?: Knex.Transaction
+  ): Promise<boolean> {
+    const photo = await PhotoModel.findById(photoId, {}, trx);
+    if (!photo || photo.photoableId !== postId) {
+      throw new Error("Photo does not belong to this blog post");
+    }
+
+    return MediaService.deletePhoto(photoId, deleteFiles, trx);
+  }
+
+  /**
+   * Deletes all photos for a blog post
+   */
+  async deleteAllPhotos(
+    postId: number,
+    deleteFiles: boolean = true,
+    trx?: Knex.Transaction
+  ): Promise<number> {
+    return MediaService.deleteEntityPhotos(
+      PhotoableType.BLOG_POST,
+      postId,
+      deleteFiles,
+      trx
+    );
+  }
+
+  /**
+   * Reorders photo gallery
+   */
+  async reorderPhotos(
+    postId: number,
+    photoIds: number[],
+    trx?: Knex.Transaction
+  ): Promise<boolean> {
+    return MediaService.reorderPhotos(
+      PhotoableType.BLOG_POST,
+      postId,
+      photoIds,
+      trx
+    );
+  }
+
+  // ============================================================================
+  // PUBLISHING VALIDATION
+  // ============================================================================
+
+  /**
+   * Validates media requirements before publishing
+   * 
+   * @description
+   * Checks that post has required media (featured image).
+   * Warns if no gallery photos exist.
+   * 
+   * @param postId - Blog post ID
+   * @param trx - Optional transaction
+   * @returns Promise<object> Validation result
    */
   async validateMediaForPublishing(
     postId: number,
@@ -202,20 +509,23 @@ export class BlogPostModel extends BaseModel<
   // ============================================================================
 
   /**
-   * Before create hook - validate and generate slug
+   * Before create hook - Auto-generate slug and set publish date
    */
   protected async beforeCreate(
     data: CreateBlogPostDto
   ): Promise<CreateBlogPostDto> {
+    // Auto-generate slug from title
     if (!data.slug) {
       data.slug = generateSlug(data.title);
     }
 
+    // Ensure slug uniqueness
     const existing = await this.findBySlug(data.slug);
     if (existing) {
       data.slug = `${data.slug}-${Date.now()}`;
     }
 
+    // Set publishedAt if publishing
     if (data.isPublished && !data.publishedAt) {
       data.publishedAt = new Date();
     }
@@ -227,6 +537,9 @@ export class BlogPostModel extends BaseModel<
     console.log(`✅ Blog post created: ${entity.title}`);
   }
 
+  /**
+   * Before update hook - Validate slug and media
+   */
   protected async beforeUpdate(
     id: number,
     data: UpdateBlogPostDto
@@ -236,6 +549,7 @@ export class BlogPostModel extends BaseModel<
       throw new Error("Blog post not found");
     }
 
+    // Validate slug uniqueness if changed
     if (data.slug && data.slug !== post.slug) {
       const existing = await this.findBySlug(data.slug);
       if (existing && existing.id !== id) {
@@ -243,10 +557,12 @@ export class BlogPostModel extends BaseModel<
       }
     }
 
+    // Set publishedAt if publishing for first time
     if (data.isPublished && !post.isPublished && !data.publishedAt) {
       data.publishedAt = new Date();
     }
 
+    // Validate media if publishing
     if (data.isPublished && !post.isPublished) {
       const mediaValidation = await this.validateMediaForPublishing(id);
       if (!mediaValidation.valid) {
@@ -325,9 +641,6 @@ export class BlogPostModel extends BaseModel<
     };
   }
 
-  /**
-   * Counts blog posts with filters
-   */
   async countBlogPosts(
     options: BlogPostQueryOptions = {},
     trx?: Knex.Transaction
@@ -346,7 +659,7 @@ export class BlogPostModel extends BaseModel<
   }
 
   /**
-   * Find blog post by slug with photos
+   * Finds blog post by slug
    */
   async findBySlug(
     slug: string,
@@ -382,7 +695,7 @@ export class BlogPostModel extends BaseModel<
   }
 
   /**
-   * Finds featured posts with photos
+   * Finds featured posts
    */
   async findFeatured(
     options: BlogPostQueryOptions = {},
@@ -487,7 +800,7 @@ export class BlogPostModel extends BaseModel<
   }
 
   /**
-   * Gets related posts (same category, excluding current)
+   * Gets related posts (same category)
    */
   async getRelated(
     postId: number,
@@ -543,9 +856,10 @@ export class BlogPostModel extends BaseModel<
     return this.update(id, { isFeatured: !post.isFeatured }, trx);
   }
 
-  /**
-   * Gets category statistics
-   */
+  // ============================================================================
+  // STATISTICS
+  // ============================================================================
+
   async getCategoryStats(trx?: Knex.Transaction): Promise<any[]> {
     const connection = trx || this.db;
 
@@ -558,9 +872,6 @@ export class BlogPostModel extends BaseModel<
       .orderBy("postCount", "desc");
   }
 
-  /**
-   * Gets author statistics
-   */
   async getAuthorStats(trx?: Knex.Transaction): Promise<any[]> {
     const connection = trx || this.db;
 
@@ -573,9 +884,6 @@ export class BlogPostModel extends BaseModel<
       .orderBy("postCount", "desc");
   }
 
-  /**
-   * Gets all unique categories
-   */
   async getCategories(trx?: Knex.Transaction): Promise<string[]> {
     const connection = trx || this.db;
 
@@ -588,9 +896,6 @@ export class BlogPostModel extends BaseModel<
     return results.map((r: any) => r.category);
   }
 
-  /**
-   * Gets all unique tags
-   */
   async getAllTags(trx?: Knex.Transaction): Promise<string[]> {
     const connection = trx || this.db;
 
@@ -609,9 +914,10 @@ export class BlogPostModel extends BaseModel<
     return Array.from(allTags).sort();
   }
 
-  /**
-   * Applies blog-specific filters to query
-   */
+  // ============================================================================
+  // HELPER METHODS
+  // ============================================================================
+
   private applyBlogFilters(
     query: Knex.QueryBuilder,
     options: BlogPostQueryOptions
@@ -652,9 +958,6 @@ export class BlogPostModel extends BaseModel<
     return query;
   }
 
-  /**
-   * Maps database record to BlogPost entity
-   */
   protected mapToEntity(record: DatabaseRecord): BlogPost {
     return {
       id: record.id,
