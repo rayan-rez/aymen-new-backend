@@ -1,0 +1,1090 @@
+{
+  "info": {
+    "name": "Aymen Promotion Real Estate API - With File Uploads",
+    "description": "Complete API collection for Aymen Promotion real estate development and selling enterprise in Algiers. This collection includes all endpoints for managing projects, apartments, locations, features, photos, floor plans, form submissions, and file uploads.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health & Info",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Health check endpoint that returns database connectivity status and server health information."
+          }
+        },
+        {
+          "name": "API Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": ["{{base_url}}"],
+              "path": [""]
+            },
+            "description": "Root API endpoint that returns API information, version, and available endpoints."
+          }
+        }
+      ]
+    },
+    {
+      "name": "File Uploads",
+      "item": [
+        {
+          "name": "Upload Single Image",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/your/image.jpg"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/upload/image",
+              "host": ["{{base_url}}"],
+              "path": ["api", "upload", "image"]
+            },
+            "description": "Upload a single image file with automatic optimization and thumbnail generation."
+          }
+        },
+        {
+          "name": "Upload Multiple Images",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "/path/to/your/image1.jpg"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "/path/to/your/image2.jpg"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/upload/images",
+              "host": ["{{base_url}}"],
+              "path": ["api", "upload", "images"]
+            },
+            "description": "Upload multiple image files with automatic optimization."
+          }
+        },
+        {
+          "name": "Upload Document",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/your/document.pdf"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/upload/document",
+              "host": ["{{base_url}}"],
+              "path": ["api", "upload", "document"]
+            },
+            "description": "Upload a document file (PDF, Word, Excel, etc.)."
+          }
+        },
+        {
+          "name": "Upload Floor Plan with PDF",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "/path/to/your/floorplan.jpg"
+                },
+                {
+                  "key": "pdf",
+                  "type": "file",
+                  "src": "/path/to/your/floorplan.pdf"
+                },
+                {
+                  "key": "name",
+                  "type": "text",
+                  "value": "2-Bedroom Layout"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/upload/floor-plan",
+              "host": ["{{base_url}}"],
+              "path": ["api", "upload", "floor-plan"]
+            },
+            "description": "Upload a floor plan with both image and PDF versions."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "Get All Projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/projects",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Items per page (default: 10)"
+                },
+                {
+                  "key": "projectType",
+                  "value": "residential",
+                  "description": "Filter by type (residential, commercial, etc.)"
+                },
+                {
+                  "key": "status",
+                  "value": "completed",
+                  "description": "Filter by status (planning, completed, etc.)"
+                },
+                {
+                  "key": "isFeatured",
+                  "value": "true",
+                  "description": "Filter featured projects only"
+                },
+                {
+                  "key": "search",
+                  "value": "luxury",
+                  "description": "Search by name/description"
+                }
+              ]
+            },
+            "description": "Get all projects with filtering and pagination options. Supports various filters like project type, status, location, price range, and search functionality."
+          }
+        },
+        {
+          "name": "Search Projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/projects/search",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "luxury apartment",
+                  "description": "Search query (min 2 characters)"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number"
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Items per page"
+                }
+              ]
+            },
+            "description": "Full-text search for projects with pagination support."
+          }
+        },
+        {
+          "name": "Get Featured Projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/projects/featured",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", "featured"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "5",
+                  "description": "Maximum number of featured projects"
+                }
+              ]
+            },
+            "description": "Get featured projects only, with optional limit parameter."
+          }
+        },
+        {
+          "name": "Get Project by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/projects/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1",
+                  "description": "Project ID"
+                }
+              ],
+              "query": [
+                {
+                  "key": "includePhotos",
+                  "value": "true",
+                  "description": "Load photos with project"
+                },
+                {
+                  "key": "includeFloorPlans",
+                  "value": "true",
+                  "description": "Load floor plans with project"
+                },
+                {
+                  "key": "includeApartments",
+                  "value": "true",
+                  "description": "Load apartments with project"
+                }
+              ]
+            },
+            "description": "Get single project by ID with optional media loading."
+          }
+        },
+        {
+          "name": "Get Project by Slug",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/projects/slug/:slug",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", "slug", ":slug"],
+              "variable": [
+                {
+                  "key": "slug",
+                  "value": "luxury-towers-algiers",
+                  "description": "Project slug"
+                }
+              ]
+            },
+            "description": "Get project by slug for SEO-friendly URLs."
+          }
+        },
+        {
+          "name": "Create Project",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Luxury Towers Algiers\",\n  \"slug\": \"luxury-towers-algiers\",\n  \"description\": \"Premium residential towers in the heart of Algiers\",\n  \"shortDescription\": \"Luxury living with modern amenities\",\n  \"projectType\": \"residential\",\n  \"status\": \"planning\",\n  \"locationId\": 1,\n  \"address\": \"123 Luxury Street, Algiers\",\n  \"latitude\": 36.7783,\n  \"longitude\": 3.0588,\n  \"totalUnits\": 120,\n  \"totalFloors\": 25,\n  \"minPrice\": 150000,\n  \"maxPrice\": 500000,\n  \"minArea\": 80,\n  \"maxArea\": 300,\n  \"completionDate\": \"2025-12-31\",\n  \"isFeatured\": true,\n  \"isPublished\": false,\n  \"metaTitle\": \"Luxury Towers Algiers - Premium Residential\",\n  \"metaDescription\": \"Experience luxury living in Algiers with our premium residential towers\",\n  \"features\": [1, 2, 3]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/projects",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects"]
+            },
+            "description": "Create new project (Admin only)."
+          }
+        },
+        {
+          "name": "Update Project",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Luxury Towers Algiers Updated\",\n  \"description\": \"Updated description for premium residential towers\",\n  \"status\": \"construction\",\n  \"isPublished\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/projects/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1",
+                  "description": "Project ID"
+                }
+              ]
+            },
+            "description": "Update existing project (Admin only)."
+          }
+        },
+        {
+          "name": "Delete Project",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/projects/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1",
+                  "description": "Project ID"
+                }
+              ]
+            },
+            "description": "Delete project (soft delete) - Admin only."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Apartments",
+      "item": [
+        {
+          "name": "Get All Apartments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/apartments",
+              "host": ["{{base_url}}"],
+              "path": ["api", "apartments"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number"
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Items per page"
+                },
+                {
+                  "key": "projectId",
+                  "value": "1",
+                  "description": "Filter by project"
+                },
+                {
+                  "key": "status",
+                  "value": "available",
+                  "description": "Filter by status (available, reserved, sold)"
+                },
+                {
+                  "key": "minPrice",
+                  "value": "150000",
+                  "description": "Minimum price"
+                },
+                {
+                  "key": "maxPrice",
+                  "value": "300000",
+                  "description": "Maximum price"
+                },
+                {
+                  "key": "bedrooms",
+                  "value": "2",
+                  "description": "Number of bedrooms"
+                },
+                {
+                  "key": "search",
+                  "value": "luxury",
+                  "description": "Search term"
+                }
+              ]
+            },
+            "description": "Get all apartments with comprehensive filtering options."
+          }
+        },
+        {
+          "name": "Get Available Apartments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/apartments/available",
+              "host": ["{{base_url}}"],
+              "path": ["api", "apartments", "available"],
+              "query": [
+                {
+                  "key": "projectId",
+                  "value": "1",
+                  "description": "Filter by project"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number"
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Items per page"
+                }
+              ]
+            },
+            "description": "Get available apartments only."
+          }
+        },
+        {
+          "name": "Get Model Units",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/apartments/model-units",
+              "host": ["{{base_url}}"],
+              "path": ["api", "apartments", "model-units"],
+              "query": [
+                {
+                  "key": "projectId",
+                  "value": "1",
+                  "description": "Filter by project"
+                }
+              ]
+            },
+            "description": "Get model units (show apartments)."
+          }
+        },
+        {
+          "name": "Get Apartments by Floor",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/apartments/floor",
+              "host": ["{{base_url}}"],
+              "path": ["api", "apartments", "floor"],
+              "query": [
+                {
+                  "key": "projectId",
+                  "value": "1",
+                  "description": "Project ID (required)"
+                },
+                {
+                  "key": "floorNumber",
+                  "value": "5",
+                  "description": "Floor number (required)"
+                }
+              ]
+            },
+            "description": "Get apartments by floor number."
+          }
+        },
+        {
+          "name": "Get Apartment by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/apartments/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "apartments", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1",
+                  "description": "Apartment ID"
+                }
+              ],
+              "query": [
+                {
+                  "key": "relations",
+                  "value": "project,photos",
+                  "description": "Comma-separated relations to load"
+                }
+              ]
+            },
+            "description": "Get single apartment by ID with optional relations."
+          }
+        },
+        {
+          "name": "Create Apartment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": 1,\n  \"unitNumber\": \"A-501\",\n  \"floorNumber\": 5,\n  \"bedrooms\": 2,\n  \"bathrooms\": 2,\n  \"area\": 120.5,\n  \"price\": 250000,\n  \"balconyArea\": 15.2,\n  \"parkingSpaces\": 1,\n  \"orientation\": \"south\",\n  \"view\": \"sea\",\n  \"features\": [\"modern-kitchen\", \"master-suite\"],\n  \"description\": \"Beautiful 2-bedroom apartment with sea view\",\n  \"isModelUnit\": false,\n  \"isPublished\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/apartments",
+              "host": ["{{base_url}}"],
+              "path": ["api", "apartments"]
+            },
+            "description": "Create new apartment (Admin only)."
+          }
+        },
+        {
+          "name": "Update Apartment",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 275000,\n  \"status\": \"reserved\",\n  \"description\": \"Updated description for the apartment\",\n  \"isPublished\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/apartments/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "apartments", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1",
+                  "description": "Apartment ID"
+                }
+              ]
+            },
+            "description": "Update apartment (Admin only)."
+          }
+        },
+        {
+          "name": "Delete Apartment",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/apartments/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "apartments", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1",
+                  "description": "Apartment ID"
+                }
+              ]
+            },
+            "description": "Delete apartment (soft delete) - Admin only."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Locations",
+      "item": [
+        {
+          "name": "Get All Locations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/locations",
+              "host": ["{{base_url}}"],
+              "path": ["api", "locations"],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "city",
+                  "description": "Filter by type (country, region, city, neighborhood)"
+                },
+                {
+                  "key": "parentId",
+                  "value": "1",
+                  "description": "Filter by parent location"
+                },
+                {
+                  "key": "isActive",
+                  "value": "true",
+                  "description": "Filter active locations only"
+                },
+                {
+                  "key": "search",
+                  "value": "Algiers",
+                  "description": "Search by name"
+                }
+              ]
+            },
+            "description": "Get all locations with filtering and pagination."
+          }
+        },
+        {
+          "name": "Get All Countries",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/locations/countries",
+              "host": ["{{base_url}}"],
+              "path": ["api", "locations", "countries"]
+            },
+            "description": "Get all countries (root level locations)."
+          }
+        },
+        {
+          "name": "Get Regions by Country",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/locations/countries/:countryId/regions",
+              "host": ["{{base_url}}"],
+              "path": ["api", "locations", "countries", ":countryId", "regions"],
+              "variable": [
+                {
+                  "key": "countryId",
+                  "value": "1",
+                  "description": "Country ID"
+                }
+              ]
+            },
+            "description": "Get all regions for a specific country."
+          }
+        },
+        {
+          "name": "Get Cities by Region",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/locations/regions/:regionId/cities",
+              "host": ["{{base_url}}"],
+              "path": ["api", "locations", "regions", ":regionId", "cities"],
+              "variable": [
+                {
+                  "key": "regionId",
+                  "value": "1",
+                  "description": "Region ID"
+                }
+              ]
+            },
+            "description": "Get all cities for a specific region."
+          }
+        },
+        {
+          "name": "Get Neighborhoods by City",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/locations/cities/:cityId/neighborhoods",
+              "host": ["{{base_url}}"],
+              "path": ["api", "locations", "cities", ":cityId", "neighborhoods"],
+              "variable": [
+                {
+                  "key": "cityId",
+                  "value": "1",
+                  "description": "City ID"
+                }
+              ]
+            },
+            "description": "Get all neighborhoods for a specific city."
+          }
+        },
+        {
+          "name": "Get Location by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/locations/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "locations", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1",
+                  "description": "Location ID"
+                }
+              ],
+              "query": [
+                {
+                  "key": "includeHierarchy",
+                  "value": "true",
+                  "description": "Include full hierarchy path"
+                }
+              ]
+            },
+            "description": "Get single location by ID with optional hierarchy."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Features",
+      "item": [
+        {
+          "name": "Get All Features",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/features",
+              "host": ["{{base_url}}"],
+              "path": ["api", "features"],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "amenity",
+                  "description": "Filter by category (amenity, security, transport, leisure, other)"
+                },
+                {
+                  "key": "isActive",
+                  "value": "true",
+                  "description": "Filter active features only"
+                },
+                {
+                  "key": "search",
+                  "value": "pool",
+                  "description": "Search by name"
+                }
+              ]
+            },
+            "description": "Get all features with filtering and pagination."
+          }
+        },
+        {
+          "name": "Get Active Features",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/features/active",
+              "host": ["{{base_url}}"],
+              "path": ["api", "features", "active"]
+            },
+            "description": "Get active features only (commonly used for dropdowns)."
+          }
+        },
+        {
+          "name": "Get Popular Features",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/features/popular",
+              "host": ["{{base_url}}"],
+              "path": ["api", "features", "popular"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Maximum number of features (default: 10)"
+                }
+              ]
+            },
+            "description": "Get most popular features (most used in projects)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Form Submissions",
+      "item": [
+        {
+          "name": "Submit Contact Form",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"phone\": \"+1234567890\",\n  \"message\": \"I am interested in learning more about your luxury apartments in Algiers. Please provide me with more information about available units and pricing.\",\n  \"utmSource\": \"website\",\n  \"utmMedium\": \"organic\",\n  \"utmCampaign\": \"summer2024\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/forms/contact",
+              "host": ["{{base_url}}"],
+              "path": ["api", "forms", "contact"]
+            },
+            "description": "Submit contact form (public, rate limited)."
+          }
+        },
+        {
+          "name": "Submit Project Inquiry",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": 1,\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Smith\",\n  \"email\": \"jane.smith@example.com\",\n  \"phone\": \"+1234567891\",\n  \"message\": \"I am very interested in the 2-bedroom units in your Luxury Towers project. Could you please send me detailed information about pricing and availability?\",\n  \"budget\": \"200000-300000\",\n  \"preferredContactMethod\": \"email\",\n  \"utmSource\": \"google\",\n  \"utmMedium\": \"cpc\",\n  \"utmCampaign\": \"realestate2024\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/forms/project-inquiry",
+              "host": ["{{base_url}}"],
+              "path": ["api", "forms", "project-inquiry"]
+            },
+            "description": "Submit project inquiry form (public, rate limited)."
+          }
+        },
+        {
+          "name": "Submit Appointment Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": 1,\n  \"firstName\": \"Ahmed\",\n  \"lastName\": \"Benali\",\n  \"email\": \"ahmed.benali@example.com\",\n  \"phone\": \"+213123456789\",\n  \"preferredDate\": \"2024-12-15\",\n  \"preferredTime\": \"14:00\",\n  \"message\": \"I would like to schedule a visit to see the model units in your Luxury Towers project. I am available in the afternoon.\",\n  \"utmSource\": \"facebook\",\n  \"utmMedium\": \"social\",\n  \"utmCampaign\": \"visits2024\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/forms/appointment",
+              "host": ["{{base_url}}"],
+              "path": ["api", "forms", "appointment"]
+            },
+            "description": "Submit appointment request (public, rate limited)."
+          }
+        },
+        {
+          "name": "Submit Catalog Download",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectId\": 1,\n  \"firstName\": \"Sarah\",\n  \"lastName\": \"Johnson\",\n  \"email\": \"sarah.johnson@example.com\",\n  \"phone\": \"+1234567892\",\n  \"interestedUnitTypes\": [\"2-bedroom\", \"3-bedroom\"],\n  \"budgetRange\": \"250000-400000\",\n  \"utmSource\": \"newsletter\",\n  \"utmMedium\": \"email\",\n  \"utmCampaign\": \"catalog2024\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/forms/catalog-download",
+              "host": ["{{base_url}}"],
+              "path": ["api", "forms", "catalog-download"]
+            },
+            "description": "Submit catalog download request (public, rate limited)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Media Management",
+      "item": [
+        {
+          "name": "Get Project Photos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/projects/:id/photos",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", ":id", "photos"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1",
+                  "description": "Project ID"
+                }
+              ],
+              "query": [
+                {
+                  "key": "isCover",
+                  "value": "true",
+                  "description": "Filter cover photos only"
+                }
+              ]
+            },
+            "description": "Get all photos for a project with optional filtering."
+          }
+        },
+        {
+          "name": "Add Project Photos",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "photos",
+                  "type": "file",
+                  "src": "/path/to/your/image1.jpg"
+                },
+                {
+                  "key": "photos",
+                  "type": "file",
+                  "src": "/path/to/your/image2.jpg"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/projects/:id/photos",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", ":id", "photos"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1",
+                  "description": "Project ID"
+                }
+              ]
+            },
+            "description": "Add multiple photos to a project."
+          }
+        },
+        {
+          "name": "Get Project Floor Plans",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/projects/:id/floor-plans",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", ":id", "floor-plans"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1",
+                  "description": "Project ID"
+                }
+              ],
+              "query": [
+                {
+                  "key": "hasPdf",
+                  "value": "true",
+                  "description": "Filter plans with PDF only"
+                }
+              ]
+            },
+            "description": "Get all floor plans for a project."
+          }
+        },
+        {
+          "name": "Add Project Floor Plans",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "floorPlans",
+                  "type": "file",
+                  "src": "/path/to/your/floorplan1.jpg"
+                },
+                {
+                  "key": "floorPlans",
+                  "type": "file",
+                  "src": "/path/to/your/floorplan1.pdf"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/projects/:id/floor-plans",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", ":id", "floor-plans"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1",
+                  "description": "Project ID"
+                }
+              ]
+            },
+            "description": "Add floor plans to a project."
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Add timestamp to requests if needed",
+          "const timestamp = Date.now();",
+          "pm.globals.set(\"timestamp\", timestamp);"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Log response time and status",
+          "console.log(\"Response Status:\", pm.response.code);",
+          "console.log(\"Response Time:\", pm.response.responseTime + \"ms\");",
+          "",
+          "// Store auth token if present",
+          "if (pm.response.headers.get(\"Authorization\")) {",
+          "    pm.globals.set(\"auth_token\", pm.response.headers.get(\"Authorization\"));",
+          "}",
+          "",
+          "// Basic response validation",
+          "pm.test(\"Status code is 2xx\", function () {",
+          "    pm.response.to.be.success;",
+          "});",
+          "",
+          "// For file uploads, store the returned URL",
+          "if (pm.response.code === 200 && pm.response.json().url) {",
+          "    pm.globals.set(\"last_uploaded_url\", pm.response.json().url);",
+          "    console.log(\"Uploaded file URL:\", pm.response.json().url);",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ]
+}

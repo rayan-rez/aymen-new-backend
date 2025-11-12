@@ -5,6 +5,7 @@
  */
 
 import express, { Express, Request, Response } from "express";
+import path from "path";
 import { corsMiddleware } from "@middlewares/cors.middleware";
 import {
   errorHandler,
@@ -42,6 +43,14 @@ export const createApp = (): Express => {
   // Middleware: CORS configuration
   // ============================================
   app.use(corsMiddleware);
+
+  // ============================================
+  // Middleware: Static file serving
+  // ============================================
+  
+  // Serve uploaded files from the uploads directory
+  // This makes files accessible at http://localhost:3000/uploads/
+  app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
   // ============================================
   // Swagger Documentation
@@ -121,8 +130,9 @@ export const createApp = (): Express => {
         uptime: process.uptime(),
         endpoints: {
           health: "/health",
-          contacts: "/api/contacts",
-          properties: "/api/properties",
+          uploads: "/uploads",
+          api: "/api",
+          docs: "/api/docs",
         },
       },
       "Welcome to Aymen Real Estate API"

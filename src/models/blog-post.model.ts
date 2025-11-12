@@ -62,7 +62,7 @@
  * // Publish
  * await BlogPostModel.publish(post.id);
  * 
- * @author Aymen Promotion Development Team
+ * @author Rezougui Rayan Zin Eddine
  * @since 1.0.0
  * @lastModified 2025-01-15
  */
@@ -77,7 +77,7 @@ import { generateSlug } from "@/database/helpers";
 import PhotoModel, { PhotoableType, Photo } from "./photo.model";
 import MediaService, {
   MediaCreationResult,
-  BatchMediaResult,
+  BatchMediaResult
 } from "@/services/media.service";
 import { Knex } from "knex";
 import type { BlogPostSection } from "./blog-post-section.model";

@@ -60,7 +60,7 @@
  * // Mark as sold
  * await ApartmentModel.markAsSold(apartment.id);
  * 
- * @author Aymen Promotion Development Team
+ * @author Rezougui Rayan Zin Eddine
  * @since 1.0.0
  * @lastModified 2025-01-15
  */

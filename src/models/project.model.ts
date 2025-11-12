@@ -66,7 +66,7 @@
  * // Add features
  * await project.attachFeatures([1, 2, 3]); // Security, Parking, Pool
  * 
- * @author Aymen Promotion Development Team
+ * @author Rezougui Rayan Zin Eddine
  * @since 1.0.0
  * @lastModified 2025-01-15
  */

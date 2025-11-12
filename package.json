@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "NODE_ENV=development nodemon",
-    "build": "NODE_ENV=production tsc && babel src --out-dir dist --extensions \".ts\" --copy-files",
+    "build": "rm -rf dist && tsc && babel src --out-dir dist --extensions \".ts\" --copy-files",
     "start": "NODE_ENV=production node dist/index.js",
     "migrate:make": "NODE_ENV=${NODE_ENV:-development} ts-node -r tsconfig-paths/register ./node_modules/.bin/knex migrate:make --knexfile knexfile.ts -x ts",
     "migrate:latest": "NODE_ENV=${NODE_ENV:-development} ts-node -r tsconfig-paths/register ./node_modules/.bin/knex migrate:latest --knexfile knexfile.ts",
@@ -38,6 +38,7 @@
     "test:fix": "NODE_ENV=test npm test -- --clearCache && npm test database-helpers.test.ts",
     "pm2:start": "pm2 start ecosystem.config.js --env production",
     "pm2:start:dev": "pm2 start ecosystem.config.js --env development",
+    "pm2:start:prod": "pm2 start ecosystem.config.js --only aymen-api-prod --env production",
     "pm2:start:staging": "pm2 start ecosystem.config.js --env staging",
     "pm2:stop": "pm2 stop ecosystem.config.js",
     "pm2:reload": "pm2 reload ecosystem.config.js",
@@ -54,9 +55,7 @@
     "deploy:monitor": "bash scripts/pm2-monitor.sh",
     "deploy:health": "bash scripts/health-check.sh",
     "deploy:backup": "bash scripts/backup-db.sh",
-    "deploy:rollback": "bash scripts/rollback.sh",
-    "docs": "NODE_ENV=${NODE_ENV:-development} node -e \"require('./dist/config/swagger').default\" > swagger.json",
-    "docs:serve": "npx swagger-ui-serve swagger.json"
+    "deploy:rollback": "bash scripts/rollback.sh"
   },
   "keywords": [
     "real-estate",
@@ -110,6 +109,7 @@
     "@typescript-eslint/eslint-plugin": "^8.46.2",
     "@typescript-eslint/parser": "^8.46.2",
     "babel-jest": "^30.2.0",
+    "babel-plugin-module-resolver": "^5.0.2",
     "eslint": "^9.38.0",
     "express": "^5.1.0",
     "jest": "^30.2.0",

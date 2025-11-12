@@ -5,10 +5,10 @@
  * Supports multiple environments: development, staging, production
  * 
  * Usage:
- *   pm2 start ecosystem.config.js --env production
- *   pm2 start ecosystem.config.js --env staging
- *   pm2 start ecosystem.config.js --env development
- *   pm2 reload ecosystem.config.js --env production
+ *   pm2 start ecosystem.config.js --only aymen-api-prod --env production
+ *   pm2 start ecosystem.config.js --only aymen-api-staging --env staging
+ *   pm2 start ecosystem.config.js --only aymen-api-dev --env development
+ *   pm2 reload ecosystem.config.js --only aymen-api-prod
  *   pm2 stop ecosystem.config.js
  *   pm2 delete ecosystem.config.js
  */
@@ -24,7 +24,13 @@ module.exports = {
       instances: 4, // Use 'max' to spawn instances based on CPU cores
       exec_mode: "cluster",
       
-      // Environment variables for production
+      // Base environment variables
+      env: {
+        NODE_ENV: "production",
+        PORT: 3000,
+      },
+      
+      // Environment variables for production (same as env)
       env_production: {
         NODE_ENV: "production",
         PORT: 3000,
@@ -58,14 +64,6 @@ module.exports = {
       
       // Graceful shutdown
       shutdown_with_message: true,
-      
-      // Restart on file change (only in development)
-      // watch: ["dist"],
-      
-      // Environment-specific behavior
-      env: {
-        NODE_ENV: "production",
-      },
     },
 
     // =================================================================
@@ -76,6 +74,11 @@ module.exports = {
       script: "./dist/index.js",
       instances: 2,
       exec_mode: "cluster",
+      
+      env: {
+        NODE_ENV: "staging",
+        PORT: 3001,
+      },
       
       env_staging: {
         NODE_ENV: "staging",
@@ -107,6 +110,11 @@ module.exports = {
       script: "./dist/index.js",
       instances: 1,
       exec_mode: "fork",
+      
+      env: {
+        NODE_ENV: "development",
+        PORT: 3000,
+      },
       
       env_development: {
         NODE_ENV: "development",
@@ -169,7 +177,7 @@ module.exports = {
         cd /var/www/aymen-api/production/source &&
         npm install --production &&
         npm run build &&
-        pm2 reload ecosystem.config.js --env production &&
+        pm2 reload ecosystem.config.js --only aymen-api-prod --env production &&
         pm2 save
       `,
       
@@ -201,7 +209,7 @@ module.exports = {
         cd /var/www/aymen-api/staging/source &&
         npm install --production &&
         npm run build &&
-        pm2 reload ecosystem.config.js --env staging &&
+        pm2 reload ecosystem.config.js --only aymen-api-staging --env staging &&
         pm2 save
       `,
       
