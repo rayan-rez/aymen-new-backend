@@ -7,7 +7,6 @@ import {
   sanitizeString,
   cleanUrl,
   parseDate,
-  parseInteger,
   processBatch,
   printMigrationStats,
   clearTable,
@@ -50,12 +49,12 @@ interface NewBlogPost {
   excerpt: string | null;
   content: string;
   featured_image_url: string | null;
-  reading_time_minutes: number | null;
+  // REMOVED: reading_time_minutes (column doesn't exist)
   tags: string | null; // JSON
   is_published: boolean;
   is_featured: boolean;
   published_at: string | null;
-  view_count: number;
+  // REMOVED: view_count (column doesn't exist)
   created_at: string;
   updated_at: string;
 }
@@ -73,11 +72,11 @@ interface BlogSection {
 // ============================================================================
 
 /**
- * Estimate reading time based on word count (avg 200 words/min)
+ * Format date for MySQL DATETIME columns
+ * Converts Date to "YYYY-MM-DD HH:MM:SS" format
  */
-function estimateReadingTime(content: string): number {
-  const words = content.trim().split(/\s+/).length;
-  return Math.max(1, Math.ceil(words / 200));
+function formatMySQLDateTime(date: Date): string {
+  return date.toISOString().slice(0, 19).replace('T', ' ');
 }
 
 /**
@@ -126,9 +125,8 @@ async function transformBlogPost(
 
     // Extract metadata
     const excerpt = extractExcerpt(content);
-    const readingTime = estimateReadingTime(content);
     const category = sanitizeString(legacy.categorie as string);
-    const authorName = sanitizeString(legacy.auteur) || "Aymen Promotion";
+    const authorName = sanitizeString(legacy.auteur) || "Amina Choutri";
 
     // Parse publication date
     const publishedAt = parseDate(legacy.date_publication);
@@ -148,14 +146,14 @@ async function transformBlogPost(
       excerpt,
       content,
       featured_image_url: featuredImageUrl,
-      reading_time_minutes: readingTime,
+      // REMOVED: reading_time_minutes
       tags: null,
       is_published: isPublished,
       is_featured: isFeatured,
-      published_at: publishedAt ? publishedAt.toISOString() : null,
-      view_count: 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      published_at: publishedAt ? formatMySQLDateTime(publishedAt) : null,
+      // REMOVED: view_count
+      created_at: formatMySQLDateTime(new Date()),
+      updated_at: formatMySQLDateTime(new Date()),
     };
 
     // Create sections
