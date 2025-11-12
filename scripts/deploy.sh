@@ -57,7 +57,7 @@ log_error() {
 print_header() {
     echo ""
     echo "╔════════════════════════════════════════════════════════════╗"
-    echo "║           🚀 Aymen Backend Deployment Script              ║"
+    echo "║           🚀 Aymen Backend Deployment Script               ║"
     echo "╠════════════════════════════════════════════════════════════╣"
     echo "║  Environment: ${NODE_ENV}                                        "
     echo "║  Started: $(date +'%Y-%m-%d %H:%M:%S')                           "
@@ -100,12 +100,12 @@ check_requirements() {
     fi
     log_success "PM2 $(pm2 --version) found"
     
-    # Check .env file
-    if [ ! -f ".env" ]; then
-        log_error ".env file not found"
+    # Check .env.production file
+    if [ ! -f ".env.production" ]; then
+        log_error ".env.production file not found"
         exit 1
     fi
-    log_success ".env file found"
+    log_success ".env.production file found"
 }
 
 create_directories() {
@@ -288,7 +288,7 @@ step_7_health_check() {
     fi
     
     # Check health endpoint
-    PORT=$(grep "^PORT=" .env | cut -d '=' -f2 || echo "3000")
+    PORT=$(grep "^PORT=" .env.production | cut -d '=' -f2 || echo "3000")
     log_info "Testing health endpoint on port $PORT..."
     
     HEALTH_CHECK=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:$PORT/health" || echo "000")
