@@ -5,7 +5,7 @@
 
 import { createApp } from "@/app";
 import { loadEnv } from "@/config/load-env"
-
+import { table } from "table";
 
 
 // Load environment variables
@@ -21,6 +21,7 @@ const PORT = process.env.PORT || 3000;
  * Indicates development, staging, or production mode
  */
 const NODE_ENV = process.env.NODE_ENV || "development";
+const APP_URL = process.env.APP_URL || "http://localhost";
 
 /**
  * Creates and starts the Express server
@@ -33,25 +34,22 @@ const startServer = (): void => {
 
     // Start HTTP server
     const server = app.listen(PORT, () => {
-      console.log(
-        "\n╔════════════════════════════════════════════════════════════╗"
-      );
-      console.log(
-        "║                  🚀 Server Started                         ║"
-      );
-      console.log(
-        "╠════════════════════════════════════════════════════════════╣"
-      );
-      console.log(
-        `║ 📍 URL:         http://localhost:${PORT.toString().padEnd(26)}║`
-      );
-      console.log(`║ 🌍 Environment: ${NODE_ENV.padEnd(43)}║`);
-      console.log(
-        `║ 💚 Health:      http://localhost:${PORT}/health${" ".repeat(15)}║`
-      );
-      console.log(
-        "╚════════════════════════════════════════════════════════════╝\n"
-      );
+      const port = PORT.toString();
+      console.log(table([
+        ["📍 URL:", `${APP_URL}:${port === "80" ? "" : port}`],
+        ["💚 Health:", `${APP_URL}:${port === "80" ? "" : port}/health`],
+        ["🌍 Environment:", NODE_ENV]
+      ],{
+        header: {
+          alignment: "center",
+          content: "🚀 Server Started"
+        },
+        columns: {
+          1: {
+            width: 50
+          }
+        }
+      }))
     });
 
     // ============================================
