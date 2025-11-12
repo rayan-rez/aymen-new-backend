@@ -26,7 +26,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-APP_NAME="aymen-api-prod"
+APP_NAME="aymen-api"
 NODE_ENV="${NODE_ENV:-production}"
 LOG_FILE="logs/deployment-$(date +%Y%m%d-%H%M%S).log"
 
