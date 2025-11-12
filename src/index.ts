@@ -34,10 +34,10 @@ const startServer = (): void => {
 
     // Start HTTP server
     const server = app.listen(PORT, () => {
-      const port = PORT.toString();
+      const port = ":"+PORT.toString();
       console.log(table([
-        ["📍 URL:", `${APP_URL}:${port === "80" ? "" : port}`],
-        ["💚 Health:", `${APP_URL}:${port === "80" ? "" : port}/health`],
+        ["📍 URL:", `${APP_URL}${port === "80" ? "" : port}`],
+        ["💚 Health:", `${APP_URL}${port === "80" ? "" : port}/health`],
         ["🌍 Environment:", NODE_ENV]
       ],{
         header: {
