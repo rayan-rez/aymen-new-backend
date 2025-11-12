@@ -21,7 +21,7 @@ module.exports = {
       // =================================================================
       name: "aymen-api",
       script: "./dist/index.js",
-      instances: 2, // Use 'max' to spawn instances based on CPU cores
+      instances: 1, // Use 'max' to spawn instances based on CPU cores
       exec_mode: "cluster",
       
       // Environment variables for production
@@ -75,7 +75,7 @@ module.exports = {
     {
       name: "aymen-api-staging",
       script: "./dist/index.js",
-      instances: 2,
+      instances: 1,
       exec_mode: "cluster",
       
       env_staging: {
@@ -147,7 +147,7 @@ module.exports = {
     // Production deployment
     production: {
       user: "deploy", // SSH user
-      host: ["your-production-server.com"], // Server IP or domain
+      host: ["http://backendnew.aymenpromotion-dz.com"], // Server IP or domain
       ref: "origin/main", // Git branch
       repo: "git@github.com:rayan-rez/aymen-new-backend.git",
       path: "/var/www/aymen-api/production", // Deploy path
@@ -177,6 +177,7 @@ module.exports = {
       // Environment variables for deployment
       env: {
         NODE_ENV: "production",
+        PORT: 80
       },
     },
 
