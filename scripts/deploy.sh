@@ -288,7 +288,7 @@ step_7_health_check() {
     fi
     
     # Check health endpoint
-    PORT=$(grep "^PORT=" .env.production | cut -d '=' -f2 || echo "3000")
+    PORT=$(grep "^PORT=" .env.production | cut -d '=' -f2 || echo "8080")
     log_info "Testing health endpoint on port $PORT..."
     
     HEALTH_CHECK=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:$PORT/health" || echo "000")
@@ -364,7 +364,7 @@ main() {
     echo "   Restart app:      pm2 restart $APP_NAME"
     echo "   Stop app:         pm2 stop $APP_NAME"
     echo ""
-    echo "🌐 Access your API at: http://localhost:${PORT:-3000}"
+    echo "🌐 Access your API at: http://localhost:${PORT:-8080}"
     echo ""
 }
 

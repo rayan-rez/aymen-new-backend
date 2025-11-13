@@ -34,13 +34,13 @@ sudo tee "$VHOST_FILE" > /dev/null <<'EOF'
 
     # Proxy settings
     ProxyPreserveHost On
-    ProxyPass / http://localhost:3000/
-    ProxyPassReverse / http://localhost:3000/
+    ProxyPass / http://localhost:8080/
+    ProxyPassReverse / http://localhost:8080/
 
     # WebSocket support (if needed)
     RewriteEngine On
     RewriteCond %{HTTP:Upgrade} =websocket [NC]
-    RewriteRule /(.*)           ws://localhost:3000/$1 [P,L]
+    RewriteRule /(.*)           ws://localhost:8080/$1 [P,L]
 
     # Security headers
     Header always set X-Frame-Options "SAMEORIGIN"
@@ -68,8 +68,8 @@ sudo tee "$VHOST_FILE" > /dev/null <<'EOF'
 #     SSLCertificateKeyFile /path/to/key.pem
 #     
 #     ProxyPreserveHost On
-#     ProxyPass / http://localhost:3000/
-#     ProxyPassReverse / http://localhost:3000/
+#     ProxyPass / http://localhost:8080/
+#     ProxyPassReverse / http://localhost:8080/
 #     
 #     ErrorLog ${APACHE_LOG_DIR}/aymen-api-ssl-error.log
 #     CustomLog ${APACHE_LOG_DIR}/aymen-api-ssl-access.log combined
@@ -97,12 +97,4 @@ sudo systemctl restart apache2
 echo ""
 echo "================================"
 echo "✅ Apache reverse proxy setup complete!"
-echo ""
-echo "Your Node.js app should run on port 3000"
-echo "Apache will proxy requests from port 80 to port 3000"
-echo ""
-echo "Next steps:"
-echo "1. Update ecosystem.config.js to use PORT: 3000"
-echo "2. Restart your PM2 app: pm2 restart aymen-api"
-echo "3. Test: curl http://localhost/health"
 echo ""

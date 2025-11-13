@@ -24,7 +24,7 @@ import redoc from "redoc-express";
  *
  * @example
  * const app = createApp();
- * app.listen(3000);
+ * app.listen(8080);
  */
 export const createApp = (): Express => {
   const app = express();
@@ -49,7 +49,7 @@ export const createApp = (): Express => {
   // ============================================
   
   // Serve uploaded files from the uploads directory
-  // This makes files accessible at http://localhost:3000/uploads/
+  // This makes files accessible at http://localhost:8080/uploads/
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
   // ============================================

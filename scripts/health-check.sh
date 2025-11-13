@@ -14,7 +14,7 @@ else
 fi
 
 # Check API health endpoint
-HEALTH_CHECK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/health)
+HEALTH_CHECK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health)
 
 if [ "$HEALTH_CHECK" == "200" ]; then
     echo "✅ Health Endpoint: OK (200)"

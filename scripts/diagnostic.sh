@@ -87,7 +87,7 @@ echo ""
 echo "3️⃣  Port Availability"
 echo "--------------------------------------------------------------------"
 
-for port in 80 3000; do
+for port in 80 8080; do
     if sudo lsof -i :$port > /dev/null 2>&1; then
         PROCESS=$(sudo lsof -i :$port | tail -n +2 | head -1 | awk '{print $1 " (PID: " $2 ")"}')
         echo "   Port $port: IN USE by $PROCESS"
@@ -243,13 +243,13 @@ else
     fi
 fi
 
-# Test port 3000
-echo "   Testing port 3000..."
-RESPONSE_3000=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/health 2>/dev/null || echo "000")
-if [ "$RESPONSE_3000" = "200" ]; then
-    echo -e "   ${GREEN}✓${NC} Port 3000: Accessible (HTTP $RESPONSE_3000)"
+# Test port 8080
+echo "   Testing port 8080..."
+RESPONSE_8080=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health 2>/dev/null || echo "000")
+if [ "$RESPONSE_8080" = "200" ]; then
+    echo -e "   ${GREEN}✓${NC} Port 8080: Accessible (HTTP $RESPONSE_8080)"
 else
-    echo -e "   ${YELLOW}⚠${NC}  Port 3000: Not accessible (HTTP $RESPONSE_3000)"
+    echo -e "   ${YELLOW}⚠${NC}  Port 8080: Not accessible (HTTP $RESPONSE_8080)"
     WARNINGS=$((WARNINGS + 1))
 fi
 
@@ -282,8 +282,8 @@ if systemctl is-active --quiet apache2 2>/dev/null && [ ! -f "/etc/apache2/sites
     echo ""
     echo "SOLUTION: Configure Apache as reverse proxy"
     echo "  1. Run: sudo bash scripts/apache-reverse-proxy-setup.sh"
-    echo "  2. Update .env.production: PORT=3000"
-    echo "  3. Update ecosystem.config.js: env_production.PORT = 3000"
+    echo "  2. Update .env.production: PORT=8080"
+    echo "  3. Update ecosystem.config.js: env_production.PORT = 8080"
     echo "  4. Restart: pm2 restart aymen-api --update-env"
     echo ""
 fi

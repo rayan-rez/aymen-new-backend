@@ -12,9 +12,9 @@ import { table } from "table";
 loadEnv();
 /**
  * Application port
- * Reads from environment variable or defaults to 3000
+ * Reads from environment variable or defaults to 8080
  */
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 /**
  * Application environment

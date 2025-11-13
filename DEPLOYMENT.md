@@ -1,6 +1,7 @@
 # 🚀 Deployment Guide - Aymen Backend API
 
 ## 📋 Table of Contents
+
 - [Prerequisites](#prerequisites)
 - [Initial Server Setup](#initial-server-setup)
 - [Production Deployment](#production-deployment)
@@ -12,6 +13,7 @@
 ## Prerequisites
 
 ### Required Software
+
 - **Node.js** ≥ 18.x
 - **npm** ≥ 9.x
 - **PM2** (install globally: `npm install -g pm2`)
@@ -20,6 +22,7 @@
 - **Git**
 
 ### Required Files
+
 ```bash
 .env.production          # Production environment variables
 ecosystem.config.js      # PM2 configuration
@@ -65,14 +68,15 @@ sudo nano /etc/apache2/sites-available/aymen-api.conf
 ```
 
 Add this configuration:
+
 ```apache
 <VirtualHost *:80>
     ServerName backendnew.aymenpromotion-dz.com
-    
+
     ProxyPreserveHost On
-    ProxyPass / http://localhost:3000/
-    ProxyPassReverse / http://localhost:3000/
-    
+    ProxyPass / http://localhost:8080/
+    ProxyPassReverse / http://localhost:8080/
+
     ErrorLog ${APACHE_LOG_DIR}/aymen-api-error.log
     CustomLog ${APACHE_LOG_DIR}/aymen-api-access.log combined
 </VirtualHost>
@@ -95,7 +99,7 @@ Create `.env.production`:
 ```bash
 # Application
 NODE_ENV=production
-PORT=3000
+PORT=8080
 APP_URL=http://backendnew.aymenpromotion-dz.com
 
 # Database
@@ -105,12 +109,6 @@ DB_USER=your_db_user
 DB_PASSWORD=your_db_password
 DB_NAME=aymen_db
 
-# Other settings...
-```
-
-⚠️ **Important**: Your app runs on port 3000, Apache proxies port 80 to 3000
-
----
 
 ## Production Deployment
 
@@ -125,6 +123,7 @@ bash scripts/deploy.sh
 ```
 
 This script will:
+
 1. ✓ Validate environment and dependencies
 2. ✓ Create backup of current state
 3. ✓ Install dependencies and build
@@ -186,16 +185,17 @@ npm run deploy
 
 ### Issue: "Port 80 already in use"
 
-**Solution**: This is expected. Apache uses port 80 and proxies to your app on port 3000.
+**Solution**: This is expected. Apache uses port 80 and proxies to your app on port 8080.
 
 Verify configuration:
+
 ```bash
 # Check Apache is proxying correctly
 curl -I http://localhost
 # Should show your API response, not Apache default page
 
 # Check your app directly
-curl http://localhost:3000/health
+curl http://localhost:8080/health
 # Should return: {"status":"healthy",...}
 ```
 
@@ -219,7 +219,7 @@ mysql -u root -p -e "SHOW DATABASES;"
 pm2 logs aymen-api --lines 50
 
 # Common issues:
-# 1. Port already in use -> Check .env.production PORT=3000
+# 1. Port already in use -> Check .env.production PORT=8080
 # 2. Database connection failed -> Verify DB credentials
 # 3. Module not found -> Run: npm install && npm run build
 
@@ -240,7 +240,7 @@ pm2 logs aymen-api
 pm2 env aymen-api | grep PORT
 
 # Test health endpoint
-curl -v http://localhost:3000/health
+curl -v http://localhost:8080/health
 ```
 
 ### Run Full Diagnostic
@@ -395,12 +395,14 @@ npm run test                # Run tests
 ### Enable PM2 Cluster Mode
 
 Edit `ecosystem.config.js`:
+
 ```javascript
 instances: 'max',  // Use all CPU cores
 exec_mode: 'cluster',
 ```
 
 Then reload:
+
 ```bash
 pm2 reload aymen-api
 ```
@@ -423,6 +425,7 @@ pm2 describe aymen-api
 ## Support
 
 For issues or questions:
+
 - Check logs: `pm2 logs aymen-api`
 - Run diagnostic: `npm run deploy:check`
 - Review this guide
