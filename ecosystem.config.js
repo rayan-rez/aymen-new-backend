@@ -1,40 +1,27 @@
 /**
- * PM2 Ecosystem Configuration
- * 
- * Manages Node.js application lifecycle in production
- * Supports multiple environments: development, staging, production
- * 
- * Usage:
- *   pm2 start ecosystem.config.js --env production
- *   pm2 start ecosystem.config.js --env staging
- *   pm2 start ecosystem.config.js --env development
- *   pm2 reload ecosystem.config.js --env production
- *   pm2 stop ecosystem.config.js
- *   pm2 delete ecosystem.config.js
+ * PM2 Ecosystem Configuration - UPDATED for Apache Proxy
  */
 
 module.exports = {
   apps: [
     {
       // =================================================================
-      // PRODUCTION ENVIRONMENT
+      // PRODUCTION ENVIRONMENT - Behind Apache Reverse Proxy
       // =================================================================
       name: "aymen-api",
       script: "./dist/index.js",
-      instances: 1, // Use 'max' to spawn instances based on CPU cores
+      instances: 1,
       exec_mode: "cluster",
       
       // Environment variables for production
       env_production: {
         NODE_ENV: "production",
-        PORT: 80,
-        APP_URL: "http://backendnew.aymenpromotion-dz.com"
       },
 
       // Resource management
-      max_memory_restart: "1G", // Restart if memory exceeds 1GB
-      min_uptime: "10s", // Consider app unstable if it crashes within 10s
-      max_restarts: 10, // Max restart attempts
+      max_memory_restart: "1G",
+      min_uptime: "10s",
+      max_restarts: 10,
       
       // Logging
       log_date_format: "YYYY-MM-DD HH:mm:ss Z",
@@ -46,24 +33,17 @@ module.exports = {
 
       // Restart behavior
       autorestart: true,
-      watch: false, // Don't watch files in production
+      watch: false,
       ignore_watch: ["node_modules", "logs", "uploads"],
       
       // Advanced settings
-      listen_timeout: 10000, // Time to wait for app to be ready
-      kill_timeout: 5000, // Time to wait before force killing
-      wait_ready: true, // Wait for 'ready' signal
+      listen_timeout: 10000,
+      kill_timeout: 5000,
+      wait_ready: true,
       
-      // Source map support
       source_map_support: true,
-      
-      // Graceful shutdown
       shutdown_with_message: true,
       
-      // Restart on file change (only in development)
-      // watch: ["dist"],
-      
-      // Environment-specific behavior
       env: {
         NODE_ENV: "production",
       },
@@ -80,7 +60,7 @@ module.exports = {
       
       env_staging: {
         NODE_ENV: "staging",
-        PORT: 3001,
+        PORT: 3001, // Different port for staging
       },
 
       max_memory_restart: "800M",
@@ -124,7 +104,7 @@ module.exports = {
       merge_logs: true,
       
       autorestart: true,
-      watch: true, // Watch for changes in development
+      watch: true,
       watch_delay: 1000,
       ignore_watch: [
         "node_modules",
@@ -140,32 +120,24 @@ module.exports = {
     },
   ],
 
-  // =================================================================
-  // DEPLOYMENT CONFIGURATION
-  // =================================================================
   deploy: {
-    // Production deployment
     production: {
-      user: "deploy", // SSH user
-      host: ["http://backendnew.aymenpromotion-dz.com"], // Server IP or domain
-      ref: "origin/main", // Git branch
+      user: "deploy",
+      host: ["backendnew.aymenpromotion-dz.com"],
+      ref: "origin/main",
       repo: "git@github.com:rayan-rez/aymen-new-backend.git",
-      path: "/var/www/aymen-api/production", // Deploy path
+      path: "/var/www/aymen-api/production",
       
-      // Pre-setup commands (run once)
       "pre-setup": "mkdir -p /var/www/aymen-api/production",
       
-      // Post-setup commands (run once after initial setup)
       "post-setup": `
         cd /var/www/aymen-api/production/source &&
         npm install &&
         npm run build
       `,
       
-      // Pre-deploy commands (run before each deployment)
       "pre-deploy": "git fetch --all",
       
-      // Post-deploy commands (run after each deployment)
       "post-deploy": `
         cd /var/www/aymen-api/production/source &&
         npm install --production &&
@@ -174,14 +146,12 @@ module.exports = {
         pm2 save
       `,
       
-      // Environment variables for deployment
       env: {
         NODE_ENV: "production",
-        PORT: 80
+        PORT: 3000
       },
     },
 
-    // Staging deployment
     staging: {
       user: "deploy",
       host: ["backendnew.aymenpromotion-dz.com"],
