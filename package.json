@@ -38,7 +38,13 @@
     "deploy:setup-proxy": "sudo bash scripts/apache-reverse-proxy-setup.sh",
     "deploy:backup": "bash scripts/backup-db.sh",
     "deploy:rollback": "bash scripts/rollback.sh",
-    "deploy:health": "bash scripts/health-check.sh"
+    "deploy:health": "bash scripts/health-check.sh",
+
+    "typesense:init": "ts-node -r tsconfig-paths/register scripts/typesense-cli.ts init",
+    "typesense:reindex": "ts-node -r tsconfig-paths/register scripts/typesense-cli.ts reindex-all",
+    "typesense:reindex:projects": "ts-node -r tsconfig-paths/register scripts/typesense-cli.ts reindex projects",
+    "typesense:reindex:apartments": "ts-node -r tsconfig-paths/register scripts/typesense-cli.ts reindex apartments",
+    "typesense:status": "ts-node -r tsconfig-paths/register scripts/typesense-cli.ts status"
   },
   "keywords": [
     "real-estate",
@@ -68,7 +74,8 @@
     "sharp": "^0.33.5",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
-    "table": "^6.9.0"
+    "table": "^6.9.0",
+    "typesense": "^2.1.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.28.3",

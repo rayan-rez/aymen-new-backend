@@ -16,6 +16,7 @@ import featureRoutes from "./feature.routes";
 import photoRoutes from "./photo.routes";
 import floorPlanRoutes from "./floor-plan.routes";
 import formSubmissionRoutes from "./form-submission.routes";
+import searchRoutes from "./search.routes";
 
 const router = Router();
 
@@ -93,6 +94,8 @@ router.use("/photos", photoRoutes);
 router.use("/forms", formSubmissionRoutes);
 
 router.use("/floor-plans", floorPlanRoutes);
+
+router.use("/search", searchRoutes);
 
 
 // ============================================================================
