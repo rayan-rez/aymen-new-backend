@@ -1,377 +1,449 @@
 /**
- * Typesense Service
- * Handles all Typesense operations for indexing and searching
+ * Typesense Service - Enhanced Version
+ * Handles all search indexing and querying operations
  * 
- * @module services/typesense
+ * @module services/typesense.service
  */
 
 import typesenseClient from '@/config/typesense';
 import { _schemas } from '@/config/typesense/schemas';
 import db from '@/config/database';
 
-export class TypesenseService {
+class TypesenseService {
+  /**
+   * Test Typesense connection
+   */
+  async testConnection(): Promise<boolean> {
+    try {
+      const health = await typesenseClient.health.retrieve();
+      console.log('✅ Typesense connection successful:', health);
+      return health.ok;
+    } catch (error) {
+      console.error('❌ Typesense connection failed:', error);
+      return false;
+    }
+  }
+
   /**
    * Initialize all collections
+   * Creates collections if they don't exist
    */
-  static async initializeCollections(): Promise<void> {
+  async initializeCollections(): Promise<void> {
     try {
-      const collections = await typesenseClient.collections().retrieve();
-      const existingCollections = collections.map((c: any) => c.name);
+      console.log('🔧 Initializing Typesense collections...');
 
-      for (const [name, schema] of Object.entries(_schemas)) {
-        if (existingCollections.includes(name)) {
-          console.log(`✓ Collection "${name}" already exists`);
-          continue;
+      const existingCollections = await typesenseClient
+        .collections()
+        .retrieve();
+      const existingNames = existingCollections.map((c: any) => c.name);
+
+      for (const [collectionName, schema] of Object.entries(_schemas)) {
+        if (existingNames.includes(collectionName)) {
+          console.log(`  ✓ Collection '${collectionName}' already exists`);
+        } else {
+          await typesenseClient.collections().create(schema);
+          console.log(`  ✓ Created collection '${collectionName}'`);
         }
-
-        await typesenseClient.collections().create(schema);
-        console.log(`✅ Created collection: ${name}`);
       }
+
+      console.log('✅ All collections initialized');
     } catch (error: any) {
-      console.error('Error initializing collections:', error.message);
+      console.error('❌ Failed to initialize collections:', error.message);
       throw error;
     }
   }
 
   /**
-   * Delete and recreate a collection (useful for schema changes)
+   * Recreate a specific collection
+   * WARNING: This deletes all documents in the collection
    */
-  static async recreateCollection(collectionName: string): Promise<void> {
+  async recreateCollection(collectionName: string): Promise<void> {
     try {
-      await typesenseClient.collections(collectionName).delete();
-      console.log(`🗑️  Deleted collection: ${collectionName}`);
-    } catch (error: any) {
-      if (!error.message.includes('Not Found')) {
-        throw error;
+      console.log(`♻️  Recreating collection: ${collectionName}`);
+
+      // Delete if exists
+      try {
+        await typesenseClient.collections(collectionName).delete();
+        console.log(`  ✓ Deleted old collection '${collectionName}'`);
+      } catch (error: any) {
+        if (error.httpStatus !== 404) {
+          throw error;
+        }
       }
-    }
 
-    const schema = _schemas[collectionName as keyof typeof _schemas];
-    if (!schema) {
-      throw new Error(`No schema found for collection: ${collectionName}`);
-    }
+      // Create new
+      const schema = _schemas[collectionName];
+      if (!schema) {
+        throw new Error(`Schema not found for collection: ${collectionName}`);
+      }
 
-    await typesenseClient.collections().create(schema);
-    console.log(`✅ Created collection: ${collectionName}`);
+      await typesenseClient.collections().create(schema);
+      console.log(`  ✓ Created new collection '${collectionName}'`);
+    } catch (error: any) {
+      console.error(`❌ Failed to recreate collection:`, error.message);
+      throw error;
+    }
   }
 
   /**
    * Index all projects
    */
-  static async indexProjects(): Promise<number> {
-    const projects = await db('projects')
-      .select(
-        'id',
-        'name',
-        'slug',
-        'description',
-        'address',
-        'project_type',
-        'status',
-        'location_id',
-        'price_min',
-        'price_max',
-        'total_units',
-        'completion_percentage',
-        'is_featured',
-        'is_published',
-        'main_photo_url',
-        'created_at',
-        'updated_at'
-      )
-      .whereNull('deleted_at')
-      .where('is_published', true);
-
-    // Get location names
-    const projectsWithLocations = await Promise.all(
-      projects.map(async (project) => {
-        let location_name = null;
-        if (project.location_id) {
-          const location = await db('locations')
-            .select('name')
-            .where('id', project.location_id)
-            .first();
-          location_name = location?.name || null;
-        }
-
-        return {
-          ...project,
-          location_name,
-          created_at: new Date(project.created_at).getTime(),
-          updated_at: new Date(project.updated_at).getTime(),
-        };
-      })
-    );
-
-    if (projectsWithLocations.length === 0) {
-      console.log('No projects to index');
-      return 0;
-    }
-
-    const result = await typesenseClient
-      .collections('projects')
-      .documents()
-      .import(projectsWithLocations, { action: 'upsert' });
-
-    console.log(`✅ Indexed ${projectsWithLocations.length} projects`);
-    return projectsWithLocations.length;
-  }
-
-  /**
-   * Index single project
-   */
-  static async indexProject(projectId: number): Promise<void> {
-    const project = await db('projects')
-      .select(
-        'id',
-        'name',
-        'slug',
-        'description',
-        'address',
-        'project_type',
-        'status',
-        'location_id',
-        'price_min',
-        'price_max',
-        'total_units',
-        'completion_percentage',
-        'is_featured',
-        'is_published',
-        'main_photo_url',
-        'created_at',
-        'updated_at'
-      )
-      .where('id', projectId)
-      .whereNull('deleted_at')
-      .first();
-
-    if (!project) {
-      throw new Error(`Project ${projectId} not found`);
-    }
-
-    let location_name = null;
-    if (project.location_id) {
-      const location = await db('locations')
-        .select('name')
-        .where('id', project.location_id)
-        .first();
-      location_name = location?.name || null;
-    }
-
-    const document = {
-      ...project,
-      location_name,
-      created_at: new Date(project.created_at).getTime(),
-      updated_at: new Date(project.updated_at).getTime(),
-    };
-
-    await typesenseClient
-      .collections('projects')
-      .documents()
-      .upsert(document);
-
-    console.log(`✅ Indexed project: ${project.name}`);
-  }
-
-  /**
-   * Remove project from index
-   */
-  static async removeProject(projectId: number): Promise<void> {
+  async indexProjects(): Promise<number> {
     try {
-      await typesenseClient
-        .collections('projects')
-        .documents(projectId.toString())
-        .delete();
-      console.log(`🗑️  Removed project ${projectId} from index`);
-    } catch (error: any) {
-      if (!error.message.includes('Not Found')) {
-        throw error;
+      console.log('📚 Indexing projects...');
+
+      const projects = await db('projects')
+        .select(
+          'id',
+          'name',
+          'slug',
+          'description',
+          'address',
+          'project_type',
+          'status',
+          'location_id',
+          'price_min',
+          'price_max',
+          'total_units',
+          'completion_percentage',
+          'is_featured',
+          'is_published',
+          'main_photo_url',
+          'created_at',
+          'updated_at'
+        )
+        .whereNull('deleted_at')
+        .where('is_published', true);
+
+      if (projects.length === 0) {
+        console.log('  ⚠️  No published projects to index');
+        return 0;
       }
+
+      // Get location names
+      const locationIds = projects
+        .map((p) => p.location_id)
+        .filter((id) => id != null);
+
+      const locations = await db('locations')
+        .select('id', 'name')
+        .whereIn('id', locationIds);
+
+      const locationMap = new Map(locations.map((l) => [l.id, l.name]));
+
+      // Transform for Typesense
+      const documents = projects.map((project) => ({
+        id: project.id,
+        name: project.name,
+        slug: project.slug,
+        description: project.description || '',
+        address: project.address,
+        project_type: project.project_type,
+        status: project.status,
+        location_id: project.location_id,
+        location_name: project.location_id
+          ? locationMap.get(project.location_id)
+          : null,
+        price_min: project.price_min,
+        price_max: project.price_max,
+        total_units: project.total_units,
+        completion_percentage: project.completion_percentage,
+        is_featured: project.is_featured,
+        is_published: project.is_published,
+        main_photo_url: project.main_photo_url,
+        created_at: new Date(project.created_at).getTime() / 1000,
+        updated_at: new Date(project.updated_at).getTime() / 1000,
+      }));
+
+      // Import in batches
+      const BATCH_SIZE = 100;
+      let indexed = 0;
+
+      for (let i = 0; i < documents.length; i += BATCH_SIZE) {
+        const batch = documents.slice(i, i + BATCH_SIZE);
+        const result = await typesenseClient
+          .collections('projects')
+          .documents()
+          .import(batch, { action: 'upsert' });
+
+        indexed += batch.length;
+        console.log(`  ✓ Indexed ${indexed}/${documents.length} projects`);
+      }
+
+      console.log(`✅ Indexed ${indexed} projects`);
+      return indexed;
+    } catch (error: any) {
+      console.error('❌ Failed to index projects:', error.message);
+      throw error;
     }
   }
 
   /**
    * Index all apartments
    */
-  static async indexApartments(): Promise<number> {
-    const apartments = await db('apartments')
-      .select(
-        'apartments.id',
-        'apartments.project_id',
-        'apartments.name',
-        'apartments.unit_number',
-        'apartments.title',
-        'apartments.description',
-        'apartments.floor_number',
-        'apartments.area_sqm',
-        'apartments.bedrooms',
-        'apartments.bathrooms',
-        'apartments.price',
-        'apartments.status',
-        'apartments.is_model_unit',
-        'apartments.is_published',
-        'apartments.created_at',
-        'projects.name as project_name'
-      )
-      .leftJoin('projects', 'apartments.project_id', 'projects.id')
-      .whereNull('apartments.deleted_at')
-      .where('apartments.is_published', true);
+  async indexApartments(): Promise<number> {
+    try {
+      console.log('🏠 Indexing apartments...');
 
-    const documentsToIndex = apartments.map((apt) => ({
-      id: apt.id,
-      project_id: apt.project_id,
-      project_name: apt.project_name || '',
-      name: apt.name,
-      unit_number: apt.unit_number || '',
-      title: apt.title || '',
-      description: apt.description || '',
-      floor_number: apt.floor_number || 0,
-      area_sqm: apt.area_sqm,
-      bedrooms: apt.bedrooms || 0,
-      bathrooms: apt.bathrooms || 0,
-      price: apt.price,
-      status: apt.status,
-      is_model_unit: apt.is_model_unit,
-      is_published: apt.is_published,
-      created_at: new Date(apt.created_at).getTime(),
-    }));
+      const apartments = await db('apartments')
+        .select(
+          'apartments.id',
+          'apartments.project_id',
+          'apartments.name',
+          'apartments.unit_number',
+          'apartments.title',
+          'apartments.description',
+          'apartments.floor_number',
+          'apartments.area_sqm',
+          'apartments.bedrooms',
+          'apartments.bathrooms',
+          'apartments.price',
+          'apartments.status',
+          'apartments.is_model_unit',
+          'apartments.is_published',
+          'apartments.created_at',
+          'projects.name as project_name'
+        )
+        .join('projects', 'apartments.project_id', 'projects.id')
+        .whereNull('apartments.deleted_at')
+        .where('apartments.is_published', true);
 
-    if (documentsToIndex.length === 0) {
-      console.log('No apartments to index');
-      return 0;
+      if (apartments.length === 0) {
+        console.log('  ⚠️  No published apartments to index');
+        return 0;
+      }
+
+      // Transform for Typesense
+      const documents = apartments.map((apt) => ({
+        id: apt.id,
+        project_id: apt.project_id,
+        project_name: apt.project_name,
+        name: apt.name,
+        unit_number: apt.unit_number,
+        title: apt.title || '',
+        description: apt.description || '',
+        floor_number: apt.floor_number,
+        area_sqm: apt.area_sqm,
+        bedrooms: apt.bedrooms,
+        bathrooms: apt.bathrooms,
+        price: apt.price,
+        status: apt.status,
+        is_model_unit: apt.is_model_unit,
+        is_published: apt.is_published,
+        created_at: new Date(apt.created_at).getTime() / 1000,
+      }));
+
+      // Import in batches
+      const BATCH_SIZE = 100;
+      let indexed = 0;
+
+      for (let i = 0; i < documents.length; i += BATCH_SIZE) {
+        const batch = documents.slice(i, i + BATCH_SIZE);
+        const result = await typesenseClient
+          .collections('apartments')
+          .documents()
+          .import(batch, { action: 'upsert' });
+
+        indexed += batch.length;
+        console.log(`  ✓ Indexed ${indexed}/${documents.length} apartments`);
+      }
+
+      console.log(`✅ Indexed ${indexed} apartments`);
+      return indexed;
+    } catch (error: any) {
+      console.error('❌ Failed to index apartments:', error.message);
+      throw error;
     }
-
-    await typesenseClient
-      .collections('apartments')
-      .documents()
-      .import(documentsToIndex, { action: 'upsert' });
-
-    console.log(`✅ Indexed ${documentsToIndex.length} apartments`);
-    return documentsToIndex.length;
   }
 
   /**
    * Search projects
    */
-  static async searchProjects(query: string, filters?: any) {
-    const searchParams: any = {
-      q: query,
-      query_by: 'name,description,address,location_name',
-      sort_by: '_text_match:desc,created_at:desc',
-      per_page: 20,
-    };
+  async searchProjects(
+    query: string,
+    filters?: Record<string, any>
+  ): Promise<any> {
+    try {
+      const searchParameters: any = {
+        q: query,
+        query_by: 'name,description,address',
+        sort_by: '_text_match:desc,created_at:desc',
+        per_page: 20,
+      };
 
-    if (filters) {
-      const filterQueries: string[] = [];
+      // Build filter string
+      const filterParts: string[] = ['is_published:true'];
 
-      if (filters.project_type) {
-        filterQueries.push(`project_type:=${filters.project_type}`);
+      if (filters?.project_type) {
+        filterParts.push(`project_type:=${filters.project_type}`);
       }
-      if (filters.status) {
-        filterQueries.push(`status:=${filters.status}`);
+      if (filters?.status) {
+        filterParts.push(`status:=${filters.status}`);
       }
-      if (filters.is_featured !== undefined) {
-        filterQueries.push(`is_featured:=${filters.is_featured}`);
+      if (filters?.location_id) {
+        filterParts.push(`location_id:=${filters.location_id}`);
       }
-      if (filters.location_id) {
-        filterQueries.push(`location_id:=${filters.location_id}`);
+      if (filters?.is_featured !== undefined) {
+        filterParts.push(`is_featured:=${filters.is_featured}`);
       }
-      if (filters.min_price) {
-        filterQueries.push(`price_min:>=${filters.min_price}`);
+      if (filters?.min_price !== undefined) {
+        filterParts.push(`price_min:>=${filters.min_price}`);
       }
-      if (filters.max_price) {
-        filterQueries.push(`price_max:<=${filters.max_price}`);
+      if (filters?.max_price !== undefined) {
+        filterParts.push(`price_max:<=${filters.max_price}`);
       }
 
-      // Always filter published
-      filterQueries.push('is_published:=true');
-
-      if (filterQueries.length > 0) {
-        searchParams.filter_by = filterQueries.join(' && ');
+      if (filterParts.length > 0) {
+        searchParameters.filter_by = filterParts.join(' && ');
       }
+
+      return await typesenseClient
+        .collections('projects')
+        .documents()
+        .search(searchParameters);
+    } catch (error: any) {
+      console.error('Search error:', error.message);
+      throw error;
     }
-
-    const result = await typesenseClient
-      .collections('projects')
-      .documents()
-      .search(searchParams);
-
-    return result;
   }
 
   /**
    * Search apartments
    */
-  static async searchApartments(query: string, filters?: any) {
-    const searchParams: any = {
-      q: query,
-      query_by: 'name,title,description,unit_number,project_name',
-      sort_by: '_text_match:desc,created_at:desc',
-      per_page: 20,
-    };
+  async searchApartments(
+    query: string,
+    filters?: Record<string, any>
+  ): Promise<any> {
+    try {
+      const searchParameters: any = {
+        q: query,
+        query_by: 'name,unit_number,title,description,project_name',
+        sort_by: '_text_match:desc,created_at:desc',
+        per_page: 20,
+      };
 
-    if (filters) {
-      const filterQueries: string[] = [];
+      // Build filter string
+      const filterParts: string[] = ['is_published:true'];
 
-      if (filters.project_id) {
-        filterQueries.push(`project_id:=${filters.project_id}`);
+      if (filters?.project_id) {
+        filterParts.push(`project_id:=${filters.project_id}`);
       }
-      if (filters.status) {
-        filterQueries.push(`status:=${filters.status}`);
+      if (filters?.status) {
+        filterParts.push(`status:=${filters.status}`);
       }
-      if (filters.bedrooms) {
-        filterQueries.push(`bedrooms:=${filters.bedrooms}`);
+      if (filters?.bedrooms !== undefined) {
+        filterParts.push(`bedrooms:=${filters.bedrooms}`);
       }
-      if (filters.min_price) {
-        filterQueries.push(`price:>=${filters.min_price}`);
+      if (filters?.floor_number !== undefined) {
+        filterParts.push(`floor_number:=${filters.floor_number}`);
       }
-      if (filters.max_price) {
-        filterQueries.push(`price:<=${filters.max_price}`);
+      if (filters?.min_price !== undefined) {
+        filterParts.push(`price:>=${filters.min_price}`);
       }
-      if (filters.floor_number) {
-        filterQueries.push(`floor_number:=${filters.floor_number}`);
+      if (filters?.max_price !== undefined) {
+        filterParts.push(`price:<=${filters.max_price}`);
       }
 
-      // Always filter published
-      filterQueries.push('is_published:=true');
-
-      if (filterQueries.length > 0) {
-        searchParams.filter_by = filterQueries.join(' && ');
+      if (filterParts.length > 0) {
+        searchParameters.filter_by = filterParts.join(' && ');
       }
+
+      return await typesenseClient
+        .collections('apartments')
+        .documents()
+        .search(searchParameters);
+    } catch (error: any) {
+      console.error('Search error:', error.message);
+      throw error;
     }
-
-    const result = await typesenseClient
-      .collections('apartments')
-      .documents()
-      .search(searchParams);
-
-    return result;
   }
 
   /**
-   * Get search suggestions (autocomplete)
+   * Get autocomplete suggestions
    */
-  static async getSuggestions(query: string, collection: string) {
-    const searchParams: any = {
-      q: query,
-      query_by: collection === 'projects' 
-        ? 'name,address' 
-        : 'name,title,unit_number',
-      per_page: 5,
-      prefix: true,
-    };
+  async getSuggestions(query: string, type: string): Promise<string[]> {
+    try {
+      const collection = type === 'apartments' ? 'apartments' : 'projects';
+      const queryBy = type === 'apartments' ? 'name,unit_number' : 'name';
 
-    const result = await typesenseClient
-      .collections(collection)
-      .documents()
-      .search(searchParams);
+      const result = await typesenseClient
+        .collections(collection)
+        .documents()
+        .search({
+          q: query,
+          query_by: queryBy,
+          per_page: 5,
+          prefix: true,
+        });
 
-    return result.hits?.map((hit: any) => ({
-      id: hit.document.id,
-      name: hit.document.name || hit.document.title,
-      type: collection,
-    })) || [];
+      return result.hits?.map((hit: any) => hit.document.name) || [];
+    } catch (error: any) {
+      console.error('Suggestions error:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Get collection statistics
+   */
+  async getStatistics(): Promise<Record<string, any>> {
+    try {
+      const collections = await typesenseClient.collections().retrieve();
+
+      const stats: Record<string, any> = {};
+
+      for (const collection of collections) {
+        const col = await typesenseClient
+          .collections(collection.name)
+          .retrieve();
+        stats[collection.name] = {
+          name: col.name,
+          num_documents: col.num_documents,
+          created_at: col.created_at,
+        };
+      }
+
+      return stats;
+    } catch (error: any) {
+      console.error('Statistics error:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Index a single document
+   */
+  async indexDocument(
+    collection: string,
+    document: Record<string, any>
+  ): Promise<void> {
+    try {
+      await typesenseClient
+        .collections(collection)
+        .documents()
+        .upsert(document);
+    } catch (error: any) {
+      console.error(`Failed to index document in ${collection}:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a document from index
+   */
+  async deleteDocument(collection: string, documentId: number): Promise<void> {
+    try {
+      await typesenseClient
+        .collections(collection)
+        .documents(String(documentId))
+        .delete();
+    } catch (error: any) {
+      if (error.httpStatus !== 404) {
+        console.error(`Failed to delete document from ${collection}:`, error.message);
+        throw error;
+      }
+    }
   }
 }
 
-export default TypesenseService;
+export default new TypesenseService();

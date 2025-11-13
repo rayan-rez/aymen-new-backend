@@ -1,8 +1,8 @@
 // scripts/verify-legacy-db.ts
 // Run with: npx ts-node -r tsconfig-paths/register scripts/verify-legacy-db.ts
 
-import legacyDb from "../src/config/legacy-database";
-import db from "../src/config/database";
+import legacyDb from "../../src/config/legacy-database";
+import db from "../../src/config/database";
 
 async function verifyLegacyDatabase() {
     console.log("\n" + "=".repeat(70));

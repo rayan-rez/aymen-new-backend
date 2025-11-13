@@ -7,24 +7,29 @@
     "dev": "NODE_ENV=development nodemon",
     "build": "rm -rf dist && tsc && babel src --out-dir dist --extensions \".ts\" --copy-files",
     "start": "NODE_ENV=production node dist/index.js",
+    
     "migrate:make": "NODE_ENV=${NODE_ENV:-development} ts-node -r tsconfig-paths/register ./node_modules/.bin/knex migrate:make --knexfile knexfile.ts -x ts",
     "migrate:latest": "NODE_ENV=${NODE_ENV:-development} ts-node -r tsconfig-paths/register ./node_modules/.bin/knex migrate:latest --knexfile knexfile.ts",
     "migrate:rollback": "NODE_ENV=${NODE_ENV:-development} ts-node -r tsconfig-paths/register ./node_modules/.bin/knex migrate:rollback --knexfile knexfile.ts",
     "migrate:rollback:all": "NODE_ENV=${NODE_ENV:-development} ts-node -r tsconfig-paths/register ./node_modules/.bin/knex migrate:rollback --all --knexfile knexfile.ts",
     "migrate:status": "NODE_ENV=${NODE_ENV:-development} ts-node -r tsconfig-paths/register ./node_modules/.bin/knex migrate:status --knexfile knexfile.ts",
+    
     "seed:make": "NODE_ENV=${NODE_ENV:-development} ts-node -r tsconfig-paths/register ./node_modules/.bin/knex seed:make --knexfile knexfile.ts -x ts",
     "seed:run": "NODE_ENV=${NODE_ENV:-development} ts-node -r tsconfig-paths/register ./node_modules/.bin/knex seed:run --knexfile knexfile.ts",
+    
     "db:reset": "npm run migrate:rollback:all && npm run migrate:latest",
     "db:setup": "npm run migrate:latest && npm run seed:run",
     "db:fresh": "npm run db:reset && npm run seed:run",
+    "db:backup": "bash scripts/backup-db.sh",
+    
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "type-check": "tsc --noEmit",
+    
     "test": "NODE_ENV=test jest --verbose --runInBand --logHeapUsage",
-    "test:log": "NODE_ENV=test jest --verbose --runInBand > test.log 2>&1",
     "test:watch": "NODE_ENV=test jest --watch",
     "test:coverage": "NODE_ENV=test jest --coverage --verbose",
-    "test:ci": "NODE_ENV=test jest --ci --coverage --maxWorkers=2",
+    
     "pm2:start": "pm2 start ecosystem.config.js --only aymen-api --env production",
     "pm2:stop": "pm2 stop aymen-api",
     "pm2:restart": "pm2 restart aymen-api --update-env",
@@ -33,18 +38,20 @@
     "pm2:status": "pm2 status",
     "pm2:logs": "pm2 logs aymen-api",
     "pm2:save": "pm2 save",
-    "deploy": "bash scripts/deploy.sh",
+    
+    "typesense:install": "sudo bash scripts/typesense/install.sh",
+    "typesense:init": "ts-node -r tsconfig-paths/register scripts/typesense/init-collections.ts",
+    "typesense:reindex": "ts-node -r tsconfig-paths/register scripts/typesense/reindex.ts",
+    "typesense:reindex:projects": "ts-node -r tsconfig-paths/register scripts/typesense/reindex.ts projects",
+    "typesense:reindex:apartments": "ts-node -r tsconfig-paths/register scripts/typesense/reindex.ts apartments",
+    "typesense:status": "ts-node -r tsconfig-paths/register scripts/typesense/status.ts",
+    "typesense:configure": "bash scripts/typesense/configure.sh",
+    "typesense:health": "curl http://localhost:8108/health",
+    
+    "deploy": "bash scripts/deploy-with-typesense.sh",
     "deploy:check": "bash scripts/diagnostic.sh",
-    "deploy:setup-proxy": "sudo bash scripts/apache-reverse-proxy-setup.sh",
-    "deploy:backup": "bash scripts/backup-db.sh",
-    "deploy:rollback": "bash scripts/rollback.sh",
-    "deploy:health": "bash scripts/health-check.sh",
-
-    "typesense:init": "ts-node -r tsconfig-paths/register scripts/typesense-cli.ts init",
-    "typesense:reindex": "ts-node -r tsconfig-paths/register scripts/typesense-cli.ts reindex-all",
-    "typesense:reindex:projects": "ts-node -r tsconfig-paths/register scripts/typesense-cli.ts reindex projects",
-    "typesense:reindex:apartments": "ts-node -r tsconfig-paths/register scripts/typesense-cli.ts reindex apartments",
-    "typesense:status": "ts-node -r tsconfig-paths/register scripts/typesense-cli.ts status"
+    "deploy:typesense": "bash scripts/typesense/configure.sh production",
+    "deploy:health": "bash scripts/health-check.sh"
   },
   "keywords": [
     "real-estate",
