@@ -48,7 +48,7 @@
     "typesense:configure": "bash scripts/typesense/configure.sh",
     "typesense:health": "curl http://localhost:8108/health",
     
-    "deploy": "bash scripts/deploy-with-typesense.sh",
+    "deploy": "bash scripts/deploy.sh",
     "deploy:check": "bash scripts/diagnostic.sh",
     "deploy:typesense": "bash scripts/typesense/configure.sh production",
     "deploy:health": "bash scripts/health-check.sh"
